@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>KAPCS — Global Video Chat</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤡</text></svg>">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KAPCS">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+  <script async src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
+  <style>
+    :root {
+      --bg:#0a0e17;--card:#121927;--primary:#6366f1;--primary-hover:#4f46e5;
+      --danger:#ef4444;--success:#10b981;--warning:#f59e0b;--dev:#a855f7;
+      --heart:#f43f5e;--text:#f8fafc;--muted:#94a3b8;
+      --border:rgba(255,255,255,0.08);--header-bg:rgba(18,25,39,0.85);--chat-bg:rgba(18,25,39,0.35);
+      font-family:"DM Sans",system-ui,sans-serif;
+    }
+    body.light-theme{--bg:#f1f5f9;--card:#fff;--primary:#4f46e5;--primary-hover:#4338ca;--text:#0f172a;--muted:#64748b;--border:rgba(0,0,0,0.1);--header-bg:rgba(255,255,255,0.9);--chat-bg:rgba(255,255,255,0.6);}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;transition:background .2s,color .2s;}
+
+    /* WARN BANNER */
+    #warn-banner{display:none;background:#ea580c;color:#fff;padding:8px 16px;font-size:12px;font-weight:700;text-align:center;z-index:10000;}
+
+    /* BADGES */
+    .badge-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;cursor:help;margin-left:4px;}
+    .badge-icon{width:15px;height:15px;vertical-align:middle;flex-shrink:0;display:inline-block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+    .badge-wrap::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,.96);color:#f8fafc;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .15s;border:1px solid rgba(255,255,255,.15);z-index:1000;}
+    .badge-wrap:hover::after{opacity:1;visibility:visible;}
+    .like-chip{display:inline-flex;align-items:center;gap:3px;background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3);color:#fda4af;font-size:10px;font-weight:800;padding:1px 6px;border-radius:12px;margin-left:5px;vertical-align:middle;}
+    .like-chip svg{width:10px;height:10px;fill:var(--heart);}
+    .country-tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;margin-left:5px;opacity:.9;}
+
+    /* COUNTRY SELECTOR */
+    .country-selector-wrap{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.2);border:1px solid var(--border);padding:3px 8px;border-radius:20px;}
+    .country-selector-wrap select{background:transparent;border:0;color:var(--text);font-size:11px;font-weight:700;outline:none;cursor:pointer;max-width:120px;}
+    .country-selector-wrap select option{background:var(--card);color:var(--text);}
+
+    /* SESSION STATS */
+    .session-stats{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;background:rgba(0,0,0,.2);border:1px solid var(--border);padding:3px 10px;border-radius:20px;}
+    .stat-pill{display:flex;align-items:center;gap:3px;color:var(--muted);}
+    .stat-pill span{color:var(--text);}
+    .stat-pill.green span{color:var(--success);}
+
+    /* NAME MODAL */
+    #name-modal{position:fixed;inset:0;background:rgba(6,9,16,.96);backdrop-filter:blur(20px);z-index:99999;display:none;place-content:center;text-align:center;padding:16px;}
+    .name-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 20px;max-width:380px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.6);}
+    .name-box h2{font-family:"Outfit",sans-serif;font-size:24px;margin-bottom:6px;}
+    .name-box p{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.4;}
+    .name-box input{width:100%;padding:12px;background:rgba(0,0,0,.1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;text-align:center;font-weight:700;outline:none;}
+    .name-box button{width:100%;padding:12px;background:var(--primary);border:0;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;margin-top:12px;}
+    .name-err{color:var(--danger);font-size:11px;margin-top:8px;display:none;font-weight:600;}
+
+    /* BAN SCREEN */
+    #ban-screen{display:none;position:fixed;inset:0;background:#06080f;z-index:999999;place-content:center;text-align:center;padding:20px;}
+    #ban-screen h1{font-family:"Outfit",sans-serif;color:var(--danger);font-size:32px;margin-bottom:8px;}
+    .ban-meta{background:var(--card);border:1px solid var(--border);padding:18px 22px;border-radius:12px;max-width:420px;margin:14px auto;}
+
+    /* HEADER */
+    header{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--header-bg);flex-shrink:0;gap:8px;}
+    .brand{font-family:"Outfit",sans-serif;font-weight:800;font-size:20px;letter-spacing:1px;}
+    .header-center{display:flex;align-items:center;gap:8px;}
+    .status{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:#64748b;}
+    .status-dot.live{background:var(--success);box-shadow:0 0 6px var(--success);}
+    .status-dot.search{background:var(--warning);box-shadow:0 0 6px var(--warning);}
+    .header-right{display:flex;align-items:center;gap:8px;}
+    .btn-theme{background:transparent;border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:14px;}
+    .btn-report{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;padding:5px 10px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;}
+
+    /* MAIN LAYOUT */
+    main{flex:1;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 220px;min-height:0;overflow:hidden;}
+    @media(min-width:800px){main{grid-template-columns:1fr 340px;grid-template-rows:1fr;}}
+    .video-section{display:flex;flex-direction:column;padding:10px;min-height:0;overflow:hidden;}
+    .video-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0;}
+    @media(max-width:799px){.video-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}}
+    .video-box{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;}
+    .video-box video{width:100%;height:100%;object-fit:cover;}
+    #local-video{transform:scaleX(-1);}
+
+    /* PARTNER ROLE FRAMES */
+    .video-box.partner-mod{border-color:#0066FF;box-shadow:0 0 0 2px rgba(0,102,255,.4);}
+    .video-box.partner-dev{border-color:#a855f7;box-shadow:0 0 0 2px rgba(168,85,247,.4);}
+    .video-box.partner-vip{border-color:#e5a923;box-shadow:0 0 0 2px rgba(229,169,35,.35);}
+
+    /* RADAR */
+    .radar-container{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(99,102,241,.08) 0%,rgba(10,14,23,.95) 75%);z-index:4;gap:14px;text-align:center;padding:20px;}
+    .radar-scanner{position:relative;width:110px;height:110px;border-radius:50%;border:1px solid rgba(99,102,241,.3);display:grid;place-items:center;box-shadow:0 0 25px rgba(99,102,241,.15);}
+    .radar-circle{position:absolute;border-radius:50%;border:1px dashed rgba(99,102,241,.25);}
+    .radar-c1{width:40px;height:40px;}.radar-c2{width:75px;height:75px;}
+    .radar-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 70%,rgba(99,102,241,.45) 100%);animation:sweep 2s linear infinite;}
+    .radar-dot{width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 12px var(--primary);z-index:2;}
+    @keyframes sweep{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+    .radar-title{font-family:"Outfit",sans-serif;font-size:16px;font-weight:800;color:#fff;letter-spacing:.5px;}
+    .radar-sub{font-size:12px;color:var(--muted);max-width:240px;min-height:32px;line-height:1.4;transition:opacity .2s;}
+    .radar-pulse-pill{font-size:10px;font-weight:800;color:#a5b4fc;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.8px;}
+
+    /* AI SHIELD */
+    #remote-debug-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6;display:none;}
+    .video-box.ai-blocked video{filter:blur(40px);}
+    .shield-overlay{position:absolute;inset:0;background:rgba(10,14,23,.9);backdrop-filter:blur(20px);display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;z-index:10;}
+    .video-box.ai-blocked .shield-overlay{display:flex;}
+    .shield-overlay h3{color:var(--danger);font-size:16px;margin-bottom:4px;}
+    .shield-overlay p{color:var(--muted);font-size:11px;max-width:220px;}
+
+    /* VIDEO LABELS */
+    .video-label{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.75);color:#fff;padding:4px 8px;border-radius:5px;font-size:11px;font-weight:700;z-index:5;display:flex;align-items:center;cursor:pointer;}
+    .video-label:hover{opacity:.85;}
+
+    /* PING BADGE */
+    #ping-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.75);color:#6ee7b7;font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;z-index:7;display:none;font-family:"JetBrains Mono",monospace;}
+    #ping-badge.warn{color:#fcd34d;}
+    #ping-badge.bad{color:#fca5a5;}
+
+    /* DEV CAPTION */
+    #remote-caption-box{position:absolute;top:12px;left:12px;right:12px;background:rgba(0,0,0,.85);border:1px solid var(--dev);color:#e9d5ff;padding:6px 12px;border-radius:8px;font-size:12px;font-family:"JetBrains Mono",monospace;z-index:8;display:none;box-shadow:0 4px 15px rgba(0,0,0,.5);pointer-events:none;}
+
+    /* CONTROLS */
+    .controls{display:flex;align-items:center;justify-content:space-between;padding-top:8px;flex-shrink:0;gap:6px;}
+    .media-tools{display:flex;gap:6px;align-items:center;}
+    .tool-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;cursor:pointer;display:grid;place-items:center;}
+    .tool-btn.off{background:rgba(239,68,68,.2);border-color:var(--danger);color:#fca5a5;}
+    .btn-like{height:38px;padding:0 12px;border-radius:19px;font-size:12px;font-weight:700;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.35);color:#fda4af;display:flex;align-items:center;gap:4px;cursor:pointer;}
+    .btn-like:disabled{opacity:.45;cursor:not-allowed;}
+    .tool-btn-dev{height:38px;padding:0 10px;border-radius:19px;font-size:11px;font-weight:800;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);color:#c084fc;display:none;align-items:center;gap:4px;cursor:pointer;}
+    .tool-btn-dev.active{background:#a855f7;color:#fff;}
+    .action-group{display:flex;gap:6px;}
+    .btn-main{background:var(--primary);color:#fff;border:0;padding:0 16px;height:38px;border-radius:7px;font:700 13px "DM Sans";cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;position:relative;overflow:hidden;}
+    .btn-main:disabled{opacity:.5;cursor:not-allowed;}
+    .cooldown-bar{position:absolute;bottom:0;left:0;height:3px;background:var(--warning);transition:width .1s linear;}
+    .btn-stop{background:#334155;color:#fff;border:0;padding:0 12px;height:38px;border-radius:7px;font-weight:700;cursor:pointer;}
+
+    /* CHAT */
+    .chat-section{border-top:1px solid var(--border);background:var(--chat-bg);display:flex;flex-direction:column;min-height:0;}
+    @media(min-width:800px){.chat-section{border-top:0;border-left:1px solid var(--border);}}
+    .chat-messages{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;}
+    .msg{padding:6px 10px;border-radius:7px;font-size:12px;max-width:88%;word-break:break-word;line-height:1.35;}
+    .msg b{display:flex;align-items:center;font-size:10px;margin-bottom:2px;color:var(--primary);}
+    .msg.in{align-self:flex-start;background:var(--card);}
+    .msg.out{align-self:flex-end;background:var(--primary);color:#fff;}
+    .msg.out b{color:#e0e7ff;justify-content:flex-end;}
+    .msg.sys{align-self:center;font-size:10px;color:var(--muted);font-style:italic;text-align:center;}
+    .msg-wrapper{position:relative;display:flex;align-items:flex-end;gap:4px;}
+    .msg-wrapper.out{flex-direction:row-reverse;}
+    .reaction-trigger{opacity:0;transition:opacity .15s;font-size:14px;cursor:pointer;background:none;border:none;padding:0 2px;line-height:1;flex-shrink:0;align-self:flex-end;margin-bottom:2px;}
+    .msg-wrapper:hover .reaction-trigger{opacity:.6;}
+    .reaction-trigger:hover{opacity:1!important;}
+    .reaction-popup-global{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:4px 8px;display:none;gap:4px;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+    .reaction-popup-global button{background:none;border:none;font-size:18px;cursor:pointer;padding:2px;border-radius:8px;transition:transform .1s;}
+    .reaction-popup-global button:hover{transform:scale(1.3);}
+    .msg-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+    .reaction-chip{display:inline-flex;align-items:center;gap:2px;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:12px;padding:1px 7px;font-size:11px;cursor:pointer;}
+    .reaction-chip.mine{background:rgba(99,102,241,.2);border-color:var(--primary);}
+
+    /* TYPING INDICATOR */
+    #typing-indicator{display:none;align-items:center;gap:6px;padding:4px 10px;font-size:11px;color:var(--muted);font-style:italic;flex-shrink:0;border-top:1px solid var(--border);}
+    .typing-dots{display:flex;gap:3px;}
+    .typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:typingBounce 1.2s infinite ease-in-out;}
+    .typing-dots span:nth-child(2){animation-delay:.2s;}
+    .typing-dots span:nth-child(3){animation-delay:.4s;}
+    @keyframes typingBounce{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-4px);opacity:1;}}
+
+    .chat-input{padding:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0;}
+    .chat-input input{flex:1;background:rgba(0,0,0,.1);border:1px solid var(--border);padding:8px 10px;border-radius:6px;color:var(--text);font-size:12px;outline:none;}
+    .chat-input button{background:var(--primary);border:0;color:#fff;padding:0 12px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;}
+
+    /* PARTNER CARD */
+    #partner-card{position:fixed;z-index:99998;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;min-width:240px;max-width:280px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;animation:cardPopIn .15s ease;}
+    @keyframes cardPopIn{from{transform:scale(.9) translateY(8px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+    #partner-card .pc-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;}
+    #partner-card .pc-name{font-family:"Outfit",sans-serif;font-size:17px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+    #partner-card .pc-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;}
+    #partner-card .pc-row span{color:var(--text);font-weight:600;}
+    .pc-divider{height:1px;background:var(--border);margin:12px 0;}
+
+    /* TOASTS */
+    #reconnect-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(18,25,39,.95);border:1px solid var(--warning);color:#fcd34d;padding:10px 20px;border-radius:10px;font-size:12px;font-weight:700;z-index:9999;display:none;gap:8px;align-items:center;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+    #broadcast-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(18,25,39,.97);border:1px solid var(--primary);color:#a5b4fc;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9998;display:none;gap:8px;align-items:center;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.6);animation:slideDown .3s ease;}
+    @keyframes slideDown{from{opacity:0;top:50px;}to{opacity:1;top:70px;}}
+
+    #ai-canvas,#forensic-canvas{display:none;}
+
+    /* ── RATING MODAL ── */
+    #rating-modal{position:fixed;inset:0;background:rgba(6,9,16,.92);backdrop-filter:blur(16px);z-index:99990;display:none;place-content:center;text-align:center;padding:16px;}
+    .rating-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.6);}
+    .rating-box h2{font-family:"Outfit",sans-serif;font-size:20px;margin-bottom:6px;}
+    .rating-box p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.4;}
+    .stars-row{display:flex;justify-content:center;gap:8px;margin-bottom:20px;}
+    .star-btn{background:none;border:none;font-size:32px;cursor:pointer;transition:transform .15s;opacity:.35;filter:grayscale(1);}
+    .star-btn.active,.star-btn:hover{opacity:1;filter:none;transform:scale(1.2);}
+    .star-btn.active~.star-btn{opacity:.35;filter:grayscale(1);transform:none;}
+    .rating-skip{font-size:11px;color:var(--muted);text-decoration:underline;cursor:pointer;margin-top:4px;background:none;border:none;}
+    .rating-submit{width:100%;padding:11px;background:var(--primary);border:0;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;}
+    .rating-submit:disabled{opacity:.4;cursor:not-allowed;}
+  </style>
+</head>
+<body>
+
+<div id="warn-banner">⚠️ <strong>OFFICIAL WARNING (1/2):</strong> Inappropriate language detected. Next offense = 3-day suspension.</div>
+
+<div id="name-modal">
+  <div class="name-box">
+    <h2>Welcome to KAPCS</h2>
+    <p>Choose a unique handle. Each username is tied to your permanent device security ID.</p>
+    <input type="text" id="username-in" placeholder="e.g. shadow_ninja" maxlength="16" autocomplete="off">
+    <button id="btn-claim-name">Claim Handle & Enter</button>
+    <div class="name-err" id="name-err"></div>
+  </div>
+</div>
+
+<div id="ban-screen">
+  <h1>Access Suspended</h1>
+  <p style="color:var(--muted);max-width:360px;margin-bottom:10px;" id="ban-reason-text">Your device has been restricted.</p>
+  <div class="ban-meta">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">REMAINING TIME</div>
+    <div id="ban-duration-text" style="font-size:18px;font-weight:700;color:var(--danger)">Calculating...</div>
+    <div style="font-size:10px;color:#64748b;margin-top:8px;" id="ban-id-display"></div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">KAPCS</div>
+  <div class="header-center">
+    <div class="country-selector-wrap">
+      <span id="target-flag-icon">🌐</span>
+      <select id="country-filter">
+        <option value="ALL">🌐 Global (Any)</option>
+        <option value="HU">🇭🇺 Hungary</option>
+        <option value="US">🇺🇸 United States</option>
+        <option value="GB">🇬🇧 United Kingdom</option>
+        <option value="DE">🇩🇪 Germany</option>
+        <option value="FR">🇫🇷 France</option>
+        <option value="IT">🇮🇹 Italy</option>
+        <option value="ES">🇪🇸 Spain</option>
+        <option value="RO">🇷🇴 Romania</option>
+        <option value="SK">🇸🇰 Slovakia</option>
+        <option value="PL">🇵🇱 Poland</option>
+        <option value="AT">🇦🇹 Austria</option>
+      </select>
+    </div>
+    <div class="session-stats">
+      <div class="stat-pill green">🟢 <span id="stat-online">—</span></div>
+      <div style="color:var(--border)">|</div>
+      <div class="stat-pill">⚡ <span id="stat-matches">0</span></div>
+    </div>
+    <div class="status"><span class="status-dot" id="status-dot"></span><span id="status-text">Ready</span></div>
+  </div>
+  <div class="header-right" id="header-right">
+    <button class="btn-theme" id="btn-theme-toggle" title="Toggle theme">🌙</button>
+    <a href="/leaderboard.html" target="_blank" class="btn-theme" title="Leaderboard" style="text-decoration:none;display:grid;place-items:center;">🏆</a>
+    <button class="btn-report" id="btn-report">⚠️ Report</button>
+  </div>
+</header>
+
+<main>
+  <div class="video-section">
+    <div class="video-grid">
+      <div class="video-box" id="remote-box">
+        <video id="remote-video" autoplay playsinline></video>
+        <canvas id="remote-debug-canvas"></canvas>
+        <div id="remote-caption-box">🗣️ <span id="remote-caption-text">Listening...</span></div>
+        <div class="radar-container" id="remote-placeholder">
+          <div class="radar-scanner">
+            <div class="radar-sweep"></div>
+            <div class="radar-circle radar-c1"></div>
+            <div class="radar-circle radar-c2"></div>
+            <div class="radar-dot"></div>
+          </div>
+          <div class="radar-title" id="radar-title-text">Looking for a match...</div>
+          <div class="radar-sub" id="radar-sub-text">Click "Start / Next" to find someone to talk to.</div>
+          <div class="radar-pulse-pill" id="radar-pill">READY</div>
+        </div>
+        <div class="shield-overlay"><h3>⚠️ Prohibited Content</h3><p id="shield-reason">Content violation intercepted.</p></div>
+        <div class="video-label" id="partner-label" onclick="showPartnerCard(event)">Partner</div>
+        <div id="ping-badge">— ms</div>
+      </div>
+      <div class="video-box" id="local-box">
+        <video id="local-video" autoplay playsinline muted></video>
+        <div id="local-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--muted);">
+          <span style="font-size:28px;">📷</span>
+          <span id="cam-err-msg" style="font-size:12px;">Accessing camera...</span>
+        </div>
+        <div class="shield-overlay"><h3>⚠️ Violation Detected</h3><p>Prohibited content on camera.</p></div>
+        <div class="video-label" id="self-label">You</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="media-tools">
+        <button class="tool-btn" id="btn-cam" title="Toggle Camera">📷</button>
+        <button class="tool-btn" id="btn-mic" title="Toggle Microphone">🎤</button>
+        <button class="btn-like" id="btn-like-partner" disabled>❤️ Like</button>
+        <button class="tool-btn-dev" id="btn-dev-hud">👁️ Vision</button>
+        <button class="tool-btn-dev" id="btn-dev-caption">🎙️ Captions</button>
+      </div>
+      <div class="action-group">
+        <button class="btn-stop" id="btn-stop">Stop</button>
+        <button class="btn-main" id="btn-next">Start / Next ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-section">
+    <div class="chat-messages" id="chat-messages">
+      <div class="msg sys">Welcome to KAPCS! Ready to connect.</div>
+    </div>
+    <div id="typing-indicator">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span>Partner is typing...</span>
+    </div>
+    <form class="chat-input" id="chat-form">
+      <input type="text" id="chat-in" placeholder="Type a message..." autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</main>
+
+<canvas id="ai-canvas" width="224" height="224"></canvas>
+<canvas id="forensic-canvas" width="640" height="480"></canvas>
+
+<!-- RATING MODAL -->
+<div id="rating-modal">
+  <div class="rating-box">
+    <h2>Rate your partner</h2>
+    <p id="rating-partner-name">How was your session with @Partner?</p>
+    <div class="stars-row" id="stars-row">
+      <button class="star-btn" data-v="1" onclick="setRating(1)">⭐</button>
+      <button class="star-btn" data-v="2" onclick="setRating(2)">⭐</button>
+      <button class="star-btn" data-v="3" onclick="setRating(3)">⭐</button>
+      <button class="star-btn" data-v="4" onclick="setRating(4)">⭐</button>
+      <button class="star-btn" data-v="5" onclick="setRating(5)">⭐</button>
+    </div>
+    <button class="rating-submit" id="rating-submit-btn" disabled onclick="submitRating()">Submit Rating</button>
+    <button class="rating-skip" onclick="closeRatingModal()">Skip</button>
+  </div>
+</div>
+
+<!-- TOASTS & OVERLAYS -->
+<div id="reconnect-toast">⏳ Reconnecting in <span id="reconnect-countdown">4</span>s... <button onclick="cancelAutoReconnect()" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#fca5a5;padding:3px 8px;border-radius:5px;font-weight:700;cursor:pointer;font-size:11px;">Cancel</button></div>
+<div id="broadcast-toast" style="display:none;">📢 <span id="broadcast-toast-msg"></span></div>
+
+<!-- PARTNER CARD -->
+<div id="partner-card">
+  <button class="pc-close" onclick="closePartnerCard()">✕</button>
+  <div class="pc-name" id="pc-name">Partner</div>
+  <div id="pc-badge-row"></div>
+  <div class="pc-divider"></div>
+  <div class="pc-row">🌍 Country: <span id="pc-country">—</span></div>
+  <div class="pc-row">❤️ Likes: <span id="pc-likes">0</span></div>
+  <div class="pc-row">🎭 Role: <span id="pc-role">Standard</span></div>
+  <div class="pc-row">⏱️ In session: <span id="pc-duration">0s</span></div>
+</div>
+
+<!-- EMOJI POPUP -->
+<div class="reaction-popup-global" id="reaction-popup">
+  <button onclick="sendReaction('👍')">👍</button>
+  <button onclick="sendReaction('❤️')">❤️</button>
+  <button onclick="sendReaction('😂')">😂</button>
+  <button onclick="sendReaction('😮')">😮</button>
+  <button onclick="sendReaction('🔥')">🔥</button>
+  <button onclick="sendReaction('👏')">👏</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  KAPCS — index.html  |  clean unified build
+// ═══════════════════════════════════════════════════════════════
+
+// ── MQTT TOPICS ──────────────────────────────────────────────
+const TOPIC_QUEUE     = 'kapcs_v13_match';
+const TOPIC_BANS      = 'kapcs_v13_bans';
+const TOPIC_REPORTS   = 'kapcs_v13_reports';
+const TOPIC_ROLES     = 'kapcs_v13_roles';
+const TOPIC_USERS     = 'kapcs_v13_users';
+const TOPIC_WARNS     = 'kapcs_v13_warns';
+const TOPIC_BROADCAST = 'kapcs_v13_broadcast';
+const TOPIC_CHATMON   = 'kapcs_v13_chatmon';
+const TOPIC_RATINGS   = 'kapcs_v13_ratings';
+
+const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+// ── ICE SERVERS (STUN + TURN) ────────────────────────────────
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80',  username:'openrelayproject', credential:'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject' }
+];
+
+// ── THEME ─────────────────────────────────────────────────────
+const themeBtn = document.getElementById('btn-theme-toggle');
+const sysDark  = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const savedTheme = localStorage.getItem('kapcs_theme') || (sysDark ? 'dark' : 'light');
+if (savedTheme === 'light') { document.body.classList.add('light-theme'); themeBtn.textContent = '☀️'; }
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  if (!localStorage.getItem('kapcs_theme')) {
+    document.body.classList.toggle('light-theme', !e.matches);
+    themeBtn.textContent = e.matches ? '🌙' : '☀️';
+  }
+});
+themeBtn.addEventListener('click', () => {
+  const isLight = document.body.classList.toggle('light-theme');
+  themeBtn.textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('kapcs_theme', isLight ? 'light' : 'dark');
+});
+
+// ── SESSION STATS ─────────────────────────────────────────────
+let sessionMatchCount = parseInt(localStorage.getItem('kapcs_session_matches') || '0', 10);
+document.getElementById('stat-matches').textContent = sessionMatchCount;
+const onlinePresenceMap = {};
+function updateOnlineCount() {
+  const now = Date.now(), count = Object.values(onlinePresenceMap).filter(t => now - t < 20000).length;
+  document.getElementById('stat-online').textContent = count > 0 ? count : '—';
+}
+setInterval(updateOnlineCount, 5000);
+
+// ── SOUNDS ────────────────────────────────────────────────────
+function playSound(type) {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'connect')    { osc.frequency.setValueAtTime(880,ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(1320,ctx.currentTime+.12); gain.gain.setValueAtTime(.18,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3); osc.start(); osc.stop(ctx.currentTime+.3); }
+    if (type === 'disconnect') { osc.frequency.setValueAtTime(440,ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(220,ctx.currentTime+.2); gain.gain.setValueAtTime(.15,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.35); osc.start(); osc.stop(ctx.currentTime+.35); }
+    if (type === 'like')       { osc.frequency.setValueAtTime(1046,ctx.currentTime); gain.gain.setValueAtTime(.12,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.25); osc.start(); osc.stop(ctx.currentTime+.25); }
+  } catch(e) {}
+}
+
+// ── SKIP COOLDOWN ─────────────────────────────────────────────
+let nextCooldownActive = false;
+const btnNextEl = document.getElementById('btn-next');
+function startNextCooldown() {
+  if (nextCooldownActive) return;
+  nextCooldownActive = true; btnNextEl.disabled = true;
+  let elapsed = 0, bar = btnNextEl.querySelector('.cooldown-bar');
+  if (!bar) { bar = document.createElement('div'); bar.className = 'cooldown-bar'; btnNextEl.appendChild(bar); }
+  bar.style.width = '100%';
+  const t = setInterval(() => {
+    elapsed += 50;
+    bar.style.width = Math.max(0, 100 - elapsed / 2500 * 100) + '%';
+    if (elapsed >= 2500) { clearInterval(t); nextCooldownActive = false; btnNextEl.disabled = false; bar.style.width = '0'; }
+  }, 50);
+}
+
+// ── AUTO-RECONNECT ────────────────────────────────────────────
+let autoReconnectTimer = null, autoReconnectCD = null;
+const reconnectToast = document.getElementById('reconnect-toast');
+const reconnectCountdownEl = document.getElementById('reconnect-countdown');
+function startAutoReconnectCountdown() {
+  if (!autoSearchEnabled || isCurrentlyBanned) return;
+  let rem = 4; reconnectCountdownEl.textContent = rem; reconnectToast.style.display = 'flex';
+  autoReconnectCD = setInterval(() => { rem--; reconnectCountdownEl.textContent = rem; if (rem <= 0) clearInterval(autoReconnectCD); }, 1000);
+  autoReconnectTimer = setTimeout(() => { reconnectToast.style.display = 'none'; if (autoSearchEnabled && !partnerId && !isCurrentlyBanned) startSearching(); }, 4000);
+}
+function cancelAutoReconnect() {
+  clearTimeout(autoReconnectTimer); clearInterval(autoReconnectCD);
+  reconnectToast.style.display = 'none'; autoSearchEnabled = false; stopSearching();
+}
+
+// ── TYPING INDICATOR ──────────────────────────────────────────
+let typingTimeout = null, isTyping = false;
+const typingIndicator = document.getElementById('typing-indicator');
+function showTypingIndicator(v) { typingIndicator.style.display = v ? 'flex' : 'none'; }
+function sendTypingSignal(state) { if (dataConn && dataConn.open) dataConn.send({ type:'typing', state }); }
+
+// ── PING MONITOR ──────────────────────────────────────────────
+let pingInterval = null;
+const pingBadge = document.getElementById('ping-badge');
+function startPingMonitor() {
+  if (pingInterval) clearInterval(pingInterval);
+  pingBadge.style.display = 'block';
+  pingInterval = setInterval(async () => {
+    if (!currentCall?.peerConnection) return;
+    try {
+      const stats = await currentCall.peerConnection.getStats();
+      let rtt = null;
+      stats.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.currentRoundTripTime) rtt = Math.round(r.currentRoundTripTime * 1000); });
+      if (rtt !== null) { pingBadge.textContent = rtt + ' ms'; pingBadge.className = rtt < 100 ? '' : rtt < 250 ? 'warn' : 'bad'; }
+    } catch(e) {}
+  }, 2000);
+}
+function stopPingMonitor() { if (pingInterval) { clearInterval(pingInterval); pingInterval = null; } pingBadge.style.display = 'none'; }
+
+// ── PARTNER CARD ──────────────────────────────────────────────
+const partnerCard = document.getElementById('partner-card');
+let cardDurationTimer = null, sessionStartTime = null;
+function showPartnerCard(e) {
+  if (!partnerId) return; e.stopPropagation();
+  const role = getUserRole(partnerUsername);
+  document.getElementById('pc-name').textContent = '@' + partnerUsername;
+  document.getElementById('pc-badge-row').innerHTML = getBadgeHTML(role) || '';
+  document.getElementById('pc-country').textContent = getFlagEmoji(partnerCountryCode) + ' ' + (partnerCountryCode || '—');
+  document.getElementById('pc-likes').textContent = partnerLikes;
+  document.getElementById('pc-role').textContent = role === 'none' ? 'Standard' : role;
+  const rect = document.getElementById('partner-label').getBoundingClientRect();
+  partnerCard.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
+  partnerCard.style.top  = Math.max(10, rect.top - 220) + 'px';
+  partnerCard.style.display = 'block';
+  if (cardDurationTimer) clearInterval(cardDurationTimer);
+  cardDurationTimer = setInterval(() => {
+    if (!sessionStartTime) return;
+    const d = Math.floor((Date.now() - sessionStartTime) / 1000);
+    document.getElementById('pc-duration').textContent = d >= 60 ? Math.floor(d/60) + 'm ' + (d%60) + 's' : d + 's';
+  }, 1000);
+}
+function closePartnerCard() { partnerCard.style.display = 'none'; if (cardDurationTimer) { clearInterval(cardDurationTimer); cardDurationTimer = null; } }
+document.addEventListener('click', e => { if (!partnerCard.contains(e.target) && e.target.id !== 'partner-label') closePartnerCard(); });
+
+// ── EMOJI REACTIONS ───────────────────────────────────────────
+const reactionPopup = document.getElementById('reaction-popup');
+let activeReactionMsg = null;
+function openReactionPopup(e, msgEl) {
+  e.stopPropagation();
+  const rect = msgEl.getBoundingClientRect();
+  reactionPopup.style.display = 'flex';
+  let top = rect.top - 50, left = rect.left;
+  if (top < 10) top = rect.bottom + 8;
+  if (left + 220 > window.innerWidth) left = window.innerWidth - 225;
+  reactionPopup.style.top = top + 'px'; reactionPopup.style.left = left + 'px';
+  activeReactionMsg = msgEl;
+}
+document.addEventListener('click', e => { if (!reactionPopup.contains(e.target)) { reactionPopup.style.display = 'none'; activeReactionMsg = null; } });
+function sendReaction(emoji) {
+  reactionPopup.style.display = 'none';
+  if (dataConn && dataConn.open) dataConn.send({ type:'reaction', emoji, msgId: activeReactionMsg?.dataset?.msgId });
+  if (activeReactionMsg) addReactionChip(activeReactionMsg, emoji, true);
+  activeReactionMsg = null;
+}
+function addReactionChip(msgEl, emoji, mine) {
+  let row = msgEl.querySelector('.msg-reactions');
+  if (!row) { row = document.createElement('div'); row.className = 'msg-reactions'; msgEl.appendChild(row); }
+  let chip = Array.from(row.querySelectorAll('.reaction-chip')).find(c => c.dataset.emoji === emoji);
+  if (chip) { chip.querySelector('.r-count').textContent = +chip.querySelector('.r-count').textContent + 1; if (mine) chip.classList.add('mine'); }
+  else { chip = document.createElement('span'); chip.className = 'reaction-chip' + (mine ? ' mine' : ''); chip.dataset.emoji = emoji; chip.innerHTML = emoji + ' <span class="r-count">1</span>'; row.appendChild(chip); }
+}
+let msgIdCounter = 0;
+
+// ── BADGES ────────────────────────────────────────────────────
+let globalRolesMap = JSON.parse(localStorage.getItem('kapcs_roles_cache') || '{}');
+function getUserRole(name) { if (!name) return 'none'; return globalRolesMap[name.replace('@','').toLowerCase()] || 'none'; }
+function getBadgeHTML(role) {
+  if (!role || role === 'none') return '';
+  const map = {
+    verified:  { tip:'Verified Partner',    svg:`<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+    moderator: { tip:'Community Moderator', svg:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5L85 18C85 62 50 88 50 95C50 88 15 62 15 18Z" fill="#151e2e" stroke="#253248" stroke-width="2"/><path d="M50 12L78 22C78 57 50 78 50 84C50 78 22 57 22 22Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68C34 52 42 50 47 51L50 56L53 51C58 50 66 52 66 68Z" fill="white"/></svg>` },
+    developer: { tip:'Platform Developer',  svg:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#dg)"/><path d="M38 38L24 50L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38L76 50L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>` },
+    vip:       { tip:'VIP Supporter',       svg:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="vg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset=".5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#vg)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="url(#vg)"/><text x="50" y="58" font-family="Outfit,Arial" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text></svg>` }
+  };
+  const b = map[role]; if (!b) return '';
+  return `<span class="badge-wrap" data-tooltip="${b.tip}">${b.svg}</span>`;
+}
+function getLikeChipHTML(count) { return `<span class="like-chip" title="${count} Likes"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>${count}</span></span>`; }
+function getFlagEmoji(code) { if (!code || code === 'ALL' || code === 'GLOBAL' || code.length !== 2) return '🌐'; return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt())); }
+
+// ── LIKES ─────────────────────────────────────────────────────
+let myLikes = parseInt(localStorage.getItem('kapcs_user_likes') || '0', 10);
+let hasWarnedMe = localStorage.getItem('kapcs_warned') === 'true';
+if (hasWarnedMe) document.getElementById('warn-banner').style.display = 'block';
+let givenLikesRegistry = JSON.parse(localStorage.getItem('kapcs_given_likes') || '[]');
+function hasEverLiked(u) { return !!u && u !== 'Partner' && givenLikesRegistry.includes(u.replace('@','').toLowerCase()); }
+function recordLikeGiven(u) { const c = u.replace('@','').toLowerCase(); if (!givenLikesRegistry.includes(c)) { givenLikesRegistry.push(c); localStorage.setItem('kapcs_given_likes', JSON.stringify(givenLikesRegistry)); } }
+
+// ── PERMANENT DEVICE ID ───────────────────────────────────────
+let permanentDeviceId = null;
+async function initPermanentID() {
+  let fpId;
+  try { const fp = await FingerprintJS.load(); fpId = (await fp.get()).visitorId; } catch { fpId = Math.random().toString(36).slice(2,10); }
+  const key = `DEV-${fpId}`;
+  let id = localStorage.getItem('kapcs_dev_id') || document.cookie.match(/(^| )kapcs_dev_id=([^;]+)/)?.[2] || key;
+  localStorage.setItem('kapcs_dev_id', id);
+  document.cookie = `kapcs_dev_id=${encodeURIComponent(id)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+  permanentDeviceId = id;
+}
+
+// ── COUNTRY DETECT ────────────────────────────────────────────
+let myCountryCode = 'HU', myCountryName = 'Hungary';
+async function detectUserCountry() {
+  try { const r = await fetch('https://ipapi.co/json/'); if (r.ok) { const d = await r.json(); if (d.country_code) { myCountryCode = d.country_code; myCountryName = d.country_name || d.country_code; } } } catch(e) {}
+}
+
+// ── PEER / STREAM STATE ───────────────────────────────────────
+let peer = null, myPeerId = null, myUsername = null;
+let partnerId = null, partnerUsername = 'Partner', partnerDeviceId = null, partnerCountryCode = null, partnerLikes = 0;
+let localStream = null, currentCall = null, dataConn = null;
+let isSearching = false, autoSearchEnabled = false, searchHeartbeat = null;
+let isCurrentlyBanned = false, banCountdownTimer = null;
+
+const localVideo       = document.getElementById('local-video');
+const remoteVideo      = document.getElementById('remote-video');
+const localPlaceholder = document.getElementById('local-placeholder');
+const remotePlaceholder = document.getElementById('remote-placeholder');
+const remoteBox        = document.getElementById('remote-box');
+const localBox         = document.getElementById('local-box');
+const radarTitleText   = document.getElementById('radar-title-text');
+const radarSubText     = document.getElementById('radar-sub-text');
+const radarPill        = document.getElementById('radar-pill');
+const btnLike          = document.getElementById('btn-like-partner');
+const btnDevHud        = document.getElementById('btn-dev-hud');
+const btnDevCaption    = document.getElementById('btn-dev-caption');
+const nameModal        = document.getElementById('name-modal');
+const nameInput        = document.getElementById('username-in');
+const nameErr          = document.getElementById('name-err');
+const countryFilterSelect = document.getElementById('country-filter');
+const targetFlagIcon      = document.getElementById('target-flag-icon');
+
+// ── BOOT ──────────────────────────────────────────────────────
+(async function boot() {
+  await initPermanentID();
+  await detectUserCountry();
+  myUsername = localStorage.getItem('kapcs_username') || document.cookie.match(/(^| )kapcs_username=([^;]+)/)?.[2];
+  await checkBanStatus();
+  if (!isCurrentlyBanned) {
+    if (myUsername) { syncUsernameEverywhere(myUsername); initPeerWithHandle(myUsername); }
+    else nameModal.style.display = 'grid';
+  }
+})();
+
+function syncUsernameEverywhere(name) {
+  localStorage.setItem('kapcs_username', name);
+  document.cookie = `kapcs_username=${encodeURIComponent(name)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+}
+
+// ── BAN ───────────────────────────────────────────────────────
+async function checkBanStatus() {
+  const raw = localStorage.getItem('kapcs_ban_info') || document.cookie.match(/(^| )kapcs_ban_info=([^;]+)/)?.[2];
+  if (raw) { try { const info = JSON.parse(decodeURIComponent(raw)); if (info.expiresAt && Date.now() > Number(info.expiresAt)) await liftBan(); else showBanScreen(info.reason, Number(info.expiresAt) || null); } catch { await liftBan(); } }
+}
+function showBanScreen(reason, expiresAt) {
+  isCurrentlyBanned = true; stopSearching(); nameModal.style.display = 'none';
+  document.getElementById('ban-screen').style.display = 'grid';
+  document.getElementById('ban-reason-text').textContent = reason || 'Restricted by moderation.';
+  document.getElementById('ban-id-display').textContent = `Handle: @${myUsername || 'unregistered'}`;
+  if (banCountdownTimer) clearInterval(banCountdownTimer);
+  function upd() {
+    if (!expiresAt || isNaN(expiresAt)) { document.getElementById('ban-duration-text').textContent = 'Permanent'; return; }
+    const diff = Number(expiresAt) - Date.now();
+    if (diff <= 0) { clearInterval(banCountdownTimer); liftBan(); return; }
+    const d = Math.floor(diff/86400000), h = Math.floor((diff/3600000)%24), m = Math.floor((diff/60000)%60), s = Math.floor((diff/1000)%60);
+    document.getElementById('ban-duration-text').textContent = (d>0?d+'d ':'') + h+'h '+m+'m '+s+'s left';
+  }
+  upd(); banCountdownTimer = setInterval(upd, 1000);
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  if (currentCall) currentCall.close(); if (peer) peer.destroy();
+}
+async function liftBan() {
+  if (banCountdownTimer) clearInterval(banCountdownTimer);
+  localStorage.removeItem('kapcs_ban_info');
+  document.cookie = 'kapcs_ban_info=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+  isCurrentlyBanned = false;
+  document.getElementById('ban-screen').style.display = 'none';
+  if (!myUsername) nameModal.style.display = 'grid'; else initPeerWithHandle(myUsername);
+}
+async function executeLocalBan(reason, days = 3) {
+  const expiresAt = days > 0 ? Date.now() + days * 86400000 : null;
+  const banObj = { deviceId: permanentDeviceId, username: myUsername, reason, expiresAt };
+  localStorage.setItem('kapcs_ban_info', JSON.stringify(banObj));
+  document.cookie = `kapcs_ban_info=${encodeURIComponent(JSON.stringify(banObj))};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+  showBanScreen(reason, expiresAt);
+  mqttClient.publish(TOPIC_BANS, JSON.stringify({ action:'ban', targetDev:permanentDeviceId, targetName:myUsername, reason, expiresAt }));
+}
+
+// ── NAME CLAIM ────────────────────────────────────────────────
+document.getElementById('btn-claim-name').addEventListener('click', async () => {
+  const val = nameInput.value.trim().toLowerCase();
+  nameErr.style.display = 'none';
+  if (!/^[a-z0-9_]{3,16}$/.test(val)) { nameErr.textContent = 'Username: 3-16 chars (a-z, 0-9, _)'; nameErr.style.display = 'block'; return; }
+  const btn = document.getElementById('btn-claim-name'); btn.disabled = true; btn.textContent = 'Verifying...';
+  const testPeer = new Peer(`kapcs_u_${val}`, { config:{ iceServers: ICE_SERVERS } });
+  testPeer.on('open', async () => { myUsername = val; myPeerId = `kapcs_u_${val}`; peer = testPeer; syncUsernameEverywhere(val); nameModal.style.display = 'none'; updateSelfBadge(); broadcastProfileToAdmin(); setupPeerListeners(); initMedia(); });
+  testPeer.on('error', err => { btn.disabled = false; btn.textContent = 'Claim Handle & Enter'; nameErr.textContent = err.type === 'unavailable-id' ? `❌ @${val} is already taken!` : `Error: ${err.type}`; nameErr.style.display = 'block'; });
+});
+
+// ── SELF BADGE ────────────────────────────────────────────────
+function updateSelfBadge() {
+  const role = getUserRole(myUsername), flag = getFlagEmoji(myCountryCode);
+  document.getElementById('self-label').innerHTML = `@${myUsername} ${getBadgeHTML(role)} <span class="country-tag">${flag} ${myCountryCode}</span> ${getLikeChipHTML(myLikes)}`;
+  const isDev = role === 'developer';
+  btnDevHud.style.display    = isDev ? 'inline-flex' : 'none';
+  btnDevCaption.style.display = isDev ? 'inline-flex' : 'none';
+}
+
+// ── PRESENCE BROADCAST ────────────────────────────────────────
+function broadcastProfileToAdmin() {
+  if (!myUsername) return;
+  mqttClient.publish(TOPIC_USERS, JSON.stringify({
+    action:'presence_pulse', username:myUsername, deviceId:permanentDeviceId,
+    likes:myLikes, country:myCountryCode, countryName:myCountryName,
+    role:getUserRole(myUsername), warned:hasWarnedMe,
+    status: partnerId ? 'IN_CALL' : (isSearching ? 'SEARCHING' : 'IDLE')
+  }));
+}
+setInterval(() => { if (!isCurrentlyBanned && myUsername) broadcastProfileToAdmin(); }, 8000);
+
+// ── PEER INIT ─────────────────────────────────────────────────
+function initPeerWithHandle(username) {
+  updateSelfBadge(); myPeerId = `kapcs_u_${username}`;
+  peer = new Peer(myPeerId, { config:{ iceServers: ICE_SERVERS } });
+  peer.on('open', () => { broadcastProfileToAdmin(); setupPeerListeners(); initMedia(); });
+  peer.on('error', err => { console.warn('Peer error:', err.type); });
+}
+
+// ── MQTT ──────────────────────────────────────────────────────
+mqttClient.on('connect', () => {
+  mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_BROADCAST, TOPIC_RATINGS]);
+  if (!isCurrentlyBanned) setStatus('ready','Ready');
+});
+
+mqttClient.on('message', async (topic, message) => {
+  let data; try { data = JSON.parse(message.toString()); } catch { return; }
+
+  if (topic === TOPIC_BROADCAST && data.action === 'admin_broadcast') {
+    const toast = document.getElementById('broadcast-toast');
+    document.getElementById('broadcast-toast-msg').textContent = data.message;
+    toast.style.display = 'flex'; clearTimeout(toast._t);
+    toast._t = setTimeout(() => { toast.style.display = 'none'; }, 8000);
+    addMsg(`📢 Admin: ${data.message}`, 'sys'); return;
+  }
+  if (topic === TOPIC_USERS && data.action === 'request_presence') { broadcastProfileToAdmin(); return; }
+  if (topic === TOPIC_USERS && data.action === 'reset_likes' && data.username === myUsername) {
+    myLikes = 0; localStorage.setItem('kapcs_user_likes','0'); updateSelfBadge(); broadcastProfileToAdmin();
+    addMsg('Your likes were reset by moderation.','sys'); return;
+  }
+  if (topic === TOPIC_USERS) {
+    if (data.username) onlinePresenceMap[data.username] = Date.now(); updateOnlineCount();
+  }
+  if (topic === TOPIC_WARNS && data.targetUser === myUsername) {
+    if (data.action === 'add') { hasWarnedMe = true; localStorage.setItem('kapcs_warned','true'); document.getElementById('warn-banner').style.display = 'block'; addMsg('⚠️ Official Warning issued.','sys'); }
+    else if (data.action === 'remove') { hasWarnedMe = false; localStorage.removeItem('kapcs_warned'); document.getElementById('warn-banner').style.display = 'none'; addMsg('Your warning was lifted.','sys'); }
+    broadcastProfileToAdmin(); return;
+  }
+  if (topic === TOPIC_ROLES && data.allRoles) {
+    globalRolesMap = data.allRoles; localStorage.setItem('kapcs_roles_cache', JSON.stringify(globalRolesMap)); updateSelfBadge(); return;
+  }
+  if (topic === TOPIC_BANS) {
+    const myName = (myUsername || '').toLowerCase(), devMatch = data.targetDev === permanentDeviceId, nameMatch = (data.targetName || '').replace('@','').toLowerCase() === myName;
+    if (data.action === 'unban' && (devMatch || nameMatch)) { await liftBan(); return; }
+    if (data.action === 'ban' && !isCurrentlyBanned && (devMatch || nameMatch)) {
+      const exp = data.expiresAt ? Number(data.expiresAt) : null;
+      localStorage.setItem('kapcs_ban_info', JSON.stringify({ deviceId:permanentDeviceId, username:myUsername, reason:data.reason, expiresAt:exp }));
+      showBanScreen(data.reason, exp); return;
+    }
+  }
+  if (!isCurrentlyBanned && topic === TOPIC_QUEUE && isSearching && !partnerId && data.senderId !== myPeerId && data.action === 'search') {
+    const myF = countryFilterSelect.value, pC = data.country || 'GLOBAL', pF = data.targetFilter || 'ALL';
+    if ((myF === 'ALL' || myF === pC) && (pF === 'ALL' || pF === myCountryCode)) {
+      if (myPeerId < data.senderId) connectToPartner(data.senderId, data.username, data.deviceId, data.likes || 0, data.country);
+    }
+  }
+});
+
+// ── MEDIA ─────────────────────────────────────────────────────
+async function initMedia() {
+  if (isCurrentlyBanned || !myUsername) return;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:1280}, height:{ideal:720} }, audio:true });
+    localVideo.srcObject = localStream;
+    localPlaceholder.style.display = 'none';
+    initAI(); startContinuousAIScanner();
+  } catch(err) {
+    document.getElementById('cam-err-msg').innerHTML = '⚠️ <b>Camera Blocked</b>';
+    setStatus('error','Camera denied');
+  }
+}
+
+// ── PARTNER ROLE FRAME ────────────────────────────────────────
+function applyPartnerRoleFrame(role) {
+  remoteBox.classList.remove('partner-mod','partner-dev','partner-vip');
+  if (role === 'moderator') remoteBox.classList.add('partner-mod');
+  else if (role === 'developer') remoteBox.classList.add('partner-dev');
+  else if (role === 'vip') remoteBox.classList.add('partner-vip');
+}
+
+// ── LIKE BUTTON ───────────────────────────────────────────────
+function updateLikeButtonState() {
+  if (!partnerId || partnerUsername === 'Partner') { btnLike.disabled = true; btnLike.innerHTML = '❤️ Like'; return; }
+  if (hasEverLiked(partnerUsername)) { btnLike.disabled = true; btnLike.innerHTML = '❤️ Liked'; }
+  else { btnLike.disabled = false; btnLike.innerHTML = '❤️ Like'; }
+}
+
+// ── PEER LISTENERS ────────────────────────────────────────────
+function setupPeerListeners() {
+  peer.on('call', call => {
+    if (isCurrentlyBanned) return;
+    stopSearchHeartbeat(); isSearching = false;
+    partnerId = call.peer; partnerUsername = call.peer.replace('kapcs_u_','');
+    updateLikeButtonState(); currentCall = call; call.answer(localStream);
+    call.on('stream', stream => onRemoteStream(stream));
+    call.on('close', disconnectPartner);
+  });
+  peer.on('connection', conn => { dataConn = conn; setupDataChannel(); });
+}
+
+function connectToPartner(targetId, targetUsername, targetDevId, initialLikes, targetCountry) {
+  if (isCurrentlyBanned) return;
+  stopSearchHeartbeat(); isSearching = false;
+  partnerId = targetId; partnerUsername = targetUsername || targetId.replace('kapcs_u_','');
+  partnerDeviceId = targetDevId; partnerLikes = initialLikes || 0; partnerCountryCode = targetCountry || 'GLOBAL';
+  updateLikeButtonState(); setStatus('search','Connecting...');
+  dataConn = peer.connect(targetId); setupDataChannel();
+  currentCall = peer.call(targetId, localStream);
+  currentCall.on('stream', stream => onRemoteStream(stream));
+  currentCall.on('close', disconnectPartner);
+}
+
+function onRemoteStream(stream) {
+  remoteVideo.srcObject = stream; remotePlaceholder.style.display = 'none';
+  const pRole = getUserRole(partnerUsername), pFlag = getFlagEmoji(partnerCountryCode);
+  document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(pRole)} <span class="country-tag">${pFlag} ${partnerCountryCode || ''}</span> ${getLikeChipHTML(partnerLikes)}`;
+  applyPartnerRoleFrame(pRole);
+  setStatus('live','Connected');
+  playSound('connect');
+  sessionStartTime = Date.now();
+  startPingMonitor();
+  sessionMatchCount++; localStorage.setItem('kapcs_session_matches', sessionMatchCount); document.getElementById('stat-matches').textContent = sessionMatchCount;
+  broadcastProfileToAdmin();
+}
+
+// ── DATA CHANNEL ──────────────────────────────────────────────
+function setupDataChannel() {
+  dataConn.on('open', async () => {
+    // E2E kulcs generálás és csere
+    const myPubKey = await generateE2EKeyPair();
+    dataConn.send({ type:'handshake', deviceId:permanentDeviceId, likes:myLikes, country:myCountryCode, countryName:myCountryName, pubKey:myPubKey });
+  });
+  dataConn.on('data', async data => {
+    if (data.type === 'handshake') {
+      partnerDeviceId = data.deviceId; partnerLikes = data.likes || 0; partnerCountryCode = data.country || 'GLOBAL';
+      const pFlag = getFlagEmoji(partnerCountryCode), pRole = getUserRole(partnerUsername);
+      document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(pRole)} <span class="country-tag">${pFlag} ${partnerCountryCode}</span> ${getLikeChipHTML(partnerLikes)}`;
+      // E2E kulcscsere
+      if (data.pubKey) {
+        await deriveE2EKey(data.pubKey);
+        // Visszaküldjük a saját kulcsunkat ha még nem tettük
+        if (!partnerPublicKey) {
+          const myPubKey = await generateE2EKeyPair();
+          dataConn.send({ type:'handshake', deviceId:permanentDeviceId, likes:myLikes, country:myCountryCode, countryName:myCountryName, pubKey:myPubKey });
+        }
+        addMsg('🔒 End-to-end encryption active', 'sys');
+      }
+      return;
+    }
+    if (data.type === 'typing') { showTypingIndicator(data.state === 'start'); return; }
+    if (data.type === 'reaction') {
+      const msgs = document.querySelectorAll('#chat-messages .msg.in');
+      if (msgs.length) { const t = data.msgId ? document.querySelector(`[data-msg-id="${data.msgId}"]`) : msgs[msgs.length-1]; if (t) addReactionChip(t, data.emoji, false); }
+      return;
+    }
+    if (data.type === 'like_given') {
+      myLikes++; localStorage.setItem('kapcs_user_likes', myLikes); updateSelfBadge(); broadcastProfileToAdmin();
+      playSound('like'); addMsg(`💖 @${partnerUsername} liked you! Total: ${myLikes}`, 'sys'); return;
+    }
+    if (data.type === 'speech_transcript') {
+      if (isDevCaptionsActive) { document.getElementById('remote-caption-box').style.display = 'block'; document.getElementById('remote-caption-text').textContent = `"${data.transcript}"`; } return;
+    }
+    // Titkosított vagy sima szöveges üzenet
+    if (data.type === 'msg_e2e' && data.cipher) {
+      const plain = await decryptMsg(data.cipher);
+      if (plain !== null) addMsg(plain, 'in', data.sender, data.role, data.likes, data.country, data.msgId);
+      return;
+    }
+    addMsg(data.text, 'in', data.sender, data.role, data.likes, data.country, data.msgId);
+    mqttClient.publish(TOPIC_CHATMON, JSON.stringify({ from:partnerUsername, partner:myUsername, text:data.text, direction:'in', time:new Date().toLocaleTimeString() }));
+  });
+  dataConn.on('close', disconnectPartner);
+}
+
+// ── DISCONNECT ────────────────────────────────────────────────
+function disconnectPartner() {
+  // Megőrizzük a partner nevét értékeléshez
+  const ratedUsername = partnerUsername !== 'Partner' ? partnerUsername : null;
+
+  if (remoteVideo.srcObject) { remoteVideo.srcObject.getTracks().forEach(t => { t.stop(); t.enabled = false; }); remoteVideo.srcObject = null; remoteVideo.pause(); }
+  remoteBox.classList.remove('ai-blocked','partner-mod','partner-dev','partner-vip');
+  remotePlaceholder.style.display = 'flex';
+  partnerId = null; partnerUsername = 'Partner'; partnerDeviceId = null; partnerCountryCode = null; partnerLikes = 0;
+  btnLike.disabled = true; document.getElementById('partner-label').textContent = 'Partner';
+  document.getElementById('remote-caption-box').style.display = 'none';
+  showTypingIndicator(false); stopPingMonitor(); closePartnerCard(); sessionStartTime = null;
+  // E2E kulcsok törlése
+  e2eKey = null; partnerPublicKey = null;
+  playSound('disconnect');
+
+  // Rating modal megjelenítése ha volt partner
+  if (ratedUsername) showRatingModal(ratedUsername);
+
+  if (autoSearchEnabled && !isCurrentlyBanned) {
+    setStatus('search','Searching...'); radarTitleText.textContent = 'Scanning the globe...'; radarSubText.textContent = 'Looking for a match...'; radarPill.textContent = 'SEARCHING';
+    startAutoReconnectCountdown();
+  } else {
+    setStatus('ready','Disconnected'); radarTitleText.textContent = 'Session ended'; radarSubText.textContent = "Click 'Start / Next' to find someone new."; radarPill.textContent = 'READY';
+  }
+  broadcastProfileToAdmin();
+}
+
+// ── SEARCH ────────────────────────────────────────────────────
+function startSearching() {
+  if (isCurrentlyBanned || !myUsername) return;
+  isSearching = true; autoSearchEnabled = true;
+  setStatus('search','Searching...'); radarTitleText.textContent = 'Scanning the globe...'; radarSubText.textContent = 'Looking for someone to connect...'; radarPill.textContent = 'SEARCHING';
+  stopSearchHeartbeat(); broadcastSearch();
+  searchHeartbeat = setInterval(() => { if (isSearching && !partnerId && !isCurrentlyBanned) broadcastSearch(); else stopSearchHeartbeat(); }, 1200);
+  broadcastProfileToAdmin();
+}
+function broadcastSearch() {
+  mqttClient.publish(TOPIC_QUEUE, JSON.stringify({ action:'search', senderId:myPeerId, username:myUsername, deviceId:permanentDeviceId, likes:myLikes, country:myCountryCode, targetFilter:countryFilterSelect.value }));
+}
+function stopSearchHeartbeat() { if (searchHeartbeat) { clearInterval(searchHeartbeat); searchHeartbeat = null; } }
+function stopSearching() {
+  isSearching = false; autoSearchEnabled = false; stopSearchHeartbeat();
+  setStatus('ready','Stopped'); radarTitleText.textContent = 'Matchmaking stopped'; radarSubText.textContent = "Click 'Start / Next' whenever you're ready."; radarPill.textContent = 'IDLE'; broadcastProfileToAdmin();
+}
+
+// ── COUNTRY FILTER ────────────────────────────────────────────
+countryFilterSelect.addEventListener('change', () => {
+  targetFlagIcon.textContent = getFlagEmoji(countryFilterSelect.value);
+  if (isSearching) { disconnectPartner(); startSearching(); }
+});
+
+// ── CONTROLS ──────────────────────────────────────────────────
+btnNextEl.addEventListener('click', e => {
+  e.preventDefault(); if (isCurrentlyBanned || !myUsername || nextCooldownActive) return;
+  if (autoReconnectTimer) { clearTimeout(autoReconnectTimer); clearInterval(autoReconnectCD); reconnectToast.style.display = 'none'; }
+  autoSearchEnabled = true;
+  if (partnerId) disconnectPartner(); else startSearching();
+  startNextCooldown();
+});
+document.getElementById('btn-stop').addEventListener('click', e => {
+  e.preventDefault(); autoSearchEnabled = false; stopSearching();
+  if (partnerId) { if (currentCall) currentCall.close(); if (dataConn) dataConn.close(); disconnectPartner(); }
+});
+
+let cam = true, mic = true;
+document.getElementById('btn-cam').addEventListener('click', function(e) { e.preventDefault(); if (!localStream) return; cam = !cam; localStream.getVideoTracks().forEach(t => t.enabled = cam); this.classList.toggle('off',!cam); });
+document.getElementById('btn-mic').addEventListener('click', function(e) { e.preventDefault(); if (!localStream) return; mic = !mic; localStream.getAudioTracks().forEach(t => t.enabled = mic); this.classList.toggle('off',!mic); });
+
+btnLike.addEventListener('click', () => {
+  if (!partnerId || partnerUsername === 'Partner' || hasEverLiked(partnerUsername)) { updateLikeButtonState(); return; }
+  recordLikeGiven(partnerUsername); updateLikeButtonState();
+  partnerLikes++;
+  const pFlag = getFlagEmoji(partnerCountryCode), pRole = getUserRole(partnerUsername);
+  document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(pRole)} <span class="country-tag">${pFlag} ${partnerCountryCode||''}</span> ${getLikeChipHTML(partnerLikes)}`;
+  if (dataConn && dataConn.open) dataConn.send({ type:'like_given' });
+  playSound('like'); addMsg(`You liked @${partnerUsername}! ❤️`,'sys');
+});
+
+document.getElementById('btn-report').addEventListener('click', async () => {
+  if (!partnerId) return alert('No partner connected.');
+  const u = partnerUsername, d = partnerDeviceId;
+  alert(`@${u} reported. AI analyzing...`);
+  const res = await inspectReportedPartnerDeeply();
+  if (res.violation) {
+    const exp = Date.now() + 3*86400000;
+    mqttClient.publish(TOPIC_BANS, JSON.stringify({ action:'ban', targetDev:d, targetName:u, reason:res.reason, expiresAt:exp }));
+    mqttClient.publish(TOPIC_REPORTS, JSON.stringify({ reportedUser:`@${u}`, reportedDevId:d||'unknown', reason:res.reason, category:'Forensic AI', severity:'CRITICAL', time:new Date().toLocaleTimeString() }));
+    alert(`🛡️ Confirmed: ${res.reason}`);
+  } else {
+    mqttClient.publish(TOPIC_REPORTS, JSON.stringify({ reportedUser:`@${u}`, reportedDevId:d||'unknown', reason:'User manual report', category:'User Report', severity:'MEDIUM', time:new Date().toLocaleTimeString() }));
+  }
+  disconnectPartner();
+});
+
+// ── CHAT ──────────────────────────────────────────────────────
+const chatInputElem = document.getElementById('chat-in');
+chatInputElem.addEventListener('keydown', e => e.stopPropagation());
+chatInputElem.addEventListener('keyup',   e => e.stopPropagation());
+chatInputElem.addEventListener('input', () => {
+  if (!dataConn || !dataConn.open) return;
+  if (!isTyping) { isTyping = true; sendTypingSignal('start'); }
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => { isTyping = false; sendTypingSignal('stop'); }, 1500);
+});
+document.getElementById('chat-form').addEventListener('submit', async e => {
+  e.preventDefault(); e.stopPropagation();
+  const val = chatInputElem.value.trim(); if (!val) return;
+  isTyping = false; clearTimeout(typingTimeout); sendTypingSignal('stop');
+  const myRole = getUserRole(myUsername), mid = ++msgIdCounter;
+  addMsg(val, 'out', `@${myUsername}`, myRole, myLikes, myCountryCode, mid);
+  chatInputElem.value = '';
+  if (dataConn && dataConn.open) {
+    // E2E titkosítás ha van kulcs
+    if (e2eKey) {
+      const cipher = await encryptMsg(val);
+      if (cipher) { dataConn.send({ type:'msg_e2e', cipher, sender:`@${myUsername}`, role:myRole, likes:myLikes, country:myCountryCode, msgId:mid }); }
+      else dataConn.send({ text:val, sender:`@${myUsername}`, role:myRole, likes:myLikes, country:myCountryCode, msgId:mid });
+    } else {
+      dataConn.send({ text:val, sender:`@${myUsername}`, role:myRole, likes:myLikes, country:myCountryCode, msgId:mid });
+    }
+  }
+  mqttClient.publish(TOPIC_CHATMON, JSON.stringify({ from:myUsername, partner:partnerUsername, text:val, direction:'out', time:new Date().toLocaleTimeString() }));
+});
+
+function addMsg(txt, type, sender=null, role=null, likesCount=null, country=null, msgId=null) {
+  const el = document.createElement('div');
+  el.className = `msg ${type}`;
+  const mid = msgId || ++msgIdCounter; el.dataset.msgId = mid;
+  if (sender) { const flag = country ? getFlagEmoji(country) : ''; el.innerHTML = `<b>${sender} ${getBadgeHTML(role)} <span style="font-size:11px;margin-left:3px;">${flag}</span> ${likesCount !== null ? getLikeChipHTML(likesCount) : ''}</b><span>${txt}</span>`; }
+  else el.textContent = txt;
+  if (type === 'in' || type === 'out') {
+    const trigBtn = document.createElement('button'); trigBtn.className = 'reaction-trigger'; trigBtn.textContent = '😊'; trigBtn.title = 'React';
+    trigBtn.addEventListener('click', ev => openReactionPopup(ev, el));
+    const wrap = document.createElement('div'); wrap.className = `msg-wrapper ${type}`;
+    if (type === 'out') { wrap.appendChild(trigBtn); wrap.appendChild(el); } else { wrap.appendChild(el); wrap.appendChild(trigBtn); }
+    const box = document.getElementById('chat-messages'); box.appendChild(wrap); box.scrollTop = box.scrollHeight; return;
+  }
+  const box = document.getElementById('chat-messages'); box.appendChild(el); box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(type, label) {
+  document.getElementById('status-dot').className = 'status-dot' + (type==='live'?' live':type==='search'?' search':'');
+  document.getElementById('status-text').textContent = label;
+}
+
+// ── RATING RENDSZER ───────────────────────────────────────────
+let currentRating = 0, ratingTargetUser = null;
+
+function showRatingModal(username) {
+  ratingTargetUser = username; currentRating = 0;
+  document.getElementById('rating-partner-name').textContent = `How was your session with @${username}?`;
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('rating-submit-btn').disabled = true;
+  document.getElementById('rating-modal').style.display = 'grid';
+}
+function closeRatingModal() { document.getElementById('rating-modal').style.display = 'none'; ratingTargetUser = null; currentRating = 0; }
+
+window.setRating = function(val) {
+  currentRating = val;
+  document.querySelectorAll('.star-btn').forEach((b,i) => { b.classList.toggle('active', i < val); });
+  document.getElementById('rating-submit-btn').disabled = false;
+};
+
+window.submitRating = function() {
+  if (!ratingTargetUser || !currentRating) return;
+  const ratingData = {
+    action: 'rating',
+    from: myUsername,
+    target: ratingTargetUser,
+    stars: currentRating,
+    time: new Date().toISOString()
+  };
+  mqttClient.publish(TOPIC_RATINGS, JSON.stringify(ratingData));
+  // Lokálisan is tároljuk a saját értékeléseinket
+  const myRatings = JSON.parse(localStorage.getItem('kapcs_my_ratings') || '[]');
+  myRatings.unshift(ratingData);
+  if (myRatings.length > 100) myRatings.pop();
+  localStorage.setItem('kapcs_my_ratings', JSON.stringify(myRatings));
+  closeRatingModal();
+  addMsg(`⭐ You rated @${ratingTargetUser} ${currentRating}/5`, 'sys');
+};
+
+// Bejövő rating fogadása (ha minket értékelnek)
+// A TOPIC_RATINGS üzeneteket az admin figyeli, nem az index.html
+
+// ── E2E TITKOSÍTOTT CHAT ──────────────────────────────────────
+// ECDH P-256 kulcscsere + AES-GCM titkosítás
+let e2eKeyPair = null, e2eKey = null, partnerPublicKey = null;
+
+async function generateE2EKeyPair() {
+  e2eKeyPair = await crypto.subtle.generateKey({ name:'ECDH', namedCurve:'P-256' }, true, ['deriveKey']);
+  const pubRaw = await crypto.subtle.exportKey('raw', e2eKeyPair.publicKey);
+  return btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
+}
+
+async function deriveE2EKey(partnerPubB64) {
+  const pubBytes = Uint8Array.from(atob(partnerPubB64), c => c.charCodeAt(0));
+  const partnerKey = await crypto.subtle.importKey('raw', pubBytes, { name:'ECDH', namedCurve:'P-256' }, false, []);
+  e2eKey = await crypto.subtle.deriveKey(
+    { name:'ECDH', public: partnerKey },
+    e2eKeyPair.privateKey,
+    { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+  );
+  partnerPublicKey = partnerPubB64;
+}
+
+async function encryptMsg(text) {
+  if (!e2eKey) return null;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const cipher = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, e2eKey, enc.encode(text));
+  const combined = new Uint8Array(iv.length + cipher.byteLength);
+  combined.set(iv); combined.set(new Uint8Array(cipher), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptMsg(b64) {
+  if (!e2eKey) return null;
+  try {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const iv = bytes.slice(0, 12), data = bytes.slice(12);
+    const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, e2eKey, data);
+    return new TextDecoder().decode(plain);
+  } catch { return null; }
+}
+
+// ── PROFIL LINK A PARTNER LABELEN ─────────────────────────────
+function openPartnerProfile() {
+  if (!partnerUsername || partnerUsername === 'Partner') return;
+  window.open(`/profile.html?u=${encodeURIComponent(partnerUsername)}`, '_blank');
+}
+
+// partner-label long press = profil megnyitás, click = card
+let partnerLabelPressTimer = null;
+document.getElementById('partner-label').addEventListener('mousedown', () => {
+  partnerLabelPressTimer = setTimeout(() => openPartnerProfile(), 600);
+});
+document.getElementById('partner-label').addEventListener('mouseup', () => clearTimeout(partnerLabelPressTimer));
+document.getElementById('partner-label').addEventListener('touchstart', () => {
+  partnerLabelPressTimer = setTimeout(() => openPartnerProfile(), 600);
+}, { passive: true });
+document.getElementById('partner-label').addEventListener('touchend', () => clearTimeout(partnerLabelPressTimer));
+
+// ── DEV TOOLS ────────────────────────────────────────────────
+let isDevHudActive = false, devHudAnimFrame = null, isDevCaptionsActive = false;
+const remoteDebugCanvas = document.getElementById('remote-debug-canvas');
+const remoteDebugCtx = remoteDebugCanvas.getContext('2d');
+let latestPartnerAiData = { predictions:[], swastikaCheck:{hit:false,score90:0}, sampledPoints:[], lastScanMs:0 };
+
+btnDevHud.addEventListener('click', () => { isDevHudActive = !isDevHudActive; btnDevHud.classList.toggle('active',isDevHudActive); remoteDebugCanvas.style.display = isDevHudActive ? 'block' : 'none'; if (isDevHudActive) renderDevHudLoop(); else if (devHudAnimFrame) cancelAnimationFrame(devHudAnimFrame); });
+btnDevCaption.addEventListener('click', () => { isDevCaptionsActive = !isDevCaptionsActive; btnDevCaption.classList.toggle('active',isDevCaptionsActive); if (!isDevCaptionsActive) document.getElementById('remote-caption-box').style.display = 'none'; });
+
+function renderDevHudLoop() {
+  if (!isDevHudActive) return;
+  const rect = remoteBox.getBoundingClientRect();
+  if (remoteDebugCanvas.width !== Math.floor(rect.width)) { remoteDebugCanvas.width = Math.floor(rect.width); remoteDebugCanvas.height = Math.floor(rect.height); }
+  const w = remoteDebugCanvas.width, h = remoteDebugCanvas.height;
+  remoteDebugCtx.clearRect(0,0,w,h);
+  if (remoteVideo.videoWidth > 0 && !remotePlaceholder.offsetParent) drawCyberHud(remoteDebugCtx,w,h);
+  devHudAnimFrame = requestAnimationFrame(renderDevHudLoop);
+}
+function drawCyberHud(ctx, w, h) {
+  const now = Date.now(); ctx.fillStyle = 'rgba(16,185,129,.12)'; ctx.fillRect(0,(now/15)%h,w,3);
+  const cx = w/2, cy = h/2; ctx.strokeStyle = 'rgba(168,85,247,.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]); ctx.strokeRect(cx-50,cy-50,100,100); ctx.setLineDash([]);
+  const cardW=180,cardH=95,cardX=w-cardW-8,cardY=8;
+  ctx.fillStyle='rgba(10,14,23,.85)'; ctx.strokeStyle='rgba(168,85,247,.4)'; ctx.fillRect(cardX,cardY,cardW,cardH); ctx.strokeRect(cardX,cardY,cardW,cardH);
+  ctx.fillStyle='#c084fc'; ctx.font='bold 9px "JetBrains Mono",monospace'; ctx.fillText('⚡ DEV AI VISION',cardX+8,cardY+16);
+  ctx.fillStyle='#94a3b8'; ctx.font='9px "JetBrains Mono",monospace'; ctx.fillText('TARGET: @'+partnerUsername,cardX+8,cardY+30); ctx.fillText('PING: '+(pingBadge.textContent||'—'),cardX+8,cardY+44);
+}
+
+// ── AI ────────────────────────────────────────────────────────
+const SEVERE_WORDS = ["nigger","nigga","faggot","chink","kike","cunt","heil hitler","kill yourself"];
+const WARN_WORDS   = ["hitler","nazi","retard","whore","slut"];
+let nsfwModel = null;
+const aiCanvas = document.getElementById('ai-canvas'), aiCtx = aiCanvas.getContext('2d');
+async function initAI() { try { nsfwModel = await nsfwjs.load(); } catch(e){} initAudioAI(); }
+
+let localSwastikaFrames = 0, remoteSwastikaFrames = 0;
+function startContinuousAIScanner() {
+  setInterval(async () => {
+    if (isCurrentlyBanned) return;
+    if (localVideo.videoWidth > 0 && localVideo.readyState >= 2) {
+      aiCtx.drawImage(localVideo,0,0,224,224);
+      const ls = scanForSwastika(aiCtx,224,224);
+      if (ls.hit) { localSwastikaFrames++; if (localSwastikaFrames >= 2) { localBox.classList.add('ai-blocked'); executeLocalBan(`Violation: ${ls.reason}`,3); return; } } else localSwastikaFrames = 0;
+      if (nsfwModel) { try { const p = await nsfwModel.classify(aiCanvas); if ((p[0].className==='Porn'||p[0].className==='Hentai') && p[0].probability > .65) { localBox.classList.add('ai-blocked'); executeLocalBan('Violation: Nudity on camera',3); return; } } catch(e){} }
+    }
+    if (remoteVideo.videoWidth > 0 && remoteVideo.readyState >= 2 && partnerId) {
+      aiCtx.drawImage(remoteVideo,0,0,224,224);
+      const rs = scanForSwastika(aiCtx,224,224); latestPartnerAiData.swastikaCheck = rs;
+      if (rs.hit) { remoteSwastikaFrames++; if (remoteSwastikaFrames >= 2) { remoteBox.classList.add('ai-blocked'); document.getElementById('shield-reason').textContent = `AI: ${rs.reason}`; const exp = Date.now()+3*86400000; mqttClient.publish(TOPIC_BANS, JSON.stringify({action:'ban',targetDev:partnerDeviceId,targetName:partnerUsername,reason:rs.reason,expiresAt:exp})); setTimeout(disconnectPartner,2000); return; } } else remoteSwastikaFrames = 0;
+    }
+  }, 800);
+}
+
+function scanForSwastika(ctx, w, h) {
+  const d = ctx.getImageData(0,0,w,h).data, total = w*h;
+  let red=0,white=0,dark=0;
+  for (let i=0;i<d.length;i+=8) { const r=d[i],g=d[i+1],b=d[i+2]; if(r>150&&g<50&&b<50)red++; else if(r>200&&g>200&&b>200)white++; else if(r<40&&g<40&&b<40)dark++; }
+  const s=total/2;
+  if (red/s>.32 && white/s>.07 && dark/s>.025) return { hit:true, reason:'Nazi Flag Pattern', score90:1 };
+  return { hit:false, reason:'Normal', score90:0 };
+}
+
+const forensicCanvas = document.getElementById('forensic-canvas'), forensicCtx = forensicCanvas.getContext('2d');
+async function inspectReportedPartnerDeeply() {
+  if (!remoteVideo||remoteVideo.videoWidth===0) return { violation:false };
+  forensicCanvas.width = remoteVideo.videoWidth; forensicCanvas.height = remoteVideo.videoHeight;
+  forensicCtx.drawImage(remoteVideo,0,0,forensicCanvas.width,forensicCanvas.height);
+  if (nsfwModel) { try { const p = await nsfwModel.classify(forensicCanvas); if ((p[0].className==='Porn'||p[0].className==='Hentai')&&p[0].probability>.55) return {violation:true,reason:`AI: Explicit content (${Math.round(p[0].probability*100)}%)`}; } catch(e){} }
+  aiCtx.drawImage(forensicCanvas,0,0,224,224); const sym = scanForSwastika(aiCtx,224,224);
+  if (sym.hit) return { violation:true, reason:'Confirmed Flag Violation' };
+  return { violation:false };
+}
+
+// ── AUDIO AI ─────────────────────────────────────────────────
+let lastWarnProcessedTime = 0;
+function initAudioAI() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+  const rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+  rec.onresult = event => {
+    if (isCurrentlyBanned) return;
+    for (let i=event.resultIndex;i<event.results.length;++i) {
+      const res = event.results[i], transcript = res[0].transcript.toLowerCase();
+      if (dataConn&&dataConn.open) dataConn.send({type:'speech_transcript',transcript});
+      if (!res.isFinal) continue;
+      for (const w of SEVERE_WORDS) { if (transcript.includes(w)) { if (localStream) localStream.getAudioTracks().forEach(t=>t.stop()); executeLocalBan(`Severe hate speech: "${w}"`,3); return; } }
+      for (const w of WARN_WORDS) {
+        if (transcript.includes(w)) {
+          const now = Date.now();
+          if (!hasWarnedMe) { hasWarnedMe=true; lastWarnProcessedTime=now; localStorage.setItem('kapcs_warned','true'); document.getElementById('warn-banner').style.display='block'; broadcastProfileToAdmin(); addMsg(`⚠️ Warning: "${w}" detected.`,'sys'); return; }
+          if (hasWarnedMe && now-lastWarnProcessedTime>8000) { if (localStream) localStream.getAudioTracks().forEach(t=>t.stop()); executeLocalBan(`Second offense: "${w}"`,3); return; }
+        }
+      }
+    }
+  };
+  rec.onerror = () => {}; rec.onend = () => { try { rec.start(); } catch(e){} }; try { rec.start(); } catch(e){}
+}
+
+// ── RADAR TIPS ────────────────────────────────────────────────
+const RADAR_TIPS = ['Searching for partners...','Tip: Send likes to make friends!','Protected by Real-Time AI Shield.','Connecting peer channels...','Filtering by country preference...'];
+let tipIdx = 0;
+setInterval(() => { if (isSearching && !partnerId) { tipIdx = (tipIdx+1) % RADAR_TIPS.length; const sub = document.getElementById('radar-sub-text'); sub.style.opacity='0'; setTimeout(()=>{sub.textContent=RADAR_TIPS[tipIdx];sub.style.opacity='1';},200); } }, 3500);
+
+// ── PWA ───────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredInstallPrompt = e;
+  const btn = document.createElement('button'); btn.className = 'btn-theme'; btn.title = 'Install KAPCS'; btn.textContent = '📲';
+  btn.addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); const {outcome} = await deferredInstallPrompt.userChoice; if (outcome==='accepted') btn.remove(); deferredInstallPrompt=null; });
+  document.getElementById('header-right').prepend(btn);
+});
+</script>
+</body>
+</html>

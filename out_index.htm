@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>KAPCS — Global Video Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+  <script async src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --card: #121927;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --dev: #a855f7;
+      --heart: #f43f5e;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+    .badge-wrap {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; cursor: help; margin-left: 4px;
+    }
+    .badge-icon {
+      width: 15px; height: 15px; vertical-align: middle; flex-shrink: 0; display: inline-block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+    }
+    .badge-wrap::after {
+      content: attr(data-tooltip); position: absolute; bottom: calc(100% + 7px); left: 50%;
+      transform: translateX(-50%); background: rgba(15, 23, 42, 0.96); color: #f8fafc; padding: 4px 8px;
+      border-radius: 6px; font-size: 10px; font-weight: 700; white-space: nowrap; pointer-events: none;
+      opacity: 0; visibility: hidden; transition: opacity 0.15s ease; border: 1px solid rgba(255, 255, 255, 0.15); z-index: 1000;
+    }
+    .badge-wrap:hover::after { opacity: 1; visibility: visible; }
+
+    .like-chip {
+      display: inline-flex; align-items: center; gap: 3px; background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3); color: #fda4af; font-size: 10px; font-weight: 800;
+      padding: 1px 6px; border-radius: 12px; margin-left: 5px; vertical-align: middle;
+    }
+    .like-chip svg { width: 10px; height: 10px; fill: var(--heart); }
+
+    .country-selector-wrap {
+      display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border); padding: 3px 8px; border-radius: 20px;
+    }
+    .country-selector-wrap select {
+      background: transparent; border: 0; color: #fff; font-size: 11px;
+      font-weight: 700; outline: none; cursor: pointer; max-width: 130px;
+    }
+    .country-selector-wrap select option { background: #121927; color: #fff; }
+    .country-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; margin-left: 5px; opacity: 0.9; }
+
+    #name-modal {
+      position: fixed; inset: 0; background: rgba(6, 9, 16, 0.96); backdrop-filter: blur(20px);
+      z-index: 99999; display: none; place-content: center; text-align: center; padding: 16px;
+    }
+    .name-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 28px 20px; max-width: 380px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    }
+    .name-box h2 { font-family: "Outfit", sans-serif; font-size: 24px; margin-bottom: 6px; color: #fff; }
+    .name-box p { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.4; }
+    .name-box input {
+      width: 100%; padding: 12px; background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+      border-radius: 8px; color: #fff; font-size: 14px; text-align: center; font-weight: 700; outline: none;
+    }
+    .name-box button {
+      width: 100%; padding: 12px; background: var(--primary); border: 0; color: #fff;
+      border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 12px; font-size: 13px;
+    }
+    .name-err { color: var(--danger); font-size: 11px; margin-top: 8px; display: none; font-weight: 600; }
+
+    #ban-screen {
+      display: none; position: fixed; inset: 0; background: #06080f; z-index: 999999;
+      place-content: center; text-align: center; padding: 20px;
+    }
+    #ban-screen h1 { font-family: "Outfit", sans-serif; color: var(--danger); font-size: 32px; margin-bottom: 8px; }
+    .ban-meta { background: var(--card); border: 1px solid var(--border); padding: 18px 22px; border-radius: 12px; max-width: 420px; margin: 14px auto; }
+
+    header {
+      height: 52px; border-bottom: 1px solid var(--border); display: flex;
+      align-items: center; justify-content: space-between; padding: 0 16px; background: rgba(18, 25, 39, 0.85); flex-shrink: 0;
+      gap: 10px;
+    }
+    .brand { font-family: "Outfit", sans-serif; font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 1px; }
+    .header-center { display: flex; align-items: center; gap: 10px; }
+    .status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
+    .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.search { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+
+    .btn-report {
+      background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5; padding: 5px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer;
+    }
+
+    main { flex: 1; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 220px; min-height: 0; overflow: hidden; }
+    @media (min-width: 800px) { main { grid-template-columns: 1fr 340px; grid-template-rows: 1fr; } }
+
+    .video-section { display: flex; flex-direction: column; padding: 10px; min-height: 0; overflow: hidden; }
+    .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; }
+    @media (max-width: 799px) { .video-grid { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 8px; } }
+    
+    .video-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0;
+    }
+    .video-box video { width: 100%; height: 100%; object-fit: cover; }
+    #local-video { transform: scaleX(-1); }
+
+    #remote-debug-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; display: none; }
+
+    .video-box.ai-blocked video { filter: blur(40px); }
+    .shield-overlay {
+      position: absolute; inset: 0; background: rgba(10, 14, 23, 0.9); backdrop-filter: blur(20px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px; text-align: center; z-index: 10;
+    }
+    .video-box.ai-blocked .shield-overlay { display: flex; }
+    .shield-overlay h3 { color: var(--danger); font-size: 16px; margin-bottom: 4px; }
+    .shield-overlay p { color: var(--muted); font-size: 11px; max-width: 220px; }
+
+    .video-label {
+      position: absolute; bottom: 8px; left: 8px; background: rgba(0, 0, 0, 0.75);
+      padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; z-index: 5; display: flex; align-items: center;
+    }
+    .placeholder {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 12px; text-align: center; padding: 10px;
+    }
+
+    .controls { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; flex-shrink: 0; gap: 6px; }
+    .media-tools { display: flex; gap: 6px; align-items: center; }
+    .tool-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--card); color: #fff; font-size: 14px; cursor: pointer; display: grid; place-items: center;
+    }
+    .tool-btn.off { background: rgba(239, 68, 68, 0.2); border-color: var(--danger); color: #fca5a5; }
+
+    .btn-like {
+      height: 38px; padding: 0 12px; border-radius: 19px; font-size: 12px; font-weight: 700;
+      background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.35); color: #fda4af;
+      display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s ease;
+    }
+    .btn-like:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .tool-btn-dev {
+      height: 38px; padding: 0 10px; border-radius: 19px; font-size: 11px; font-weight: 800;
+      background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;
+      display: none; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .tool-btn-dev.active { background: #a855f7; color: #fff; }
+
+    .action-group { display: flex; gap: 6px; }
+    .btn-main {
+      background: var(--primary); color: #fff; border: 0; padding: 0 16px; height: 38px;
+      border-radius: 7px; font: 700 13px "DM Sans"; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .btn-stop { background: #334155; color: #fff; border: 0; padding: 0 12px; height: 38px; border-radius: 7px; font-weight: 700; cursor: pointer; }
+
+    .chat-section { border-top: 1px solid var(--border); background: rgba(18, 25, 39, 0.35); display: flex; flex-direction: column; min-height: 0; }
+    @media (min-width: 800px) { .chat-section { border-top: 0; border-left: 1px solid var(--border); } }
+    
+    .chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .msg { padding: 6px 10px; border-radius: 7px; font-size: 12px; max-width: 88%; word-break: break-word; line-height: 1.35; }
+    .msg b { display: flex; align-items: center; font-size: 10px; margin-bottom: 2px; color: #a5b4fc; }
+    .msg.in { align-self: flex-start; background: var(--card); }
+    .msg.out { align-self: flex-end; background: var(--primary); }
+    .msg.out b { color: #e0e7ff; justify-content: flex-end; }
+    .msg.sys { align-self: center; font-size: 10px; color: var(--muted); font-style: italic; text-align: center; }
+
+    .chat-input { padding: 8px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-shrink: 0; }
+    .chat-input input {
+      flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+      padding: 8px 10px; border-radius: 6px; color: #fff; font-size: 12px; outline: none;
+    }
+    .chat-input button { background: var(--primary); border: 0; color: #fff; padding: 0 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; }
+
+    #ai-canvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <div id="name-modal">
+    <div class="name-box">
+      <h2>Welcome to KAPCS</h2>
+      <p>Choose a unique handle. Each username is tied to your permanent device security ID.</p>
+      <input type="text" id="username-in" placeholder="e.g. shadow_ninja" maxlength="16" autocomplete="off">
+      <button id="btn-claim-name">Claim Handle & Enter</button>
+      <div class="name-err" id="name-err"></div>
+    </div>
+  </div>
+
+  <div id="ban-screen">
+    <h1>Access Suspended</h1>
+    <p style="color:var(--muted); max-width: 360px; margin-bottom: 10px;" id="ban-reason-text">Your permanent device ID has been restricted by moderation.</p>
+    <div class="ban-meta">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">REMAINING TIME</div>
+      <div id="ban-duration-text" style="font-size:18px; font-weight:700; color:var(--danger)">Calculating...</div>
+      <div style="font-size:10px; color:#64748b; margin-top:8px;" id="ban-id-display"></div>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">KAPCS</div>
+    
+    <div class="header-center">
+      <div class="country-selector-wrap" title="Select target country for matching">
+        <span id="target-flag-icon">🌐</span>
+        <select id="country-filter">
+          <option value="ALL">🌐 Global (Any)</option>
+          <option value="HU">🇭🇺 Hungary</option>
+          <option value="US">🇺🇸 United States</option>
+          <option value="GB">🇬🇧 United Kingdom</option>
+          <option value="DE">🇩🇪 Germany</option>
+          <option value="FR">🇫🇷 France</option>
+          <option value="IT">🇮🇹 Italy</option>
+          <option value="ES">🇪🇸 Spain</option>
+          <option value="RO">🇷🇴 Romania</option>
+          <option value="SK">🇸🇰 Slovakia</option>
+          <option value="PL">🇵🇱 Poland</option>
+          <option value="AT">🇦🇹 Austria</option>
+        </select>
+      </div>
+
+      <div class="status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Ready</span>
+      </div>
+    </div>
+
+    <button class="btn-report" id="btn-report">⚠️ Report</button>
+  </header>
+
+  <main>
+    <div class="video-section">
+      <div class="video-grid">
+        <div class="video-box" id="remote-box">
+          <video id="remote-video" autoplay playsinline></video>
+          <canvas id="remote-debug-canvas"></canvas>
+          <div class="placeholder" id="remote-placeholder">
+            <span id="remote-placeholder-text">Click "Start / Next" to find a partner</span>
+          </div>
+          <div class="shield-overlay">
+            <h3>⚠️ Prohibited Content</h3>
+            <p id="shield-reason">Hate symbol or explicit nudity intercepted.</p>
+          </div>
+          <div class="video-label" id="partner-label">Partner</div>
+        </div>
+
+        <div class="video-box" id="local-box">
+          <video id="local-video" autoplay playsinline muted></video>
+          <div class="placeholder" id="local-placeholder">
+            <span id="cam-err-msg">Accessing camera...</span>
+          </div>
+          <div class="shield-overlay">
+            <h3>⚠️ Violation Detected</h3>
+            <p>Prohibited content on camera.</p>
+          </div>
+          <div class="video-label" id="self-label">You</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="media-tools">
+          <button class="tool-btn" id="btn-cam" title="Toggle Camera">📷</button>
+          <button class="tool-btn" id="btn-mic" title="Toggle Microphone">🎤</button>
+          <button class="btn-like" id="btn-like-partner" disabled title="Send like">❤️ Like</button>
+          <button class="tool-btn-dev" id="btn-dev-hud" title="AI Vision Debug">👁️ AI</button>
+        </div>
+        <div class="action-group">
+          <button class="btn-stop" id="btn-stop">Stop</button>
+          <button class="btn-main" id="btn-next">Start / Next ➔</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-section">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg sys">Welcome to KAPCS! Click Start to begin matching.</div>
+      </div>
+      <form class="chat-input" id="chat-form">
+        <input type="text" id="chat-in" placeholder="Type a message..." autocomplete="off">
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <canvas id="ai-canvas" width="224" height="224"></canvas>
+
+  <script>
+    let myCountryCode = 'HU';
+    let myCountryName = 'Hungary';
+    let partnerCountryCode = null;
+
+    function getFlagEmoji(code) {
+      if (!code || code === 'ALL' || code === 'GLOBAL' || code.length !== 2) return '🌐';
+      return code.toUpperCase().replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt()));
+    }
+
+    async function detectUserCountry() {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.country_code) {
+            myCountryCode = data.country_code;
+            myCountryName = data.country_name || data.country_code;
+            updateSelfBadge();
+            broadcastProfileToAdmin();
+          }
+        }
+      } catch (e) {}
+    }
+
+    const countryFilterSelect = document.getElementById('country-filter');
+    const targetFlagIcon = document.getElementById('target-flag-icon');
+
+    countryFilterSelect.addEventListener('change', () => {
+      targetFlagIcon.textContent = getFlagEmoji(countryFilterSelect.value);
+      if (isSearching) {
+        disconnectPartner();
+        startSearching();
+      }
+    });
+
+    let globalRolesMap = JSON.parse(localStorage.getItem('kapcs_roles_cache') || '{}');
+    let myLikes = parseInt(localStorage.getItem('kapcs_user_likes') || '0', 10);
+    let partnerLikes = 0;
+
+    let givenLikesRegistry = JSON.parse(localStorage.getItem('kapcs_given_likes') || '[]');
+
+    function hasEverLiked(username) {
+      if (!username || username === 'Partner') return false;
+      const clean = username.replace('@', '').toLowerCase();
+      return givenLikesRegistry.includes(clean);
+    }
+
+    function recordLikeGiven(username) {
+      if (!username || username === 'Partner') return;
+      const clean = username.replace('@', '').toLowerCase();
+      if (!givenLikesRegistry.includes(clean)) {
+        givenLikesRegistry.push(clean);
+        localStorage.setItem('kapcs_given_likes', JSON.stringify(givenLikesRegistry));
+      }
+    }
+
+    function getBadgeHTML(role) {
+      if (!role || role === 'none') return '';
+      let tooltipText = '', svg = '';
+      if (role === 'verified') {
+        tooltipText = 'Verified Partner';
+        svg = `<svg class="badge-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      } else if (role === 'moderator') {
+        tooltipText = 'Community Moderator';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M50 5 L85 18 C85 62 50 88 50 95 C50 88 15 62 15 18 Z" fill="#151e2e" stroke="#253248" stroke-width="2"/><path d="M50 12 L78 22 C78 57 50 78 50 84 C50 78 22 57 22 22 Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68 C34 52 42 50 47 51 L50 56 L53 51 C58 50 66 52 66 68 Z" fill="white"/></svg>`;
+      } else if (role === 'developer') {
+        tooltipText = 'Platform Developer';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="devGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#devGrad)"/><path d="M38 38 L24 50 L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38 L76 50 L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30 L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`;
+      } else if (role === 'vip') {
+        tooltipText = 'VIP Supporter';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="goldGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse"><stop stop-color="#ffe875"/><stop offset="0.5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#goldGrad)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="41" fill="#c48a0e" stroke="#ffe57f" stroke-width="2"/><circle cx="50" cy="50" r="38" fill="url(#goldGrad)"/><polygon points="50,14 52.5,21 60,21 54,25.5 56.5,32.5 50,28 43.5,32.5 46,25.5 40,21 47.5,21" fill="#fff5b8"/><text x="50" y="58" font-family="'Outfit', Arial, sans-serif" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text><polygon points="50,68 52.5,75 60,75 54,79.5 56.5,86.5 50,82 43.5,86.5 46,79.5 40,75 47.5,75" fill="#fff5b8"/></svg>`;
+      }
+      return `<span class="badge-wrap" data-tooltip="${tooltipText}">${svg}</span>`;
+    }
+
+    function getUserRole(name) {
+      if (!name) return 'none';
+      return globalRolesMap[name.replace('@', '').toLowerCase()] || 'none';
+    }
+
+    function getLikeChipHTML(count) {
+      return `<span class="like-chip" title="${count} Likes"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>${count}</span></span>`;
+    }
+
+    let permanentDeviceId = null;
+    async function initPermanentID() {
+      let fpId = null;
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        fpId = result.visitorId;
+      } catch (e) {
+        fpId = Math.random().toString(36).substring(2, 10);
+      }
+      const hardwareKey = `DEV-${fpId}`;
+      let resolved = localStorage.getItem('kapcs_dev_id') || document.cookie.match(/(^| )kapcs_dev_id=([^;]+)/)?.[2] || hardwareKey;
+      localStorage.setItem('kapcs_dev_id', resolved);
+      document.cookie = `kapcs_dev_id=${encodeURIComponent(resolved)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+      permanentDeviceId = resolved;
+      return resolved;
+    }
+
+    let myUsername = null;
+    let myPeerId = null;
+    let isCurrentlyBanned = false;
+    let banCountdownTimer = null;
+
+    const nameModal = document.getElementById('name-modal');
+    const nameInput = document.getElementById('username-in');
+    const nameErr = document.getElementById('name-err');
+    const btnClaim = document.getElementById('btn-claim-name');
+    const btnDevHud = document.getElementById('btn-dev-hud');
+    const btnLike = document.getElementById('btn-like-partner');
+
+    const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const TOPIC_QUEUE = 'kapcs_v12_match';
+    const TOPIC_BANS = 'kapcs_v12_bans';
+    const TOPIC_REPORTS = 'kapcs_v12_reports';
+    const TOPIC_ROLES = 'kapcs_v12_roles';
+    const TOPIC_USERS = 'kapcs_v12_users';
+
+    (async function boot() {
+      await initPermanentID();
+      await detectUserCountry();
+
+      myUsername = localStorage.getItem('kapcs_username') || document.cookie.match(/(^| )kapcs_username=([^;]+)/)?.[2];
+      await checkBanStatus();
+      if (!isCurrentlyBanned) {
+        if (myUsername) {
+          syncUsernameEverywhere(myUsername);
+          initPeerWithHandle(myUsername);
+        } else {
+          nameModal.style.display = 'grid';
+        }
+      }
+    })();
+
+    function syncUsernameEverywhere(name) {
+      localStorage.setItem('kapcs_username', name);
+      document.cookie = `kapcs_username=${encodeURIComponent(name)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+    }
+
+    async function checkBanStatus() {
+      let raw = localStorage.getItem('kapcs_ban_info') || document.cookie.match(/(^| )kapcs_ban_info=([^;]+)/)?.[2];
+      if (raw) {
+        try {
+          const info = JSON.parse(decodeURIComponent(raw));
+          if (info.expiresAt && Date.now() > Number(info.expiresAt)) {
+            await liftBan();
+          } else {
+            showBanScreen(info.reason, Number(info.expiresAt) || null);
+          }
+        } catch (e) {
+          await liftBan();
+        }
+      }
+    }
+
+    function showBanScreen(reason, expiresAt) {
+      isCurrentlyBanned = true;
+      stopSearching();
+      nameModal.style.display = 'none';
+      document.getElementById('ban-screen').style.display = 'grid';
+      document.getElementById('ban-reason-text').textContent = reason || 'Access restricted by moderation.';
+      document.getElementById('ban-id-display').textContent = `Handle: @${myUsername || 'unregistered'}`;
+
+      if (banCountdownTimer) clearInterval(banCountdownTimer);
+
+      function updateRemaining() {
+        if (!expiresAt || isNaN(expiresAt)) {
+          document.getElementById('ban-duration-text').textContent = 'Permanent Ban';
+          return;
+        }
+
+        const now = Date.now();
+        const diff = Number(expiresAt) - now;
+
+        if (diff <= 0) {
+          clearInterval(banCountdownTimer);
+          liftBan();
+          return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const mins = Math.floor((diff / (1000 * 60)) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
+        
+        let text = "";
+        if (days > 0) text += `${days}d `;
+        text += `${hours}h ${mins}m ${secs}s left`;
+        document.getElementById('ban-duration-text').textContent = text;
+      }
+
+      updateRemaining();
+      banCountdownTimer = setInterval(updateRemaining, 1000);
+
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (currentCall) currentCall.close();
+      if (peer) peer.destroy();
+    }
+
+    async function liftBan() {
+      if (banCountdownTimer) clearInterval(banCountdownTimer);
+      localStorage.removeItem('kapcs_ban_info');
+      document.cookie = 'kapcs_ban_info=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+      isCurrentlyBanned = false;
+      document.getElementById('ban-screen').style.display = 'none';
+      if (!myUsername) nameModal.style.display = 'grid';
+      else initPeerWithHandle(myUsername);
+    }
+
+    btnClaim.addEventListener('click', async () => {
+      const val = nameInput.value.trim().toLowerCase();
+      nameErr.style.display = 'none';
+      if (!/^[a-z0-9_]{3,16}$/.test(val)) {
+        nameErr.textContent = "Username must be 3-16 characters (a-z, 0-9, _).";
+        nameErr.style.display = 'block';
+        return;
+      }
+      btnClaim.disabled = true;
+      btnClaim.textContent = "Verifying...";
+      const testPeerId = `kapcs_u_${val}`;
+      const testPeer = new Peer(testPeerId, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+      testPeer.on('open', async () => {
+        myUsername = val; myPeerId = testPeerId; peer = testPeer;
+        await syncUsernameEverywhere(myUsername);
+        nameModal.style.display = 'none';
+        updateSelfBadge(); broadcastProfileToAdmin(); setupPeerListeners(); initMedia();
+      });
+      testPeer.on('error', (err) => {
+        btnClaim.disabled = false; btnClaim.textContent = "Claim Handle & Enter";
+        nameErr.textContent = err.type === 'unavailable-id' ? `❌ @${val} is already taken!` : `Error: ${err.type}`;
+        nameErr.style.display = 'block';
+      });
+    });
+
+    function updateSelfBadge() {
+      const myRole = getUserRole(myUsername);
+      const myFlag = getFlagEmoji(myCountryCode);
+      document.getElementById('self-label').innerHTML = `@${myUsername} ${getBadgeHTML(myRole)} <span class="country-tag">${myFlag} ${myCountryCode}</span> ${getLikeChipHTML(myLikes)}`;
+      if (myRole === 'developer') btnDevHud.style.display = 'inline-flex';
+      else { btnDevHud.style.display = 'none'; if (isDevHudActive) toggleDevHud(false); }
+    }
+
+    function broadcastProfileToAdmin() {
+      if (!myUsername) return;
+      mqttClient.publish(TOPIC_USERS, JSON.stringify({
+        action: 'register',
+        username: myUsername,
+        deviceId: permanentDeviceId,
+        likes: myLikes,
+        country: myCountryCode,
+        countryName: myCountryName,
+        role: getUserRole(myUsername)
+      }));
+    }
+
+    function initPeerWithHandle(username) {
+      updateSelfBadge();
+      myPeerId = `kapcs_u_${username}`;
+      peer = new Peer(myPeerId, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+      peer.on('open', () => { broadcastProfileToAdmin(); setupPeerListeners(); initMedia(); });
+    }
+
+    mqttClient.on('connect', () => {
+      mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES]);
+      if (!isCurrentlyBanned) setStatus('ready', 'Ready');
+    });
+
+    mqttClient.on('message', async (topic, message) => {
+      const data = JSON.parse(message.toString());
+
+      if (topic === TOPIC_ROLES && data.allRoles) {
+        globalRolesMap = data.allRoles;
+        localStorage.setItem('kapcs_roles_cache', JSON.stringify(globalRolesMap));
+        updateSelfBadge();
+        return;
+      }
+
+      if (topic === TOPIC_BANS) {
+        if (data.action === 'unban' && (data.targetDev === permanentDeviceId || (data.targetName || '').replace('@','').toLowerCase() === myUsername)) {
+          await liftBan(); return;
+        }
+        if (data.action === 'ban' && !isCurrentlyBanned && (data.targetDev === permanentDeviceId || (data.targetName || '').replace('@','').toLowerCase() === myUsername)) {
+          const exp = data.expiresAt ? Number(data.expiresAt) : null;
+          const banObj = { deviceId: permanentDeviceId, username: myUsername, reason: data.reason, expiresAt: exp };
+          localStorage.setItem('kapcs_ban_info', JSON.stringify(banObj));
+          showBanScreen(data.reason, exp);
+          return;
+        }
+      }
+
+      if (!isCurrentlyBanned && topic === TOPIC_QUEUE && isSearching && !partnerId) {
+        if (data.senderId !== myPeerId && data.action === 'search') {
+          const myTargetFilter = countryFilterSelect.value;
+          const partnerSenderCountry = data.country || 'GLOBAL';
+          const partnerWantsFilter = data.targetFilter || 'ALL';
+
+          const matchesMyFilter = (myTargetFilter === 'ALL') || (myTargetFilter === partnerSenderCountry);
+          const matchesPartnerFilter = (partnerWantsFilter === 'ALL') || (partnerWantsFilter === myCountryCode);
+
+          if (matchesMyFilter && matchesPartnerFilter) {
+            if (myPeerId < data.senderId) {
+              connectToPartner(data.senderId, data.username, data.deviceId, data.likes || 0, data.country);
+            }
+          }
+        }
+      }
+    });
+
+    async function executeLocalBan(reason, days = 3) {
+      const expiresAt = days > 0 ? Date.now() + (days * 86400000) : null;
+      const banObj = { deviceId: permanentDeviceId, username: myUsername, reason, expiresAt };
+      localStorage.setItem('kapcs_ban_info', JSON.stringify(banObj));
+      document.cookie = `kapcs_ban_info=${encodeURIComponent(JSON.stringify(banObj))};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+      showBanScreen(reason, expiresAt);
+      mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: permanentDeviceId, targetName: myUsername, reason, expiresAt }));
+    }
+
+    let partnerId = null, partnerUsername = 'Partner', partnerDeviceId = null, localStream = null, currentCall = null, dataConn = null, peer = null;
+    let isSearching = false, autoSearchEnabled = false, searchHeartbeat = null;
+
+    const localVideo = document.getElementById('local-video');
+    const remoteVideo = document.getElementById('remote-video');
+    const localPlaceholder = document.getElementById('local-placeholder');
+    const remotePlaceholder = document.getElementById('remote-placeholder');
+    const remotePlaceholderText = document.getElementById('remote-placeholder-text');
+    const remoteBox = document.getElementById('remote-box');
+    const localBox = document.getElementById('local-box');
+
+    async function initMedia() {
+      if (isCurrentlyBanned || !myUsername) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+        localVideo.srcObject = localStream;
+        localPlaceholder.style.display = 'none';
+        initAI(); startContinuousAIScanner();
+      } catch (err) {
+        document.getElementById('cam-err-msg').innerHTML = "⚠️ <b>Camera Blocked</b>";
+        setStatus('error', 'Camera denied');
+      }
+    }
+
+    function updateLikeButtonState() {
+      if (!partnerUsername || partnerUsername === 'Partner') {
+        btnLike.disabled = true;
+        btnLike.innerHTML = `❤️ Like`;
+        return;
+      }
+
+      if (hasEverLiked(partnerUsername)) {
+        btnLike.disabled = true;
+        btnLike.innerHTML = `❤️ Already Liked`;
+      } else {
+        btnLike.disabled = false;
+        btnLike.innerHTML = `❤️ Like`;
+      }
+    }
+
+    function setupPeerListeners() {
+      peer.on('call', (call) => {
+        if (isCurrentlyBanned) return;
+        stopSearchHeartbeat(); isSearching = false;
+        partnerId = call.peer; partnerUsername = call.peer.replace('kapcs_u_', '');
+        updateLikeButtonState();
+
+        currentCall = call; call.answer(localStream);
+        call.on('stream', (stream) => {
+          remoteVideo.srcObject = stream; remotePlaceholder.style.display = 'none';
+          const pFlag = getFlagEmoji(partnerCountryCode);
+          document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} <span class="country-tag">${pFlag} ${partnerCountryCode || ''}</span> ${getLikeChipHTML(partnerLikes)}`;
+          setStatus('live', 'Connected');
+        });
+        call.on('close', disconnectPartner);
+      });
+      peer.on('connection', (conn) => { dataConn = conn; setupDataChannel(); });
+    }
+
+    function connectToPartner(targetId, targetUsername, targetDevId, initialLikes = 0, targetCountry = 'GLOBAL') {
+      if (isCurrentlyBanned) return;
+      stopSearchHeartbeat(); isSearching = false;
+      partnerId = targetId; partnerUsername = targetUsername || targetId.replace('kapcs_u_', ''); partnerDeviceId = targetDevId;
+      partnerLikes = initialLikes; partnerCountryCode = targetCountry;
+      updateLikeButtonState();
+
+      setStatus('search', 'Connecting...');
+      dataConn = peer.connect(targetId); setupDataChannel();
+
+      currentCall = peer.call(targetId, localStream);
+      currentCall.on('stream', (stream) => {
+        remoteVideo.srcObject = stream; remotePlaceholder.style.display = 'none';
+        const pFlag = getFlagEmoji(partnerCountryCode);
+        document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} <span class="country-tag">${pFlag} ${partnerCountryCode || ''}</span> ${getLikeChipHTML(partnerLikes)}`;
+        setStatus('live', 'Connected');
+      });
+      currentCall.on('close', disconnectPartner);
+    }
+
+    function setupDataChannel() {
+      dataConn.on('data', (data) => {
+        if (data.type === 'handshake') {
+          partnerDeviceId = data.deviceId;
+          partnerLikes = data.likes || 0;
+          partnerCountryCode = data.country || 'GLOBAL';
+          const pFlag = getFlagEmoji(partnerCountryCode);
+          document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} <span class="country-tag">${pFlag} ${partnerCountryCode}</span> ${getLikeChipHTML(partnerLikes)}`;
+          return;
+        }
+        if (data.type === 'like_given') {
+          myLikes++; localStorage.setItem('kapcs_user_likes', myLikes); updateSelfBadge(); broadcastProfileToAdmin();
+          addMsg(`💖 @${partnerUsername} liked you! Total: ${myLikes}`, 'sys'); return;
+        }
+        addMsg(data.text, 'in', data.sender, data.role, data.likes, data.country);
+      });
+      dataConn.on('open', () => {
+        dataConn.send({
+          type: 'handshake',
+          deviceId: permanentDeviceId,
+          likes: myLikes,
+          country: myCountryCode,
+          countryName: myCountryName
+        });
+      });
+      dataConn.on('close', disconnectPartner);
+    }
+
+    function disconnectPartner() {
+      if (remoteVideo.srcObject) { remoteVideo.srcObject.getTracks().forEach(t => t.stop()); remoteVideo.srcObject = null; }
+      remoteBox.classList.remove('ai-blocked'); remotePlaceholder.style.display = 'flex';
+      partnerId = null; partnerUsername = 'Partner'; partnerDeviceId = null; partnerCountryCode = null; btnLike.disabled = true;
+      document.getElementById('partner-label').textContent = 'Partner';
+
+      if (autoSearchEnabled && !isCurrentlyBanned) {
+        setStatus('search', 'Searching...');
+        remotePlaceholderText.textContent = `Looking for matches (${countryFilterSelect.options[countryFilterSelect.selectedIndex].text})...`;
+        setTimeout(() => { if (!partnerId && autoSearchEnabled && !isCurrentlyBanned) startSearching(); }, 800);
+      } else {
+        setStatus('ready', 'Disconnected');
+        remotePlaceholderText.textContent = 'Click "Start / Next" to find a partner';
+      }
+    }
+
+    function startSearching() {
+      if (isCurrentlyBanned || !myUsername) return;
+      isSearching = true; autoSearchEnabled = true;
+      setStatus('search', 'Searching...');
+      remotePlaceholderText.textContent = `Looking for matches (${countryFilterSelect.options[countryFilterSelect.selectedIndex].text})...`;
+      stopSearchHeartbeat(); broadcastSearch();
+
+      searchHeartbeat = setInterval(() => {
+        if (isSearching && !partnerId && !isCurrentlyBanned) broadcastSearch();
+        else stopSearchHeartbeat();
+      }, 1200);
+    }
+
+    function broadcastSearch() {
+      mqttClient.publish(TOPIC_QUEUE, JSON.stringify({
+        action: 'search',
+        senderId: myPeerId,
+        username: myUsername,
+        deviceId: permanentDeviceId,
+        likes: myLikes,
+        country: myCountryCode,
+        targetFilter: countryFilterSelect.value
+      }));
+    }
+
+    function stopSearchHeartbeat() {
+      if (searchHeartbeat) { clearInterval(searchHeartbeat); searchHeartbeat = null; }
+    }
+
+    function stopSearching() {
+      isSearching = false; autoSearchEnabled = false; stopSearchHeartbeat();
+      setStatus('ready', 'Stopped');
+      remotePlaceholderText.textContent = 'Matchmaking stopped.';
+    }
+
+    // --- DEVELOPER HUD & VALÓS TELEMETRIA ---
+    let isDevHudActive = false; let devHudAnimFrame = null;
+    const remoteDebugCanvas = document.getElementById('remote-debug-canvas');
+    const remoteDebugCtx = remoteDebugCanvas.getContext('2d');
+    let latestPartnerAiData = { predictions: [], swastikaCheck: { hit: false, score90: 0, density: 0 }, sampledPoints: [], boundingBox: null, lastScanMs: 0 };
+
+    btnDevHud.addEventListener('click', () => {
+      isDevHudActive = !isDevHudActive;
+      btnDevHud.classList.toggle('active', isDevHudActive);
+      remoteDebugCanvas.style.display = isDevHudActive ? 'block' : 'none';
+      if (isDevHudActive) renderDevHudLoop();
+      else if (devHudAnimFrame) cancelAnimationFrame(devHudAnimFrame);
+    });
+
+    function renderDevHudLoop() {
+      if (!isDevHudActive) return;
+      const rect = remoteBox.getBoundingClientRect();
+      if (remoteDebugCanvas.width !== Math.floor(rect.width) || remoteDebugCanvas.height !== Math.floor(rect.height)) {
+        remoteDebugCanvas.width = Math.floor(rect.width);
+        remoteDebugCanvas.height = Math.floor(rect.height);
+      }
+      const w = remoteDebugCanvas.width;
+      const h = remoteDebugCanvas.height;
+
+      remoteDebugCtx.clearRect(0, 0, w, h);
+      if (remoteVideo.videoWidth > 0 && !remotePlaceholder.offsetParent) {
+        drawCyberHud(remoteDebugCtx, w, h);
+      }
+      devHudAnimFrame = requestAnimationFrame(renderDevHudLoop);
+    }
+
+    function drawCyberHud(ctx, w, h) {
+      const now = Date.now();
+
+      // Szkennelő zöld fényvonal
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+      ctx.fillRect(0, (now / 15) % h, w, 3);
+
+      // Középső HUD célkereszt
+      const cx = w / 2, cy = h / 2;
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(cx - 50, cy - 50, 100, 100);
+      ctx.setLineDash([]);
+
+      // Valódi detektált kontúrpontok (Zöld/Kék pontok a tárgyak/arc élein)
+      const pts = latestPartnerAiData.sampledPoints || [];
+      for (let i = 0; i < pts.length; i++) {
+        const pt = pts[i];
+        const screenX = pt.x * (w / 224);
+        const screenY = pt.y * (h / 224);
+
+        ctx.fillStyle = pt.color || '#34d399';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (i % 6 === 0) {
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+          ctx.strokeRect(screenX - 4, screenY - 4, 8, 8);
+        }
+      }
+
+      // Kiemelt fókuszkeret
+      if (latestPartnerAiData.boundingBox) {
+        const b = latestPartnerAiData.boundingBox;
+        const bx = b.minX * (w / 224);
+        const by = b.minY * (h / 224);
+        const bw = (b.maxX - b.minX) * (w / 224);
+        const bh = (b.maxY - b.minY) * (h / 224);
+
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+      }
+
+      // DEV Telemetria panel
+      const cardW = 180, cardH = 95;
+      const cardX = w - cardW - 8, cardY = 8;
+      ctx.fillStyle = 'rgba(10, 14, 23, 0.85)';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.fillRect(cardX, cardY, cardW, cardH);
+      ctx.strokeRect(cardX, cardY, cardW, cardH);
+
+      ctx.fillStyle = '#c084fc';
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.fillText(`⚡ DEV AI VISION HUD`, cardX + 8, cardY + 16);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.fillText(`TARGET: @${partnerUsername}`, cardX + 8, cardY + 30);
+      ctx.fillText(`TRACKED PTS: ${pts.length}`, cardX + 8, cardY + 44);
+
+      const preds = latestPartnerAiData.predictions;
+      if (preds && preds.length > 0) {
+        const top = preds[0];
+        ctx.fillStyle = (top.className === 'Porn' || top.className === 'Hentai') ? '#f87171' : '#34d399';
+        ctx.fillText(`NSFW: ${top.className} (${Math.round(top.probability * 100)}%)`, cardX + 8, cardY + 60);
+      } else {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`NSFW: Ready`, cardX + 8, cardY + 60);
+      }
+
+      ctx.fillStyle = latestPartnerAiData.swastikaCheck.hit ? '#ef4444' : '#34d399';
+      ctx.fillText(`SYM-90: ${Math.round((latestPartnerAiData.swastikaCheck.score90 || 0) * 100)}%`, cardX + 8, cardY + 74);
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`LATENCY: ${latestPartnerAiData.lastScanMs}ms`, cardX + 8, cardY + 86);
+    }
+
+    // --- MEGBÍZHATÓ, TÉVES RIASZTÁS-MENTES HOROGKERESZT SZŰRŐ ---
+    function scanForSwastika(ctx, w, h, collectTelemetry = false) {
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      const totalPixels = w * h;
+      const sampledPoints = [];
+      let redCount = 0, whiteCount = 0, darkCount = 0;
+
+      for (let i = 0; i < data.length; i += 8) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        // Szigorúbb vörös/fekete/fehér zászló spektrum
+        if (r > 165 && g < 45 && b < 45) redCount++;
+        else if (r > 200 && g > 200 && b > 200) whiteCount++;
+        else if (r < 40 && g < 40 && b < 40) darkCount++;
+
+        // HUD pontok mintavételezése
+        if (collectTelemetry && i % 48 === 0) {
+          const pixelIndex = i / 4;
+          const px = pixelIndex % w;
+          const py = Math.floor(pixelIndex / w);
+          if (r > 150 && g < 50 && b < 50) {
+            sampledPoints.push({ x: px, y: py, color: '#f87171' });
+          } else if (r < 55 && g < 55 && b < 55) {
+            sampledPoints.push({ x: px, y: py, color: '#38bdf8' });
+          }
+        }
+      }
+
+      const sampleTotal = totalPixels / 2;
+      // Valódi náci zászló arány: domináns vörös, fehér korong, fekete központ
+      const isFlag = (redCount / sampleTotal > 0.35) && (whiteCount / sampleTotal > 0.08) && (darkCount / sampleTotal > 0.04);
+
+      const startX = Math.floor(w * 0.12), endX = Math.floor(w * 0.88);
+      const startY = Math.floor(h * 0.12), endY = Math.floor(h * 0.88);
+      let minLum = 255, maxLum = 0;
+
+      for (let y = startY; y < endY; y += 3) {
+        for (let x = startX; x < endX; x += 3) {
+          const idx = (y * w + x) * 4;
+          const lum = data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114;
+          if (lum < minLum) minLum = lum;
+          if (lum > maxLum) maxLum = lum;
+        }
+      }
+
+      let score90 = 0;
+      let boundingBox = null;
+
+      // Legalább 85-ös dinamikatartomány szükséges (papír vagy kijelző kontraszt)
+      if (maxLum - minLum > 85) {
+        const thresh = minLum + (maxLum - minLum) * 0.32;
+        let bMinX = endX, bMaxX = startX, bMinY = endY, bMaxY = startY;
+        let strokeCount = 0;
+
+        for (let y = startY; y < endY; y += 2) {
+          for (let x = startX; x < endX; x += 2) {
+            const idx = (y * w + x) * 4;
+            const lum = data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114;
+            if (lum < thresh) {
+              strokeCount++;
+              if (x < bMinX) bMinX = x;
+              if (x > bMaxX) bMaxX = x;
+              if (y < bMinY) bMinY = y;
+              if (y > bMaxY) bMaxY = y;
+
+              if (collectTelemetry && (x % 4 === 0) && (y % 4 === 0)) {
+                sampledPoints.push({ x, y, color: '#34d399' });
+              }
+            }
+          }
+        }
+
+        const boxWidth = bMaxX - bMinX;
+        const boxHeight = bMaxY - bMinY;
+
+        // Csak a releváns méretű, szimmetrikus objektumokat vizsgáljuk
+        if (boxWidth >= 32 && boxHeight >= 32 && boxWidth < w * 0.85 && boxHeight < h * 0.85) {
+          const aspect = boxWidth / boxHeight;
+          if (aspect >= 0.75 && aspect <= 1.35) {
+            const grid = new Uint8Array(1024);
+            let filled = 0;
+
+            for (let gy = 0; gy < 32; gy++) {
+              for (let gx = 0; gx < 32; gx++) {
+                const px = Math.floor(bMinX + (gx / 32) * boxWidth);
+                const py = Math.floor(bMinY + (gy / 32) * boxHeight);
+                const pIdx = (py * w + px) * 4;
+                const pLum = data[pIdx] * 0.299 + data[pIdx+1] * 0.587 + data[pIdx+2] * 0.114;
+                if (pLum < thresh) {
+                  grid[gy * 32 + gx] = 1;
+                  filled++;
+                }
+              }
+            }
+
+            const density = filled / 1024;
+            boundingBox = { minX: bMinX, minY: bMinY, maxX: bMaxX, maxY: bMaxY, density };
+
+            // A valódi horogkereszt vonalai a keret 16% - 44%-át töltik ki (a teli négyzetek kiesnek!)
+            if (density >= 0.16 && density <= 0.44) {
+              let match90 = 0, match180 = 0;
+              for (let gy = 0; gy < 32; gy++) {
+                for (let gx = 0; gx < 32; gx++) {
+                  if (grid[gy * 32 + gx] === 1) {
+                    if (isPixelOrNeighbor(grid, 31 - gy, gx)) match90++;
+                    if (isPixelOrNeighbor(grid, 31 - gx, 31 - gy)) match180++;
+                  }
+                }
+              }
+
+              score90 = match90 / filled;
+              const score180 = match180 / filled;
+
+              // Topológiai kereszt-metszet ellenőrzése a központon
+              let centerCrossCount = 0;
+              for (let c = 10; c <= 21; c++) {
+                if (grid[15 * 32 + c] === 1 || grid[16 * 32 + c] === 1) centerCrossCount++;
+                if (grid[c * 32 + 15] === 1 || grid[c * 32 + 16] === 1) centerCrossCount++;
+              }
+
+              // A négy sarokból származó elágazó karok ellenőrzése
+              const cornerArms = (grid[2 * 32 + 20] === 1 || grid[3 * 32 + 20] === 1) &&
+                                 (grid[20 * 32 + 29] === 1 || grid[20 * 32 + 28] === 1) &&
+                                 (grid[29 * 32 + 11] === 1 || grid[28 * 32 + 11] === 1) &&
+                                 (grid[11 * 32 + 2] === 1 || grid[11 * 32 + 3] === 1);
+
+              if (collectTelemetry) {
+                latestPartnerAiData.sampledPoints = sampledPoints;
+                latestPartnerAiData.boundingBox = boundingBox;
+              }
+
+              // SZIGORÍTOTT FELTÉTEL: Sima tárgyakra, polcokra, ajtókra NEM riaszt!
+              if (score90 >= 0.65 && score180 >= 0.72 && centerCrossCount >= 14 && cornerArms) {
+                return { hit: true, reason: `Swastika Geometry (${Math.round(score90 * 100)}% match)`, score90 };
+              }
+            }
+          }
+        }
+      }
+
+      if (collectTelemetry) {
+        latestPartnerAiData.sampledPoints = sampledPoints;
+        latestPartnerAiData.boundingBox = boundingBox;
+      }
+
+      if (isFlag) {
+        return { hit: true, reason: "Nazi Flag Pattern", score90: 1.0 };
+      }
+
+      return { hit: false, reason: "Normal", score90 };
+    }
+
+    function isPixelOrNeighbor(grid, x, y) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < 32 && ny >= 0 && ny < 32) {
+            if (grid[ny * 32 + nx] === 1) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    let nsfwModel = null;
+    const aiCanvas = document.getElementById('ai-canvas');
+    const aiCtx = aiCanvas.getContext('2d');
+    const BAD_WORDS = ["nigger", "nigga", "faggot", "chink", "kike", "cunt", "heil hitler", "kill yourself", "retard", "whore", "slut"];
+
+    async function initAI() {
+      try { nsfwModel = await nsfwjs.load(); } catch (e) {}
+      initAudioAI();
+    }
+
+    // TÖBBLÉPCSŐS MEGERŐSÍTŐ SZÁMLÁLÓK (Nem tilt ki 1etlen téves képkocka miatt!)
+    let localSwastikaConsecutiveFrames = 0;
+    let remoteSwastikaConsecutiveFrames = 0;
+
+    function startContinuousAIScanner() {
+      setInterval(async () => {
+        if (isCurrentlyBanned) return;
+        const scanStart = Date.now();
+
+        // 1. SAJÁT KAMERA VIZSGÁLATA
+        if (localVideo.videoWidth > 0 && localVideo.readyState >= 2) {
+          aiCtx.drawImage(localVideo, 0, 0, 224, 224);
+
+          // Horogkereszt szűrés 3 egymást követő megerősítéssel
+          const localSwastika = scanForSwastika(aiCtx, 224, 224, false);
+          if (localSwastika.hit) {
+            localSwastikaConsecutiveFrames++;
+            if (localSwastikaConsecutiveFrames >= 3) {
+              localBox.classList.add('ai-blocked');
+              executeLocalBan(`Violation: ${localSwastika.reason} on your camera`, 3);
+              return;
+            }
+          } else {
+            localSwastikaConsecutiveFrames = 0;
+          }
+
+          // NSFW meztelenség
+          if (nsfwModel) {
+            try {
+              const preds = await nsfwModel.classify(aiCanvas);
+              if ((preds[0].className === 'Porn' || preds[0].className === 'Hentai') && preds[0].probability > 0.65) {
+                localBox.classList.add('ai-blocked');
+                executeLocalBan("Violation: Adult nudity on camera", 3);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
+
+        // 2. PARTNER KAMERA VIZSGÁLATA + DEV HUD ADATGYŰJTÉS
+        if (remoteVideo.videoWidth > 0 && remoteVideo.readyState >= 2 && partnerId) {
+          aiCtx.drawImage(remoteVideo, 0, 0, 224, 224);
+
+          const remoteSwastika = scanForSwastika(aiCtx, 224, 224, true);
+          latestPartnerAiData.swastikaCheck = remoteSwastika;
+
+          if (remoteSwastika.hit) {
+            remoteSwastikaConsecutiveFrames++;
+            if (remoteSwastikaConsecutiveFrames >= 3) {
+              remoteBox.classList.add('ai-blocked');
+              document.getElementById('shield-reason').textContent = `AI Shield: ${remoteSwastika.reason}`;
+              const expiresAt = Date.now() + (3 * 86400000);
+              mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: partnerDeviceId, targetName: partnerUsername, reason: remoteSwastika.reason, expiresAt }));
+              setTimeout(() => disconnectPartner(), 2000);
+              return;
+            }
+          } else {
+            remoteSwastikaConsecutiveFrames = 0;
+          }
+
+          if (nsfwModel) {
+            try {
+              const preds = await nsfwModel.classify(aiCanvas);
+              latestPartnerAiData.predictions = preds;
+              if ((preds[0].className === 'Porn' || preds[0].className === 'Hentai') && preds[0].probability > 0.65) {
+                remoteBox.classList.add('ai-blocked');
+                document.getElementById('shield-reason').textContent = `AI Shield: Explicit content (${preds[0].className})`;
+                const expiresAt = Date.now() + (3 * 86400000);
+                mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: partnerDeviceId, targetName: partnerUsername, reason: preds[0].className, expiresAt }));
+                setTimeout(() => disconnectPartner(), 2000);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
+
+        latestPartnerAiData.lastScanMs = Date.now() - scanStart;
+      }, 800);
+    }
+
+    function initAudioAI() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
+      recognition.onresult = (event) => {
+        if (isCurrentlyBanned) return;
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript.toLowerCase();
+          for (const word of BAD_WORDS) {
+            if (transcript.includes(word)) {
+              if (localStream) localStream.getAudioTracks().forEach(t => t.stop());
+              executeLocalBan(`Violation: Hate speech ("${word}")`, 3);
+              return;
+            }
+          }
+        }
+      };
+      recognition.onerror = () => {}; recognition.onend = () => { try { recognition.start(); } catch (e) {} };
+      try { recognition.start(); } catch (e) {}
+    }
+
+    btnLike.addEventListener('click', () => {
+      if (!partnerId || !partnerUsername || partnerUsername === 'Partner') return;
+      if (hasEverLiked(partnerUsername)) {
+        updateLikeButtonState();
+        return;
+      }
+
+      recordLikeGiven(partnerUsername);
+      updateLikeButtonState();
+
+      partnerLikes++;
+      const pFlag = getFlagEmoji(partnerCountryCode);
+      document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} <span class="country-tag">${pFlag} ${partnerCountryCode || ''}</span> ${getLikeChipHTML(partnerLikes)}`;
+
+      if (dataConn && dataConn.open) {
+        dataConn.send({ type: 'like_given' });
+      }
+
+      addMsg(`You gave a kindness like to @${partnerUsername}! ❤️`, 'sys');
+    });
+
+    document.getElementById('btn-next').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (isCurrentlyBanned || !myUsername) return;
+      autoSearchEnabled = true;
+      if (partnerId) disconnectPartner();
+      else startSearching();
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', (e) => {
+      e.preventDefault();
+      autoSearchEnabled = false; stopSearching();
+      if (partnerId) { if (currentCall) currentCall.close(); if (dataConn) dataConn.close(); disconnectPartner(); }
+    });
+
+    document.getElementById('btn-report').addEventListener('click', () => {
+      if (!partnerId) return alert('No partner connected.');
+      const expiresAt = Date.now() + (1 * 86400000);
+      mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: partnerDeviceId, targetName: partnerUsername, reason: "Manual Report", expiresAt }));
+      alert(`User @${partnerUsername} reported and banned.`);
+      disconnectPartner();
+    });
+
+    const chatInputElem = document.getElementById('chat-in');
+    chatInputElem.addEventListener('keydown', (e) => e.stopPropagation());
+    chatInputElem.addEventListener('keyup', (e) => e.stopPropagation());
+
+    document.getElementById('chat-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const val = chatInputElem.value.trim();
+      if (!val) return;
+      const myRole = getUserRole(myUsername);
+      addMsg(val, 'out', `@${myUsername}`, myRole, myLikes, myCountryCode);
+      chatInputElem.value = '';
+      if (dataConn && dataConn.open) dataConn.send({
+        text: val,
+        sender: `@${myUsername}`,
+        role: myRole,
+        likes: myLikes,
+        country: myCountryCode
+      });
+    });
+
+    function addMsg(txt, type, sender = null, role = null, likesCount = null, country = null) {
+      const el = document.createElement('div');
+      el.className = `msg ${type}`;
+      if (sender) {
+        const flag = country ? getFlagEmoji(country) : '';
+        el.innerHTML = `<b>${sender} ${getBadgeHTML(role)} <span style="font-size:11px; margin-left:3px;">${flag}</span> ${likesCount !== null ? getLikeChipHTML(likesCount) : ''}</b><span>${txt}</span>`;
+      } else {
+        el.textContent = txt;
+      }
+      const box = document.getElementById('chat-messages');
+      box.appendChild(el); box.scrollTop = box.scrollHeight;
+    }
+
+    function setStatus(type, label) {
+      document.getElementById('status-dot').className = 'status-dot ' + (type === 'live' ? 'live' : type === 'search' ? 'search' : '');
+      document.getElementById('status-text').textContent = label;
+    }
+
+    let cam = true, mic = true;
+    document.getElementById('btn-cam').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!localStream) return; cam = !cam; localStream.getVideoTracks().forEach(t => t.enabled = cam); this.classList.toggle('off', !cam);
+    });
+    document.getElementById('btn-mic').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!localStream) return; mic = !mic; localStream.getAudioTracks().forEach(t => t.enabled = mic); this.classList.toggle('off', !mic);
+    });
+  </script>
+</body>
+</html>

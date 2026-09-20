@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-MX Szimulátor — Sur-Ron Light Bee X / Stark VARG MX</title>
+<style>
+  :root{ --bg:#0b0f14; --panel:rgba(10,14,20,.88); --line:#1d2632;
+         --acc:#10b981; --acc2:#38bdf8; --warn:#f59e0b; --bad:#ef4444;
+         --txt:#e6edf3; --dim:#8b97a6; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--txt)}
+  canvas{display:block}
+  #hud{position:fixed;inset:0;pointer-events:none;display:none}
+  .panel{position:absolute;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;backdrop-filter:blur(8px);font-size:11px;line-height:1.5}
+  #left{top:12px;left:12px;width:246px}
+  #right{top:12px;right:12px;width:232px}
+  #bottom{position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:10px;align-items:flex-end}
+  #keys{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:8px 12px;font-size:10px;color:var(--dim);backdrop-filter:blur(8px)}
+  #keys b{color:var(--acc);background:#18212c;border:1px solid #2b3644;
+    border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:600}
+  h3{margin:0 0 8px;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--acc)}
+  h4{margin:9px 0 4px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+  .row{display:flex;justify-content:space-between;gap:8px}
+  .row span:last-child{color:var(--acc2);font-variant-numeric:tabular-nums}
+  .bar{height:7px;background:#141b24;border-radius:4px;overflow:hidden;margin:3px 0 6px;position:relative}
+  .bar i{display:block;height:100%;border-radius:4px}
+  .bar u{position:absolute;top:-2px;width:1px;height:11px;background:#5b6875}
+  .tempbar{height:9px;background:linear-gradient(90deg,#1e3a8a,#0891b2,#10b981,#eab308,#ef4444);
+    border-radius:4px;position:relative;margin:3px 0 7px}
+  .tempbar u{position:absolute;top:-3px;width:2px;height:15px;background:#fff;border-radius:1px;
+    box-shadow:0 0 5px #000}
+  .tempbar o{position:absolute;top:0;height:9px;border:1px solid rgba(255,255,255,.65);
+    border-radius:3px;box-sizing:border-box}
+  #speedo{font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:.95;color:#fff;
+    font-variant-numeric:tabular-nums}
+  #speedo small{font-size:12px;color:var(--dim);font-weight:400;letter-spacing:.06em}
+  #tele{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px}
+  #flash{position:absolute;top:42%;left:0;right:0;text-align:center;font-size:19px;
+    font-weight:700;letter-spacing:.05em;opacity:0;transition:opacity .3s;text-shadow:0 2px 14px #000}
+  .mat{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  /* ---------- MENÜ ---------- */
+  #menu{position:fixed;inset:0;z-index:20;background:
+     radial-gradient(1100px 620px at 50% -10%,#16212e 0%,#0b0f14 62%);
+     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+     padding:22px;overflow:auto}
+  #menu h1{margin:0;font-size:25px;letter-spacing:.15em;font-weight:700;text-align:center}
+  #menu h1 em{font-style:normal;color:var(--acc)}
+  #menu p.sub{margin:0;color:var(--dim);font-size:11px;letter-spacing:.09em;text-align:center}
+  .cols{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:1180px}
+  .col{background:rgba(14,19,26,.9);border:1px solid var(--line);border-radius:12px;
+    padding:12px;width:290px}
+  .col h2{margin:0 0 9px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+  .opt{display:block;width:100%;text-align:left;background:#121922;border:1px solid #232d3a;
+    color:var(--txt);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;
+    font-family:inherit;font-size:11.5px;line-height:1.45;transition:.12s}
+  .opt:hover{border-color:#3a4a5e;background:#17202b}
+  .opt.sel{border-color:var(--acc);background:#10261f;box-shadow:inset 0 0 0 1px rgba(16,185,129,.28)}
+  .opt b{display:block;font-size:12.5px;margin-bottom:2px}
+  .opt small{color:var(--dim);font-size:10px;display:block}
+  .opt .tag{display:inline-block;font-size:9px;color:#0b0f14;background:var(--acc);
+    border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:1px;font-weight:700}
+  #go{background:var(--acc);color:#04120d;border:none;border-radius:9px;padding:12px 40px;
+    font-family:inherit;font-weight:700;font-size:13px;letter-spacing:.11em;cursor:pointer}
+  #go:hover{filter:brightness(1.1)}
+  #press{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);margin-top:4px}
+  #press input{flex:1;accent-color:var(--acc)}
+  #press b{color:var(--acc2);min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+  #spec{font-size:10px;color:var(--dim);line-height:1.6;border-top:1px solid var(--line);
+    margin-top:8px;padding-top:8px}
+  #spec s{text-decoration:none;color:var(--acc2)}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>E-MX <em>SZIMULÁTOR</em></h1>
+  <p class="sub">multibody váz · hidraulikus felfüggesztés · flexibilis-gyűrűs gumi · termodinamika · terramechanika</p>
+  <div class="cols">
+    <div class="col"><h2>Gép</h2><div id="mBikes"></div><div id="spec"></div></div>
+    <div class="col"><h2>Gumi</h2><div id="mTires"></div>
+      <div id="press"><span>nyomás</span><input id="pSlide" type="range" min="45" max="200" step="5"><b id="pVal"></b></div>
+    </div>
+    <div class="col"><h2>Pálya</h2><div id="mMaps"></div></div>
+  </div>
+  <button id="go">INDÍTÁS</button>
+  <p class="sub" style="opacity:.6">ESC — vissza a menübe</p>
+</div>
+
+<div id="hud">
+  <div class="panel" id="left">
+    <h3 id="bikeName">—</h3>
+    <div class="row"><span>Első teleszkóp</span><span id="fTrav">—</span></div>
+    <div class="bar"><i id="fBar" style="width:0;background:var(--acc)"></i><u id="fSag"></u></div>
+    <div class="row"><span>Hátsó kerékút</span><span id="rTrav">—</span></div>
+    <div class="bar"><i id="rBar" style="width:0;background:var(--acc)"></i><u id="rSag"></u></div>
+    <div class="row"><span>Olajhő E / H</span><span id="oilT">—</span></div>
+    <div class="row"><span>Csillapítás-eltérés</span><span id="fade">—</span></div>
+    <div class="row"><span>Bottom-out E / H</span><span id="bo">0 / 0</span></div>
+    <h4>Statikus sag</h4>
+    <div class="row"><span>Első / Hátsó</span><span id="sag">—</span></div>
+  </div>
+
+  <div class="panel" id="right">
+    <h3 id="tireName">—</h3>
+    <div class="row"><span>ELSŐ felület</span><span id="fT">—</span></div>
+    <div class="tempbar"><o id="fWin"></o><u id="fTm"></u></div>
+    <div class="row"><span>mag / gáz</span><span id="fTc">—</span></div>
+    <div class="row"><span>nyomás</span><span id="fP">—</span></div>
+    <div class="row"><span>patch</span><span id="fCP">—</span></div>
+    <h4>Hátsó</h4>
+    <div class="row"><span>HÁTSÓ felület</span><span id="rT">—</span></div>
+    <div class="tempbar"><o id="rWin"></o><u id="rTm"></u></div>
+    <div class="row"><span>mag / gáz</span><span id="rTc">—</span></div>
+    <div class="row"><span>nyomás</span><span id="rP">—</span></div>
+    <div class="row"><span>patch</span><span id="rCP">—</span></div>
+    <div class="row"><span>slip κ</span><span id="rSlip">—</span></div>
+    <div class="row"><span>grain / sár</span><span id="rGr">—</span></div>
+    <h4>Talaj</h4>
+    <div class="row"><span id="matName">—</span><span id="matMu">—</span></div>
+  </div>
+
+  <div id="bottom">
+    <div class="panel" style="position:relative;min-width:156px">
+      <div id="speedo">0<small> km/h</small></div>
+      <div class="row" style="margin-top:6px"><span>Teljesítmény</span><span id="pwr">0 kW</span></div>
+      <div class="bar"><i id="pwrBar" style="width:0;background:var(--warn)"></i></div>
+      <div class="row"><span>Kerék-nyomaték</span><span id="trq">0 Nm</span></div>
+      <div class="row"><span>Táv</span><span id="dist">0 m</span></div>
+    </div>
+    <div id="tele"><canvas id="teleC" width="420" height="92"></canvas></div>
+    <div id="keys">
+      <div><b>W</b>gáz <b>S</b>fék <b>A</b>súly hátra (szaltó) <b>D</b>súly előre <b>SPACE</b>felállás</div>
+      <div style="margin-top:3px"><b>R</b>reset <b>1/2</b>nyomás <b>3/4</b>előfeszítés <b>5/6</b>rebound</div>
+      <div style="margin-top:3px"><b>T</b>telemetria <b>C</b>kamera <b>P</b>pause <b>ESC</b>menü</div>
+    </div>
+  </div>
+  <div id="flash"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+
+const SIM = {
+  dt: 1/1000, maxSub: 28, g: 9.81,
+  segN: 64, ringCal: 0.40, bendRatio: 0.85, ringDamp: 120,
+  sigmaRelax: 0.22, loadSensExp: -0.13, sigmaRef: 2.2e5,
+  cRub: 1900, cAir: 1005, cRim: 900,
+  C_sc: 0.75, C_cg: 1.20, C_gr: 1.00, aRim: 0.20,
+  mRider: 75, riderK: 9000, riderC: 900, riderFmax: 7500
+};
+
+const BIKES = {
+  surron: {
+    id:'surron', name:'SUR-RON LIGHT BEE X', short:'Light Bee X',
+    blurb:'47 kg váz + akku, 6 kW, 250 Nm a kerékre. Rövid tengelytáv, alacsony súlypont, ideges.',
+    spec:'57 kg · 6 kW · 250 Nm · 1260 mm · 203/210 mm rugóút · 19"/19"',
+    style:'surron',
+    wheelbase:1.260, comH:0.500, rake:26.5*Math.PI/180,
+    axleFx: 0.600, axleRx:-0.660,
+    forkL0:0.720, forkTravel:0.203,
+    swingL:0.600, swingA0:0.180, rearTravel:0.210,
+    mChassis:40.0, IChassis:2.05, mUnsF:9.0, mUnsR:8.0, IWheelF:0.215, IWheelR:0.240,
+    rimF:19, tWF:70,  arF:1.00,
+    rimR:19, tWR:70,  arR:1.00,
+    fk1:4.8e3, fk2:7.4e3, fk3:12.0e3, fx1:0.080, fx2:0.150,
+    fAirA:4.5e-4, fAirL0:0.240, fGamma:1.35, fAirPsi:95, fPreload:0.014,
+    fLSC:1400, fKneeC:0.30, fHSC:220, fLSR:4100, fKneeR:0.22, fHSR:480,
+    fStictionBase:22, fMuBush:0.085, fBushSpacing:0.155, fBottomFrac:0.926, fKBump:4.5e9,
+    fOilMass:0.42, fOilA:0.085, fOilH:11.0,
+    rSpring:40.5e3, rPreload:0.010, rMR0:0.405, rMR1:0.308,
+    rLSC:2600, rKneeC:0.28, rHSC:420, rLSR:6800, rKneeR:0.20, rHSR:900,
+    rBottomFrac:0.924, rKBump:4.2e9,
+    rOilMass:0.19, rOilA:0.042, rOilH:6.5,
+    rN2P0:900e3, rN2V0:6.0e-5, rRodA:1.13e-4,
+    wheelTmax:250, Pmax:6000, wMax:67, torqueTau:0.015,
+    brakeF:420, brakeR:260, regenMax:95, cogging:0.40, sag0F:0.060, sag0R:0.065,
+    riderAttach:{x:-0.06,y:0.34}, riderShift:0.30, riderRise:0.16, riderScale:1.0,
+    col:{frame:0xd8dde2, plastic:0x14181d, accent:0x1668c8, fork:0xcda434,
+         swing:0x9aa3ad, seat:0x101317, rim:0x1a1d21, batt:0x0f1216}
+  },
+  varg: {
+    id:'varg', name:'STARK VARG MX', short:'VARG MX',
+    blurb:'118 kg, 80 LE, 938 Nm a hátsó kerékre. 310 mm rugóút, 375 mm hasmagasság. Brutális.',
+    spec:'118 kg · 59,7 kW · 938 Nm · 1480 mm · 310/303 mm rugóút · 21"/19"',
+    style:'varg',
+    wheelbase:1.480, comH:0.620, rake:26.5*Math.PI/180,
+    axleFx: 0.720, axleRx:-0.760,
+    forkL0:0.900, forkTravel:0.310,
+    swingL:0.580, swingA0:0.200, rearTravel:0.303,
+    mChassis:91.0, IChassis:5.20, mUnsF:13.0, mUnsR:14.0, IWheelF:0.330, IWheelR:0.360,
+    rimF:21, tWF:80,  arF:1.00,
+    rimR:19, tWR:110, arR:0.90,
+    fk1:5.2e3, fk2:6.4e3, fk3:9.5e3, fx1:0.140, fx2:0.240,
+    fAirA:1.60e-3, fAirL0:0.360, fGamma:1.35, fAirPsi:17, fPreload:0.038,
+    fLSC:2200, fKneeC:0.35, fHSC:360, fLSR:6000, fKneeR:0.26, fHSR:760,
+    fStictionBase:30, fMuBush:0.070, fBushSpacing:0.210, fBottomFrac:0.935, fKBump:5.5e9,
+    fOilMass:0.72, fOilA:0.150, fOilH:13.0,
+    rSpring:45.5e3, rPreload:0.012, rMR0:0.375, rMR1:0.285,
+    rLSC:3200, rKneeC:0.35, rHSC:520, rLSR:8200, rKneeR:0.26, rHSR:1100,
+    rBottomFrac:0.935, rKBump:5.0e9,
+    rOilMass:0.34, rOilA:0.070, rOilH:9.0,
+    rN2P0:1100e3, rN2V0:1.1e-4, rRodA:2.01e-4,
+    wheelTmax:938, Pmax:59700, wMax:92, torqueTau:0.012,
+    brakeF:700, brakeR:320, regenMax:260, cogging:0.25, sag0F:0.095, sag0R:0.100,
+    riderAttach:{x:-0.05,y:0.40}, riderShift:0.34, riderRise:0.20, riderScale:1.0,
+    col:{frame:0x2a2f36, plastic:0x1b1f25, accent:0xd62828, fork:0xb9a06a,
+         swing:0xb6bcc4, seat:0x15181c, rim:0x22262b, batt:0x191d23}
+  }
+};
+
+const TIRES = {
+  mx_int:{ name:'MX INTERMEDIATE', blurb:'Univerzális krosszgumi.',
+    muMul:[1.00,0.95,0.90,0.85,0.80,1.00], muPeak:1.42, muFloor:0.72,
+    Topt:62, wCold:34, wHot:46, knob:0.012, kCarc:42e3, kPress:620,
+    lossF:0.12, clogK:0.9, wear:1.0, pDef:110, pMin:70, pMax:190 },
+  mx_soft:{ name:'MX SOFT / SAND', blurb:'Laza talajon király, sziklán tekereg.',
+    muMul:[0.88,1.15,1.10,0.70,0.62,0.95], muPeak:1.46, muFloor:0.74,
+    Topt:58, wCold:36, wHot:44, knob:0.017, kCarc:38e3, kPress:590,
+    lossF:0.15, clogK:0.6, wear:1.4, pDef:90, pMin:55, pMax:160 },
+  gummy:{ name:'TRIAL GUMMY (FIM soft)', blurb:'Lágy karkassz. Sziklán tapad.',
+    muMul:[1.05,0.80,0.95,1.45,1.30,1.05], muPeak:1.55, muFloor:0.80,
+    Topt:48, wCold:40, wHot:54, knob:0.009, kCarc:27e3, kPress:520,
+    lossF:0.19, clogK:1.1, wear:1.8, pDef:60, pMin:45, pMax:120 },
+  paddle:{ name:'HOMOK LAPÁT (paddle)', blurb:'Dűnén verhetetlen, máshol használhatatlan.',
+    muMul:[0.55,1.55,0.85,0.35,0.30,0.70], muPeak:1.50, muFloor:0.80,
+    Topt:55, wCold:38, wHot:46, knob:0.028, kCarc:44e3, kPress:640,
+    lossF:0.17, clogK:0.4, wear:2.2, pDef:85, pMin:55, pMax:150 },
+  supermoto:{ name:'SUPERMOTO SLICK', blurb:'Aszfalton és sziklán brutális — de FEL KELL MELEGÍTENI.',
+    muMul:[1.30,0.45,0.35,1.55,0.60,0.75], muPeak:1.62, muFloor:0.40,
+    Topt:82, wCold:24, wHot:32, knob:0.000, kCarc:64e3, kPress:760,
+    lossF:0.10, clogK:1.4, wear:0.7, pDef:160, pMin:110, pMax:230 }
+};
+
+const MATS = [
+  {cls:0, mu:0.92, c:6000,  phi:0.59, kth:0.9, Tg:36, er:0.35, col:0x5c4634, name:'Kemény föld'},
+  {cls:1, mu:0.58, c:1000,  phi:0.49, kth:0.25,Tg:46, er:1.00, col:0xb39a68, name:'Laza homok'},
+  {cls:2, mu:0.41, c:14000, phi:0.21, kth:0.6, Tg:14, er:0.75, col:0x36302a, name:'Nedves sár'},
+  {cls:3, mu:1.15, c:1e9,   phi:0.0,  kth:1.8, Tg:54, er:0.0,  col:0x736f68, name:'Száraz szikla'},
+  {cls:4, mu:0.36, c:1e9,   phi:0.0,  kth:2.9, Tg:17, er:0.0,  col:0x47535e, name:'Nedves szikla'},
+  {cls:5, mu:0.72, c:9000,  phi:0.45, kth:0.7, Tg:30, er:0.45, col:0x4e6338, name:'Fű / talaj'},
+  {cls:0, mu:0.98, c:9000,  phi:0.61, kth:1.0, Tg:38, er:0.55, col:0x6b4f36, name:'Előkészített loam'}
+];
+
+const MAPS = {
+  mx:{ name:'KROSSZPÁLYA', blurb:'Előkészített loam, tabletopok, dupla.', Tamb:24, sky:0x8fb4d6, fog:[45,210], len:1500 },
+  enduro:{ name:'ERDEI ENDURO', blurb:'Gyökér, sár, nedves szikla.', Tamb:11, sky:0x8d9aa4, fog:[30,140], len:1500 },
+  rock:{ name:'SZIKLAKANYON', blurb:'Száraz és nedves szikla, lépcsők.', Tamb:31, sky:0xc4b79c, fog:[50,230], len:1500 },
+  dunes:{ name:'HOMOKDŰNÉK', blurb:'Mély laza homok, hosszú hullámok.', Tamb:34, sky:0xd9c9a3, fog:[60,260], len:1500 },
+  sx:{ name:'SUPERCROSS', blurb:'Szűk ritmusszekció, óriási ugratók.', Tamb:20, sky:0x5d6673, fog:[35,150], len:1200 },
+  alpine:{ name:'HEGYI FREERIDE', blurb:'Hosszú emelkedők, drop-ok.', Tamb:6, sky:0xa9bccd, fog:[55,250], len:1600 }
+};
+
+class Terrain{
+  constructor(mapId){
+    const M=MAPS[mapId];
+    this.map=mapId; this.dx=0.20;
+    this.n=Math.floor(M.len/this.dx)+2;
+    this.h=new Float32Array(this.n);
+    this.d=new Float32Array(this.n);
+    this.mat=new Uint8Array(this.n);
+    this.wet=new Float32Array(this.n);
+    this.Tamb=M.Tamb;
+    this.seed=20260917;
+    this.build(mapId);
+  }
+  rnd(){ this.seed=(this.seed*1664525+1013904223)|0; return ((this.seed>>>8)&0xffffff)/0xffffff; }
+  seg(x0,x1,fn,matId,wet){
+    const dx=this.dx,N=this.n;
+    const a=Math.max(0,Math.floor(x0/dx)), b=Math.min(N-1,Math.ceil(x1/dx)-1);
+    for(let i=a;i<=b;i++){
+      const t=(i*dx-x0)/Math.max(1e-6,x1-x0);
+      this.h[i]+=fn(t,i*dx);
+      if(matId!==undefined) this.mat[i]=matId;
+      if(wet!==undefined) this.wet[i]=wet;
+    }
+  }
+  paint(x0,x1,matId,wet){
+    const a=Math.max(0,Math.floor(x0/this.dx)), b=Math.min(this.n-1,Math.ceil(x1/this.dx));
+    for(let i=a;i<=b;i++){ this.mat[i]=matId; if(wet!==undefined) this.wet[i]=wet; }
+  }
+  table(x,up,top,down,hgt,mat){
+    const ss=t=>t*t*(3-2*t);
+    this.seg(x,x+up,t=>hgt*Math.pow(t,1.45),mat);
+    this.seg(x+up,x+up+top,()=>hgt,mat);
+    this.seg(x+up+top,x+up+top+down,t=>hgt*(1-ss(t)),mat);
+    return x+up+top+down;
+  }
+  kicker(x,up,hgt,mat){
+    const back=hgt*1.10, tot=up+back, T=up/tot;
+    this.seg(x,x+tot,t=> t<T ? hgt*Math.pow(t/T,1.75) : hgt*(1-(t-T)/(1-T)), mat);
+    return x+tot;
+  }
+  lander(x,len,hgt,mat){
+    const ss=t=>t*t*(3-2*t);
+    this.seg(x,x+len,t=> t<0.30 ? hgt*ss(t/0.30) : hgt*(1-ss((t-0.30)/0.70)), mat);
+    return x+len;
+  }
+  whoops(x0,len,amp,period,mat){
+    const ss=t=>Math.min(1,t*6)*Math.min(1,(1-t)*6);
+    this.seg(x0,x0+len,(t,X)=>amp*Math.sin((X-x0)*2*Math.PI/period)*ss(t),mat);
+    return x0+len;
+  }
+  smooth(passes){
+    const N=this.n,tmp=new Float32Array(N);
+    for(let p=0;p<passes;p++){
+      for(let i=1;i<N-1;i++) tmp[i]=(this.h[i-1]+2*this.h[i]+this.h[i+1])*0.25;
+      tmp[0]=this.h[0]; tmp[N-1]=this.h[N-1]; this.h.set(tmp);
+    }
+  }
+  build(id){
+    const N=this.n,dx=this.dx;
+    for(let i=0;i<N;i++){ this.h[i]=0; this.mat[i]=0; this.wet[i]=0; }
+    if(id==='mx'){
+      this.paint(0,9999,6,0);
+      this.seg(0,9999,(t,x)=>0.35*Math.sin(x*0.014)+0.18*Math.sin(x*0.037+1.1),6);
+      this.seg(0,55,()=>0,6);
+      let x=this.whoops(60,34,0.30,4.2,6);
+      x=this.table(105,11,7,13,2.4,6);
+      x=this.whoops(150,20,0.55,9.0,6);
+      x=this.kicker(180,7.5,2.1,6); this.lander(196,9,2.2,6);
+      x=this.table(215,9,3,11,1.7,6);
+      this.seg(240,258,t=>1.4*Math.sin(Math.PI*t),0);
+      this.paint(240,258,1,0);
+      x=this.table(270,14,10,17,3.6,6);
+      x=this.whoops(315,30,0.34,3.6,6);
+      this.seg(352,372,t=>-0.9*Math.sin(Math.PI*t),0);
+      x=this.kicker(382,9,2.8,6); this.lander(400,11,2.9,6);
+      x=this.table(425,10,4,12,2.0,6);
+      this.seg(455,470,()=>0,6);
+      for(let i=Math.floor(480/dx);i<N;i++){
+        const X=i*dx-480;
+        this.h[i]+= 1.1*Math.sin(X*0.055)+0.62*Math.sin(X*0.13+0.7)
+                  + 0.30*Math.sin(X*0.35)+0.05*(this.rnd()-0.5);
+        this.mat[i]= (Math.sin(X*0.04)>0.72)?1:6;
+      }
+    }
+    else if(id==='enduro'){
+      this.paint(0,9999,5,0.25);
+      this.seg(0,9999,(t,x)=>1.5*Math.sin(x*0.011)+0.8*Math.sin(x*0.029+2.1)
+                            +0.30*Math.sin(x*0.083));
+      this.seg(0,30,()=>0,5,0.2);
+      const roots=(a,b)=>{ this.seg(a,b,(t,x)=>0.085*Math.sin(x*6.1)+0.062*Math.sin(x*11.3+1.4)
+                                              +0.04*Math.sin(x*19.7),5,0.45); };
+      roots(35,80); roots(150,200); roots(300,345); roots(430,480);
+      this.seg(95,125,t=>-0.7*Math.sin(Math.PI*t),2,1.0);
+      this.seg(250,278,t=>-0.55*Math.sin(Math.PI*t),2,1.0);
+      this.seg(400,420,t=>-0.6*Math.sin(Math.PI*t),2,1.0);
+      this.seg(210,240,(t,x)=>0.20*Math.sin(x*3.3)+0.12*Math.sin(x*6.9+0.6),4,0.8);
+      this.seg(355,392,(t,x)=>0.24*Math.sin(x*2.7)+0.14*Math.sin(x*5.5+1.9),4,0.85);
+      this.seg(130,148,t=>4.2*t*t,5,0.4); this.seg(148,168,t=>4.2*(1-t*t)*1.0,5,0.35);
+      this.seg(486,520,t=>5.6*(t*t*(3-2*t)),5,0.4);
+      this.seg(520,560,t=>5.6*(1-t*t*(3-2*t)),5,0.35);
+      for(let i=Math.floor(565/dx);i<N;i++){
+        const X=i*dx;
+        this.h[i]+=0.9*Math.sin(X*0.031)+0.45*Math.sin(X*0.097+1.2)
+                  +0.11*Math.sin(X*2.9)+0.07*Math.sin(X*5.3);
+        const s=Math.sin(X*0.023+0.8);
+        this.mat[i]= s>0.55?4 : s>0.05?5 : s>-0.55?2 : 5;
+        this.wet[i]= this.mat[i]===2?1.0 : this.mat[i]===4?0.85 : 0.35;
+      }
+    }
+    else if(id==='rock'){
+      this.paint(0,9999,3,0);
+      this.seg(0,9999,(t,x)=>1.1*Math.sin(x*0.012)+0.55*Math.sin(x*0.031+0.4));
+      this.seg(0,26,()=>0,3);
+      const step=(x,h)=>{ this.seg(x,x+1.6,t=>h*t*t*(3-2*t),3); };
+      for(let k=0;k<7;k++) step(38+k*6.5, 0.45+0.12*k);
+      this.seg(95,140,(t,x)=>0.30*Math.sin(x*2.1)+0.18*Math.sin(x*4.7+1.1)
+                            +0.10*Math.sin(x*9.3),3);
+      this.seg(150,195,(t,x)=>0.26*Math.sin(x*2.9)+0.15*Math.sin(x*6.1+2.2),4,0.9);
+      this.seg(205,232,t=>6.8*Math.pow(t,1.3),3); this.seg(232,244,()=>6.8,3);
+      this.seg(244,272,t=>6.8*(1-Math.pow(t,1.15)),3);
+      this.seg(285,320,t=>-1.2*Math.sin(Math.PI*t),1,0);
+      for(let k=0;k<9;k++) step(330+k*5.2, 0.55);
+      this.seg(390,430,(t,x)=>0.34*Math.sin(x*1.7)+0.2*Math.sin(x*3.9),4,0.75);
+      for(let i=Math.floor(440/dx);i<N;i++){
+        const X=i*dx;
+        this.h[i]+=1.4*Math.sin(X*0.021)+0.7*Math.sin(X*0.061+1.7)
+                  +0.22*Math.sin(X*1.3)+0.13*Math.sin(X*2.9);
+        const s=Math.sin(X*0.019+2.2);
+        this.mat[i]= s>0.35?4 : s>-0.5?3 : 1;
+        this.wet[i]= this.mat[i]===4?0.85:0;
+      }
+    }
+    else if(id==='dunes'){
+      this.paint(0,9999,1,0);
+      this.seg(0,9999,(t,x)=>3.2*Math.sin(x*0.0125)+1.7*Math.sin(x*0.027+1.4)
+                            +0.8*Math.sin(x*0.058+0.3)+0.25*Math.sin(x*0.17));
+      this.seg(0,40,()=>0,1);
+      const ss2=t=>t*t*(3-2*t);
+      const dune=(x,len,h)=>this.seg(x,x+len,t=>
+            t<0.78 ? h*ss2(t/0.78) : h*(1-(t-0.78)/0.22), 1);
+      dune(70,42,5.5); dune(135,34,4.2); dune(190,52,7.4); dune(265,30,3.6);
+      dune(315,46,6.1); dune(380,38,4.8);
+      this.seg(440,478,()=>0,0);
+      dune(500,44,6.6);
+      for(let i=Math.floor(560/dx);i<N;i++){
+        const X=i*dx;
+        this.h[i]+=2.6*Math.sin(X*0.017)+1.3*Math.sin(X*0.043+2.0)+0.4*Math.sin(X*0.12);
+        this.mat[i]= (Math.sin(X*0.05)>0.85)?0:1;
+      }
+    }
+    else if(id==='sx'){
+      this.paint(0,9999,0,0);
+      this.seg(0,42,()=>0,0);
+      let x=this.kicker(46,8,2.9,0); this.lander(66,11,3.0,0);
+      x=this.whoops(86,26,0.42,3.0,0);
+      x=this.table(120,8,4,10,3.0,0);
+      for(let k=0;k<5;k++){ this.seg(155+k*11,159.5+k*11,t=>1.25*Math.sin(Math.PI*t),0); }
+      x=this.kicker(210,9,3.5,0); this.lander(234,13,3.6,0);
+      x=this.whoops(258,22,0.48,2.8,0);
+      x=this.table(290,9,5,11,3.2,0);
+      for(let k=0;k<6;k++){ this.seg(325+k*10,329.5+k*10,t=>1.05*Math.sin(Math.PI*t),0); }
+      x=this.kicker(385,10,3.8,0); this.lander(412,14,3.9,0);
+      for(let i=Math.floor(440/dx);i<N;i++){
+        const X=i*dx-440;
+        const k=Math.floor(X/11);
+        this.h[i]+= (X-k*11<4.6)? 1.2*Math.sin(Math.PI*(X-k*11)/4.6) : 0;
+        this.mat[i]=0;
+      }
+    }
+    else {
+      this.paint(0,9999,5,0.15);
+      this.seg(0,9999,(t,x)=>2.4*Math.sin(x*0.0095)+1.2*Math.sin(x*0.024+1.9)
+                            +0.5*Math.sin(x*0.061));
+      this.seg(0,32,()=>0,5,0.1);
+      this.seg(45,110,t=>9.5*(t*t*(3-2*t)),5,0.2);
+      this.seg(110,128,()=>9.5,3,0);
+      this.seg(128,142,t=>9.5-3.4*t,3,0);
+      this.seg(142,150,t=>6.1*(1-Math.pow(t,2.2)),3,0);
+      this.seg(150,178,(t,x)=>0.18*Math.sin(x*3.1)+0.10*Math.sin(x*7.3),3,0);
+      this.seg(190,215,t=>-2.2*Math.sin(Math.PI*t),1,0);
+      this.seg(235,285,t=>7.8*(t*t*(3-2*t)),5,0.25);
+      this.seg(285,300,()=>7.8,4,0.7);
+      this.seg(300,330,t=>7.8*(1-Math.pow(t,1.4)),4,0.7);
+      this.seg(345,370,t=>-1.1*Math.sin(Math.PI*t),2,1.0);
+      this.seg(390,440,t=>6.4*(t*t*(3-2*t)),5,0.3);
+      this.seg(440,470,t=>6.4*(1-t*t),5,0.25);
+      for(let i=Math.floor(480/dx);i<N;i++){
+        const X=i*dx;
+        this.h[i]+=2.0*Math.sin(X*0.018)+1.0*Math.sin(X*0.05+0.6)+0.2*Math.sin(X*0.9);
+        const s=Math.sin(X*0.026+1.3);
+        this.mat[i]= s>0.6?3 : s>0.1?5 : s>-0.45?1 : 4;
+        this.wet[i]= this.mat[i]===4?0.8 : 0.2;
+      }
+    }
+    this.smooth(2);
+  }
+  idx(x){ return Math.min(this.n-2, Math.max(0, Math.floor(x/this.dx))); }
+  H(x){ const i=this.idx(x), t=(x-i*this.dx)/this.dx;
+        const a=this.h[i]+this.d[i], b=this.h[i+1]+this.d[i+1]; return a+(b-a)*t; }
+  slope(x){ const i=this.idx(x);
+        return ((this.h[i+1]+this.d[i+1])-(this.h[i]+this.d[i]))/this.dx; }
+  matAt(x){ return MATS[this.mat[this.idx(x)]]; }
+  wetAt(x){ return this.wet[this.idx(x)]; }
+  erode(x,vol){
+    const i=this.idx(x), m=MATS[this.mat[i]];
+    if(m.er<=0) return;
+    const v=vol*m.er;
+    this.d[i]-=v; if(this.d[i]<-0.26) this.d[i]=-0.26;
+    if(i>2){ this.d[i-1]+=v*0.30; this.d[i-2]+=v*0.20; }
+    if(i<this.n-2) this.d[i+1]+=v*0.12;
+  }
+  compact(x,sigma,dt){
+    const i=this.idx(x), m=MATS[this.mat[i]];
+    if(m.er<=0) return;
+    this.d[i]-=2.2e-9*sigma*dt*m.er;
+  }
+}
+
+class SuspUnit{
+  constructor(B,front){
+    this.B=B; this.front=front;
+    this.s=front?B.sag0F:B.sag0R; this.sdot=0;
+    this.sMax=front?B.forkTravel:B.rearTravel;
+    this.bottomX=this.sMax*(front?B.fBottomFrac:B.rBottomFrac);
+    this.Toil=20; this.foam=0; this.peak=0; this.bottomCount=0;
+    this.lastF=0; this.lastDamp=0; this.brakeMoment=0;
+    this.airP=(front? B.fAirPsi*6894.76 : 0);
+    this.reboundAdj=1.0;
+  }
+  motionRatio(s){
+    if(this.front) return 1;
+    const B=this.B, t=s/B.rearTravel;
+    return B.rMR0 + (B.rMR1-B.rMR0)*t;
+  }
+  springForce(s){
+    const B=this.B;
+    if(this.front){
+      const x=s+B.fPreload;
+      let F = x<B.fx1 ? B.fk1*x
+            : x<B.fx2 ? B.fk1*B.fx1 + B.fk2*(x-B.fx1)
+                      : B.fk1*B.fx1 + B.fk2*(B.fx2-B.fx1) + B.fk3*(x-B.fx2);
+      const L=Math.max(0.018, B.fAirL0-s);
+      F += this.airP*B.fAirA*(Math.pow(B.fAirL0/L,B.fGamma)-1);
+      return F;
+    }
+    const mr=this.motionRatio(s);
+    const sx=s*mr + B.rPreload;
+    let F=B.rSpring*sx;
+    const V=Math.max(1e-6, B.rN2V0 - B.rRodA*sx);
+    F += (B.rN2P0*Math.pow(B.rN2V0/V,1.4))*B.rRodA;
+    return F*mr;
+  }
+  dampForce(v){
+    const B=this.B, f=this.front;
+    const LSC=f?B.fLSC:B.rLSC, kC=f?B.fKneeC:B.rKneeC, HSC=f?B.fHSC:B.rHSC;
+    const LSR=f?B.fLSR:B.rLSR, kR=f?B.fKneeR:B.rKneeR, HSR=f?B.fHSR:B.rHSR;
+    const a=Math.abs(v);
+    let F;
+    if(v>0) F = (a<kC)? LSC*a*a : LSC*kC*kC + HSC*(a-kC);
+    else  { F = (a<kR)? LSR*a*a : LSR*kR*kR + HSR*(a-kR); F=-F*this.reboundAdj; }
+    const visc=Math.exp(-0.032*(this.Toil-40));
+    F *= Math.pow(Math.max(0.35,Math.min(1.6,visc)),0.8);
+    F *= (1-0.6*this.foam);
+    if(this.s > this.bottomX-0.025 && v>0){
+      const t=Math.min(1,(this.s-(this.bottomX-0.025))/0.025);
+      F *= 1 + 5.5*t*t;
+    }
+    return F;
+  }
+  bumpStop(s){
+    const d=s-this.bottomX; if(d<=0) return 0;
+    // JAVÍTÁS 1: A bump stop erejének limitálása a NaN hiba (katapultálás) elkerüléséhez
+    let F = (this.front?this.B.fKBump:this.B.rKBump)*d*d*d;
+    return F > 100000 ? 100000 : F;
+  }
+  stiction(v){
+    if(!this.front) return 12*Math.tanh(v/0.004);
+    const B=this.B;
+    const N=Math.abs(this.brakeMoment)/B.fBushSpacing;
+    return (B.fStictionBase + B.fMuBush*2*N)*Math.tanh(v/0.004);
+  }
+  force(){
+    const F=this.springForce(this.s)+this.dampForce(this.sdot)
+           +this.bumpStop(this.s)+this.stiction(this.sdot);
+    this.lastF=F; return F;
+  }
+  thermal(dt,Tamb){
+    const B=this.B;
+    const P=Math.abs(this.lastDamp*this.sdot);
+    const m=this.front?B.fOilMass:B.rOilMass;
+    const h=this.front?B.fOilH:B.rOilH, A=this.front?B.fOilA:B.rOilA;
+    this.Toil += (P - h*A*100*(this.Toil-Tamb))*dt/(m*1900);
+    const cav=(this.sdot<-0.9 && this.Toil>55)?1:0;
+    this.foam += (cav*0.9-this.foam)*dt/(cav?0.25:8.0);
+    this.foam = Math.max(0,Math.min(0.85,this.foam));
+  }
+}
+
+class Tire{
+  constructor(R,W,P0,spec,Tamb){
+    const N=SIM.segN;
+    this.N=N; this.R=R; this.W=W; this.ds=2*Math.PI*R/N;
+    this.sp=spec;
+    this.d=new Float32Array(N); this.dPrev=new Float32Array(N);
+    this.u=new Float32Array(N); this.F=new Float32Array(N);
+    this.Ts=new Float32Array(N); this.grain=new Float32Array(N);
+    this.j=new Float32Array(N); this.contact=new Uint8Array(N);
+    this.pen=new Float32Array(N); this.gx=new Float32Array(N);
+    this.gnx=new Float32Array(N); this.gny=new Float32Array(N);
+    this.Ts.fill(Tamb);
+    this.Tcore=Tamb; this.Tgas=Tamb; this.Trim=Tamb; this.Tgas0=Tamb;
+    this.P0=P0; this.P=P0; this.clog=0;
+    this.phi=0; this.omega=0;
+    this.Fx=0; this.Fy=0; this.torque=0; this.Lcp=0; this.nContact=0;
+    this.kappa=0; this.slipPow=0;
+    this.mTread=0.45*(W/0.07)*(R/0.31);
+    this.mCore =2.1 *(W/0.07)*(R/0.31);
+    this.mGas  =0.011*(W/0.07)*(R/0.31)*(R/0.31);
+    this.mRim  =4.2 *(R/0.31);
+    this.mSurfSeg=this.mTread/N;
+    this.kBrush0=2.6e5*(spec.kCarc/42e3);
+  }
+  kRadTotal(){ return this.sp.kCarc + this.sp.kPress*this.P; }
+  muT(T){
+    const s=this.sp;
+    const w=T<s.Topt?s.wCold:s.wHot, z=(T-s.Topt)/w;
+    let f=s.muFloor+(1-s.muFloor)*Math.exp(-z*z);
+    const over=s.Topt+30;
+    if(T>over) f -= Math.min(0.56,(T-over)/45*0.56);
+    return Math.max(0.09,f);
+  }
+  kBrush(T){ return this.kBrush0*Math.exp(-0.0118*(T-60)); }
+
+  step(hub,hubV,terr,dt,driveT,brakeT){
+    const N=this.N,R=this.R,W=this.W,ds=this.ds,sp=this.sp;
+    const kSeg=SIM.ringCal*this.kRadTotal(), kB=SIM.bendRatio*kSeg, den=kSeg+2*kB;
+    const pen=this.pen,gx=this.gx,gnx=this.gnx,gny=this.gny;
+
+    for(let i=0;i<N;i++){
+      const a=-this.phi+i*2*Math.PI/N, cx=Math.cos(a), cy=Math.sin(a);
+      if(cy>0.30){ pen[i]=0; continue; }
+      const px=hub.x+R*cx, py=hub.y+R*cy;
+      const gap=terr.H(px)-py;
+      if(gap>0){
+        pen[i]=Math.min(R*0.80, gap/Math.max(0.30,-cy));
+        gx[i]=px;
+        const sl=terr.slope(px), inv=1/Math.sqrt(1+sl*sl);
+        gnx[i]=-sl*inv; gny[i]=inv;
+      } else pen[i]=0;
+    }
+    for(let it=0;it<4;it++){
+      for(let i=0;i<N;i++){
+        const im=(i-1+N)%N, ip=(i+1)%N;
+        let free=kB*(this.d[im]+this.d[ip])/den; if(free<0) free=0;
+        this.d[i]= pen[i]>free ? pen[i] : free;
+      }
+    }
+    let Fx=0,Fy=0,Tq=0,nC=0,Lcp=0,slipP=0;
+    const sigRefW=W*ds;
+    const mat=terr.matAt(hub.x), wet=terr.wetAt(hub.x), Tamb=terr.Tamb;
+    const muMat=mat.mu*sp.muMul[mat.cls];
+    const kBr=this.kBrush((this._avgTs()+this.Tcore)*0.5);
+    const vMag=Math.hypot(hubV.x,hubV.y);
+    const hConv=8+12.5*Math.pow(Math.max(0,vMag),0.805);
+    const knobGain=1+Math.min(1.6, sp.knob/0.010*0.55);
+
+    for(let i=0;i<N;i++){
+      const dPrev=this.dPrev[i];
+      let ddot=0;
+      if(dPrev>5e-4){ ddot=(this.d[i]-dPrev)/dt; if(ddot>6)ddot=6; else if(ddot<-6)ddot=-6; }
+      this.dPrev[i]=this.d[i];
+
+      if(pen[i]<=0){
+        this.contact[i]=0; this.F[i]=0;
+        this.u[i]*=Math.exp(-dt/0.02); this.j[i]*=Math.exp(-dt/0.10);
+        this._cool(i,dt,hConv,true,null,0,Tamb);
+        continue;
+      }
+      this.contact[i]=1; nC++; Lcp+=ds;
+      const im=(i-1+N)%N, ip=(i+1)%N;
+      let Fn=kSeg*this.d[i]+kB*(2*this.d[i]-this.d[im]-this.d[ip])+SIM.ringDamp*ddot;
+      if(Fn<0) Fn=0;
+      // JAVÍTÁS 2: Extrém behatoláskor (NaN elkerülése) maximalizáljuk a gumi erejét
+      if(Fn>80000) Fn=80000;
+      this.F[i]=Fn;
+
+      const nx=gnx[i],ny=gny[i], tx=ny,ty=-nx;
+      const a=-this.phi+i*2*Math.PI/N;
+      const rx=(R-this.d[i])*Math.cos(a), ry=(R-this.d[i])*Math.sin(a);
+      const vx=hubV.x+this.omega*ry, vy=hubV.y-this.omega*rx;
+      const vs=vx*tx+vy*ty;
+
+      this.u[i]+=vs*dt;
+      this.u[i]*=Math.exp(-vMag*dt/SIM.sigmaRelax);
+
+      const sigma=Fn/sigRefW;
+      const loadSens=Math.pow(Math.max(0.15,sigma/SIM.sigmaRef),SIM.loadSensExp);
+      let mu=muMat*this.muT(this.Ts[i])*loadSens;
+      mu*=(1-0.35*this.grain[i])*(1-0.55*this.clog);
+
+      let tau=kBr*this.u[i], tauMax=mu*Fn;
+      if(mat.c<1e8){
+        this.j[i]+=Math.abs(vs)*dt;
+        const tauSoil=(mat.c+sigma*Math.tan(mat.phi))
+                     *(1-Math.exp(-this.j[i]/0.025))*W*ds*knobGain;
+        if(tauSoil<tauMax) tauMax=tauSoil;
+      }
+      let sliding=false;
+      if(Math.abs(tau)>tauMax){ tau=Math.sign(tau)*tauMax; this.u[i]=tau/kBr; sliding=true; }
+
+      const ffx=-tau*tx, ffy=-tau*ty;
+      const Ftx=Fn*nx+ffx, Fty=Fn*ny+ffy;
+      Fx+=Ftx; Fy+=Fty;
+      Tq += ry*Ftx - rx*Fty;
+
+      const Q=sliding?Math.abs(tau*vs):0;
+      slipP+=Q;
+      this.Ts[i]+=Q*dt/(this.mSurfSeg*SIM.cRub);
+      this._cool(i,dt,hConv,false,mat,wet,Tamb);
+
+      const over=sp.Topt+36;
+      if(this.Ts[i]>over) this.grain[i]=Math.min(1,this.grain[i]
+          +2.0e-6*Q*(this.Ts[i]-over)/30*dt*1000*sp.wear);
+      else this.grain[i]=Math.max(0,this.grain[i]-0.04*dt);
+
+      if(sliding && mat.er>0 && Math.abs(vs)>0.4)
+        terr.erode(gx[i], 8.0e-4*Math.abs(vs)*dt*(sigma/SIM.sigmaRef));
+      else if(mat.er>0) terr.compact(gx[i],sigma,dt);
+    }
+
+    const Qsc=SIM.C_sc*N*(this._avgTs()-this.Tcore);
+    const Fz=Math.max(0,Fy), defl=Fz/Math.max(1e3,this.kRadTotal());
+    const Qflex=sp.lossF*this.kRadTotal()*defl*defl*Math.abs(this.omega)/(2*Math.PI);
+    this.Tcore+=(Qsc+0.85*Qflex-SIM.C_cg*(this.Tcore-this.Tgas))*dt/(this.mCore*SIM.cRub);
+    this.Tgas +=(SIM.C_cg*(this.Tcore-this.Tgas)-SIM.C_gr*(this.Tgas-this.Trim))
+                *dt/(this.mGas*SIM.cAir);
+    this.Trim +=(Math.abs(brakeT*this.omega)*0.15+SIM.C_gr*(this.Tgas-this.Trim)
+                -hConv*SIM.aRim*(this.Trim-Tamb))*dt/(this.mRim*SIM.cRim);
+
+    const Pabs0=this.P0+101.3;
+    this.P=Pabs0*((this.Tgas+273.15)/(this.Tgas0+273.15))-101.3;
+
+    const spd=Math.abs(this.omega*R);
+    const up=(nC>0? wet*0.9*sp.clogK*(mat.er>0?1:0.2) : 0);
+    this.clog+=(up - 0.02*spd*spd*(1-wet) - 0.15*this.clog)*dt;
+    this.clog=Math.max(0,Math.min(1,this.clog));
+
+    this.Fx=Fx; this.Fy=Fy; this.torque=Tq;
+    this.nContact=nC; this.Lcp=Lcp; this.slipPow=slipP;
+    this.kappa=(this.omega*R-hubV.x)/Math.max(1.0,Math.abs(hubV.x));
+    return this;
+  }
+  _cool(i,dt,hConv,airOnly,mat,wet,Tamb){
+    const A=2*Math.PI*this.R*this.W/this.N, T=this.Ts[i];
+    let Q=-hConv*A*(T-Tamb);
+    if(!airOnly&&mat){
+      Q+=-(mat.kth/0.0015)*A*(T-mat.Tg)*0.25;
+      if(wet>0.3&&T>Tamb) Q+=-wet*2600*A*(T-Tamb)*0.02;
+    }
+    Q+=-SIM.C_sc*(T-this.Tcore);
+    let nT=T+Q*dt/(this.mSurfSeg*SIM.cRub);
+    if(nT<-25)nT=-25; else if(nT>280)nT=280;
+    this.Ts[i]=nT;
+  }
+  _avgTs(){ let s=0; for(let i=0;i<this.N;i++)s+=this.Ts[i]; return s/this.N; }
+  maxTs(){ let m=-99; for(let i=0;i<this.N;i++) if(this.Ts[i]>m)m=this.Ts[i]; return m; }
+  avgGrain(){ let s=0; for(let i=0;i<this.N;i++)s+=this.grain[i]; return s/this.N; }
+}
+
+function tireRadius(rim,w,ar){ return (rim*25.4/2 + w*ar)/1000; }
+
+class Bike{
+  constructor(bikeSpec,tireSpec,terr,pressF,pressR){
+    this.B=JSON.parse(JSON.stringify(bikeSpec));
+    const B=this.B;
+    B.rake=bikeSpec.rake;
+    B.RF=tireRadius(B.rimF,B.tWF,B.arF); B.WF=B.tWF/1000;
+    B.RR=tireRadius(B.rimR,B.tWR,B.arR); B.WR=B.tWR/1000;
+    B.axleFy=-B.comH+B.RF; B.axleRy=-B.comH+B.RR;
+    B.forkDir={x:Math.sin(B.rake), y:-Math.cos(B.rake)};
+    B.forkMount={x:B.axleFx-B.forkDir.x*B.forkL0, y:B.axleFy-B.forkDir.y*B.forkL0};
+    B.swingPivot={x:B.axleRx+B.swingL*Math.cos(B.swingA0),
+                  y:B.axleRy+B.swingL*Math.sin(B.swingA0)};
+    this.terr=terr;
+    this.front=new SuspUnit(B,true);
+    this.rear =new SuspUnit(B,false);
+    this.tF=new Tire(B.RF,B.WF,pressF,tireSpec,terr.Tamb);
+    this.tR=new Tire(B.RR,B.WR,pressR,tireSpec,terr.Tamb);
+    this.motorT=0; this.regen=2; this.crashT=0; this.airT=0; this.bigAir=0;
+    this.reset(8);
+  }
+  reset(x){
+    const B=this.B;
+    if(x!==undefined) this.px=x;
+    this.py=this.terr.H(this.px)+B.comH+0.35;
+    this.vx=0; this.vy=0; this.th=0; this.om=0;
+    this.front.s=B.sag0F; this.front.sdot=0;
+    this.rear.s=B.sag0R;  this.rear.sdot=0;
+    this.tF.omega=0; this.tR.omega=0;
+    this.shift=0; this.rise=0;
+    const a=this.attach();
+    this.rx=a.x; this.ry=a.y-0.08; this.rvx=0; this.rvy=0;
+    this.hubAF={x:0,y:0}; this.hubAR={x:0,y:0};
+    this.prevVcF={x:0,y:0}; this.prevVcR={x:0,y:0};
+    this.crashT=0; this.motorT=0;
+  }
+  L2W(p){ const c=Math.cos(this.th),s=Math.sin(this.th);
+    return {x:this.px+p.x*c-p.y*s, y:this.py+p.x*s+p.y*c}; }
+  L2Wdir(p){ const c=Math.cos(this.th),s=Math.sin(this.th);
+    return {x:p.x*c-p.y*s, y:p.x*s+p.y*c}; }
+  velAt(w){ return {x:this.vx-this.om*(w.y-this.py), y:this.vy+this.om*(w.x-this.px)}; }
+  attach(){ const B=this.B;
+    return this.L2W({x:B.riderAttach.x+this.shift*B.riderShift,
+                     y:B.riderAttach.y+this.rise*B.riderRise}); }
+  hubLocalF(s){ const B=this.B, L=B.forkL0-s;
+    return {x:B.forkMount.x+B.forkDir.x*L, y:B.forkMount.y+B.forkDir.y*L}; }
+  tanLocalF(){ const B=this.B; return {x:-B.forkDir.x, y:-B.forkDir.y}; }
+  swingAngle(s){ const B=this.B; return B.swingA0-(s===undefined?this.rear.s:s)/B.swingL; }
+  hubLocalR(s){ const B=this.B, a=this.swingAngle(s);
+    return {x:B.swingPivot.x-B.swingL*Math.cos(a), y:B.swingPivot.y-B.swingL*Math.sin(a)}; }
+  tanLocalR(s){ const a=this.swingAngle(s); return {x:-Math.sin(a), y:Math.cos(a)}; }
+
+  step(dt,inp){
+    const B=this.B, g=SIM.g, Tamb=this.terr.Tamb;
+    let Fx=0, Fy=-B.mChassis*g, Tq=0;
+
+    const at=this.attach(), atV=this.velAt(at);
+    let rfx=-SIM.riderK*(this.rx-at.x)-SIM.riderC*(this.rvx-atV.x);
+    let rfy=-SIM.riderK*(this.ry-at.y)-SIM.riderC*(this.rvy-atV.y);
+    const rfm=Math.hypot(rfx,rfy);
+    if(rfm>SIM.riderFmax){ rfx*=SIM.riderFmax/rfm; rfy*=SIM.riderFmax/rfm; }
+    this.rvx+=(rfx/SIM.mRider)*dt; this.rvy+=(rfy/SIM.mRider-g)*dt;
+    this.rx+=this.rvx*dt; this.ry+=this.rvy*dt;
+    Fx+=-rfx; Fy+=-rfy;
+    Tq+=(at.x-this.px)*(-rfy)-(at.y-this.py)*(-rfx);
+
+    const wR=this.tR.omega;
+    let Td=0;
+    if(inp.thr>0 && wR<B.wMax){
+      const Tp=B.Pmax/Math.max(1.2,Math.abs(wR));
+      Td=Math.min(B.wheelTmax,Tp)*inp.thr;
+      Td*=(1-0.07*inp.thr*Math.min(1,Math.abs(wR)/30));
+      Td+=B.cogging*Math.sin(this.tR.phi*23)*Math.max(0,1-Math.abs(wR)/6);
+    }
+    this.motorT+=(Td-this.motorT)*Math.min(1,dt/B.torqueTau);
+    let TbF=0,TbR=0;
+    if(inp.brk>0){
+      TbF=B.brakeF*inp.brk*Math.sign(this.tF.omega||1);
+      TbR=B.brakeR*inp.brk*Math.sign(this.tR.omega||1);
+    }
+    let Treg=0;
+    if(inp.thr<0.02 && this.regen>0 && wR>1){
+      Treg=B.regenMax*(this.regen/5)*Math.min(1,wR/12);
+      if(this.tR.kappa<-0.25) Treg*=0.25;
+    }
+
+    const doUnit=(unit,tire,isFront,Tdr,Tbr)=>{
+      const s=unit.s;
+      const hubL=isFront?this.hubLocalF(s):this.hubLocalR(s);
+      const hub=this.L2W(hubL);
+      const tL=isFront?this.tanLocalF():this.tanLocalR(s);
+      const tl=Math.hypot(tL.x,tL.y);
+      const tan=this.L2Wdir({x:tL.x/tl,y:tL.y/tl});
+      const nrm={x:-tan.y,y:tan.x};
+
+      const vc=this.velAt(hub);
+      const prev=isFront?this.prevVcF:this.prevVcR;
+      let acx=(vc.x-prev.x)/dt, acy=(vc.y-prev.y)/dt;
+      const AL=250;
+      if(acx>AL)acx=AL; else if(acx<-AL)acx=-AL;
+      if(acy>AL)acy=AL; else if(acy<-AL)acy=-AL;
+      prev.x=vc.x; prev.y=vc.y;
+      const ac=isFront?this.hubAF:this.hubAR;
+      ac.x+=(acx-ac.x)*0.25; ac.y+=(acy-ac.y)*0.25;
+
+      const hubV={x:vc.x+unit.sdot*tan.x, y:vc.y+unit.sdot*tan.y};
+      tire.step(hub,hubV,this.terr,dt,Tdr,Tbr);
+      const FT={x:tire.Fx,y:tire.Fy};
+      unit.brakeMoment=Math.abs(FT.x)*tire.R;
+
+      const Fs=unit.force();
+      unit.lastDamp=unit.dampForce(unit.sdot);
+      const mU=isFront?B.mUnsF:B.mUnsR;
+      const along=FT.x*tan.x+(FT.y-mU*g)*tan.y;
+      const sdd=(along-Fs)/mU-(ac.x*tan.x+ac.y*tan.y);
+      unit.sdot+=sdd*dt; unit.s+=unit.sdot*dt;
+      if(unit.s<0){ unit.s=0; if(unit.sdot<0) unit.sdot*=-0.15; }
+      if(unit.s>unit.sMax){
+        unit.s=unit.sMax;
+        if(unit.sdot>0.4) unit.bottomCount++;
+        if(unit.sdot>0) unit.sdot*=-0.10;
+      }
+      if(unit.s>unit.peak) unit.peak=unit.s;
+
+      const Nc=(FT.x*nrm.x+(FT.y-mU*g)*nrm.y)-mU*(ac.x*nrm.x+ac.y*nrm.y);
+      const fcx=Fs*tan.x+Nc*nrm.x, fcy=Fs*tan.y+Nc*nrm.y;
+      Fx+=fcx; Fy+=fcy;
+      Tq+=(hub.x-this.px)*fcy-(hub.y-this.py)*fcx;
+
+      const alpha=(Tdr-Tbr-(isFront?0:Treg)+tire.torque)/(isFront?B.IWheelF:B.IWheelR);
+      tire.omega+=alpha*dt;
+      if(Math.abs(tire.omega)<0.6&&Math.abs(Tbr)>5&&Math.abs(this.vx)<0.8) tire.omega*=0.85;
+      tire.phi+=tire.omega*dt;
+      unit.thermal(dt,Tamb);
+      
+      // JAVÍTÁS 3: Reakciónyomaték (Air control - levegőben gázra emeli az orrát, fékre bólint)
+      Tq += Tdr - (isFront?TbF:TbR) - (isFront?0:Treg);
+    };
+    doUnit(this.front,this.tF,true,0,TbF);
+    doUnit(this.rear ,this.tR,false,this.motorT,TbR);
+
+    const gc=B.comH-0.20;
+    const cps=[{x:B.axleFx*0.55,y:-gc*0.55},{x:0.05,y:-gc},{x:B.axleRx*0.55,y:-gc*0.55},
+               {x:B.axleFx*0.42,y:B.riderAttach.y+0.14},{x:B.axleRx*0.42,y:B.riderAttach.y+0.10}];
+    let touch=false;
+    for(const cp of cps){
+      const w=this.L2W(cp), pen=this.terr.H(w.x)-w.y;
+      if(pen>0){
+        touch=true;
+        const v=this.velAt(w), sl=this.terr.slope(w.x), inv=1/Math.sqrt(1+sl*sl);
+        const nx=-sl*inv, ny=inv, vn=v.x*nx+v.y*ny;
+        let Fn=90000*pen-2200*Math.min(0,vn); if(Fn<0)Fn=0;
+        const tx=ny,ty=-nx, vt=v.x*tx+v.y*ty;
+        const Ff=-Math.sign(vt)*Math.min(0.75*Fn,Math.abs(vt)*900);
+        const fx=Fn*nx+Ff*tx, fy=Fn*ny+Ff*ty;
+        Fx+=fx; Fy+=fy;
+        Tq+=(w.x-this.px)*fy-(w.y-this.py)*fx;
+      }
+    }
+
+    const air=(this.tF.nContact===0&&this.tR.nContact===0&&!touch);
+    
+    // JAVÍTÁS 4: Arcade levegőbeli forgatás (szaltóhoz az A/D gombokkal)
+    if(air && inp.tgt) {
+      Tq += inp.tgt * 1500;
+    }
+
+    this.vx+=(Fx/B.mChassis)*dt; this.vy+=(Fy/B.mChassis)*dt;
+    this.om+=(Tq/B.IChassis)*dt; this.om*=(1-0.02*dt);
+    this.px+=this.vx*dt; this.py+=this.vy*dt; this.th+=this.om*dt;
+
+    const v=Math.hypot(this.vx,this.vy);
+    if(v>0.5){
+      const D=0.5*1.22*0.68*0.62*v*v/(B.mChassis+SIM.mRider);
+      this.vx-=D*(this.vx/v)*dt; this.vy-=D*(this.vy/v)*dt;
+    }
+    
+    if(air) this.airT+=dt; else { if(this.airT>0.45) this.bigAir=this.airT; this.airT=0; }
+    
+    // JAVÍTÁS 5: A motoros nem hal meg azonnal. Csak 90 fokos hanyattesés felett büntet
+    if(touch && Math.cos(this.th) < -0.2) this.crashT+=dt;
+    else this.crashT*=0.96;
+  }
+}
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,0.1,420);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+renderer.domElement.style.position='fixed'; renderer.domElement.style.inset='0';
+
+const sun=new THREE.DirectionalLight(0xfff3e2,1.25);
+sun.position.set(18,34,22); sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+const sc=sun.shadow.camera; sc.left=-18;sc.right=18;sc.top=16;sc.bottom=-12;sc.near=1;sc.far=95;
+scene.add(sun); scene.add(sun.target);
+const hemi=new THREE.HemisphereLight(0xbfd8f0,0x50442f,0.66); scene.add(hemi);
+
+const COLS=640, ZF=3.4, ZB=-3.4, WALL=9;
+const tGeo=new THREE.BufferGeometry();
+const tPos=new Float32Array(COLS*9), tCol=new Float32Array(COLS*9), tIdx=[];
+for(let i=0;i<COLS-1;i++){ const a=i*3,b=(i+1)*3;
+  tIdx.push(a,a+1,b+1, a,b+1,b, a+1,a+2,b+2, a+1,b+2,b+1); }
+tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));
+tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));
+tGeo.setIndex(tIdx);
+const tMesh=new THREE.Mesh(tGeo,new THREE.MeshStandardMaterial({
+  vertexColors:true,roughness:0.97,metalness:0}));
+tMesh.receiveShadow=true; scene.add(tMesh);
+const _c=new THREE.Color();
+
+let bgMesh=null;
+function buildBackdrop(col){
+  if(bgMesh){ scene.remove(bgMesh); bgMesh.geometry.dispose(); }
+  const M=300, pts=[], idx=[];
+  for(let i=0;i<M;i++){
+    const x=-220+i*4.2;
+    const y=7+6.5*Math.sin(i*0.121)+3.6*Math.sin(i*0.29+1)+1.7*Math.sin(i*0.63);
+    pts.push(x,-6,-66, x,y,-66);
+  }
+  for(let i=0;i<M-1;i++){ const a=i*2; idx.push(a,a+1,a+3, a,a+3,a+2); }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+  g.setIndex(idx);
+  bgMesh=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col,fog:true}));
+  scene.add(bgMesh);
+}
+
+function MAT(c,r,m){ return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m||0}); }
+function box(w,h,d,mat){ const x=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  x.castShadow=true; return x; }
+function cyl(r1,r2,h,mat,seg){ const x=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||12),mat);
+  x.castShadow=true; return x; }
+function tube(a,b,r,mat,seg){
+  const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy);
+  const m=cyl(r,r,L,mat,seg||8);
+  m.position.set((a.x+b.x)/2,(a.y+b.y)/2,a.z!==undefined?a.z:0);
+  m.rotation.z=Math.atan2(dy,dx)-Math.PI/2;
+  return m;
+}
+
+function makeWheel(R,W,colRim,knob){
+  const g=new THREE.Group(), N=SIM.segN, TUBE=8;
+  const geo=new THREE.BufferGeometry();
+  const pos=new Float32Array(N*TUBE*3), idx=[];
+  for(let i=0;i<N;i++){ const ii=(i+1)%N;
+    for(let j=0;j<TUBE;j++){ const jj=(j+1)%TUBE;
+      idx.push(i*TUBE+j,i*TUBE+jj,ii*TUBE+jj, i*TUBE+j,ii*TUBE+jj,ii*TUBE+j); } }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setIndex(idx);
+  const tireMat=MAT(0x101215,0.95);
+  const tm=new THREE.Mesh(geo,tireMat); tm.castShadow=true; g.add(tm);
+  const rimMat=MAT(colRim,0.45,0.35);
+  const rimR=R-W*0.55;
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(rimR,0.016,6,30),rimMat);
+  rim.rotation.y=Math.PI/2; g.add(rim);
+  const hub=cyl(0.048,0.048,W*1.5,MAT(0x8d959d,0.35,0.6)); hub.rotation.x=Math.PI/2; g.add(hub);
+  for(let k=0;k<8;k++){ const s=cyl(0.0055,0.0055,rimR*2,MAT(0xa8b0b8,0.3,0.7),6);
+    s.rotation.z=Math.PI/8*k; g.add(s); }
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(R*0.42,R*0.42,0.006,22),
+    MAT(0x8a9199,0.35,0.7));
+  disc.rotation.x=Math.PI/2; disc.position.z=W*0.95; g.add(disc);
+  return {group:g,geo,pos,tireMesh:tm,R,W,knob,tireMat};
+}
+function updateWheelMesh(w,tire){
+  const N=SIM.segN,TUBE=8,R=w.R;
+  const tr=w.W*0.50, pos=w.pos;
+  for(let i=0;i<N;i++){
+    const a=i*2*Math.PI/N, ca=Math.cos(a), sa=Math.sin(a);
+    const rr=R-tire.d[i];
+    for(let j=0;j<TUBE;j++){
+      const b=j*2*Math.PI/TUBE;
+      const onTread=Math.abs(Math.cos(b))<0.72;
+      const kn=(onTread && w.knob>0)? w.knob*(0.5+0.5*Math.sign(Math.sin(i*Math.PI/2))) : 0;
+      const cr=rr+tr*Math.cos(b)+kn*Math.max(0,Math.cos(b));
+      const o=(i*TUBE+j)*3;
+      pos[o]=cr*ca; pos[o+1]=cr*sa; pos[o+2]=tr*Math.sin(b)*1.06;
+    }
+  }
+  w.geo.attributes.position.needsUpdate=true;
+  w.geo.computeVertexNormals();
+  const t=Math.max(0,Math.min(1,(tire.maxTs()-(tire.sp.Topt+30))/60));
+  w.tireMat.emissive.setRGB(t*0.5,t*0.08,0);
+}
+
+let RIG=null;
+function buildBikeVisual(B,knob){
+  if(RIG){ scene.remove(RIG.root); }
+  const root=new THREE.Group(); scene.add(root);
+  const C=B.col;
+  const M={ frame:MAT(C.frame,0.38,0.35), plast:MAT(C.plastic,0.55), acc:MAT(C.accent,0.42,0.1),
+            fork:MAT(C.fork,0.22,0.85), forkLo:MAT(0x2a2e33,0.35,0.5),
+            swing:MAT(C.swing,0.35,0.55), seat:MAT(C.seat,0.85), batt:MAT(C.batt,0.62),
+            chrome:MAT(0x9aa3ad,0.30,0.80), dark:MAT(0x15181c,0.7) };
+
+  const gCh=new THREE.Group(), gFO=new THREE.Group(), gFI=new THREE.Group();
+  const gSw=new THREE.Group(), gSh=new THREE.Group();
+  root.add(gCh,gFO,gFI,gSw,gSh);
+
+  const FM=B.forkMount, SP=B.swingPivot;
+
+  if(B.style==='surron'){
+    const headTop={x:FM.x+0.03,y:FM.y+0.10,z:0}, headBot={x:FM.x-0.02,y:FM.y-0.20,z:0};
+    gCh.add(tube(headTop,headBot,0.036,M.frame,10));
+    gCh.add(tube(headBot,{x:0.06,y:-0.30},0.030,M.frame,8));
+    gCh.add(tube(headTop,{x:-0.22,y:0.20},0.028,M.frame,8));
+    gCh.add(tube({x:-0.22,y:0.20},{x:SP.x-0.02,y:SP.y+0.02},0.026,M.frame,8));
+    gCh.add(tube({x:0.06,y:-0.30},{x:SP.x,y:SP.y},0.026,M.frame,8));
+    const bat=box(0.40,0.36,0.155,M.batt); bat.position.set(0.09,-0.05,0);
+    bat.rotation.z=0.16; gCh.add(bat);
+    for(let k=0;k<4;k++){ const r=box(0.40,0.012,0.17,M.dark);
+      r.position.set(0.09,-0.16+k*0.075,0); r.rotation.z=0.16; gCh.add(r); }
+    const mot=cyl(0.092,0.092,0.14,M.chrome); mot.rotation.x=Math.PI/2;
+    mot.position.set(SP.x+0.02,SP.y-0.03,0); gCh.add(mot);
+    const belt=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,0.022,26),M.dark);
+    belt.rotation.x=Math.PI/2; belt.position.set(SP.x+0.05,SP.y-0.02,0.095); gCh.add(belt);
+    const seat=box(0.60,0.055,0.155,M.seat); seat.position.set(-0.28,0.30,0);
+    seat.rotation.z=-0.06; gCh.add(seat);
+    const tank=box(0.26,0.15,0.135,M.acc); tank.position.set(0.10,0.26,0);
+    tank.rotation.z=-0.16; gCh.add(tank);
+    const shroud=box(0.22,0.20,0.02,M.acc); shroud.position.set(0.05,0.08,0.085);
+    shroud.rotation.z=0.2; gCh.add(shroud);
+    const shroud2=shroud.clone(); shroud2.position.z=-0.085; gCh.add(shroud2);
+    const rf=box(0.34,0.022,0.16,M.plast); rf.position.set(-0.60,0.34,0);
+    rf.rotation.z=0.10; gCh.add(rf);
+    const stemTop={x:FM.x+0.055,y:FM.y+0.175};
+    const bar=cyl(0.016,0.016,0.58,M.dark); bar.rotation.x=Math.PI/2;
+    bar.position.set(stemTop.x-0.02,stemTop.y+0.045,0); gCh.add(bar);
+    for(const z of [0.235,-0.235]){ const gr=cyl(0.022,0.022,0.10,M.dark);
+      gr.rotation.x=Math.PI/2; gr.position.set(stemTop.x-0.02,stemTop.y+0.045,z); gCh.add(gr); }
+    const lcd=box(0.075,0.05,0.015,M.dark); lcd.position.set(stemTop.x-0.01,stemTop.y+0.085,0);
+    gCh.add(lcd);
+    for(const z of [0.165,-0.165]){ const pg=box(0.11,0.024,0.075,M.chrome);
+      pg.position.set(SP.x+0.06,SP.y-0.11,z); gCh.add(pg); }
+    for(const z of [0.098,-0.098]){
+      const o=cyl(0.031,0.031,0.40,M.fork); o.position.set(0,-0.20,z); gFO.add(o);
+      const i2=cyl(0.0245,0.0245,0.45,M.forkLo); i2.position.set(0,-0.21,z); gFI.add(i2);
+    }
+    const ff=box(0.30,0.020,0.165,M.plast); ff.position.set(0.02,0.16,0); gFI.add(ff);
+    for(const z of [0.082,-0.082]){
+      const a=box(B.swingL*0.97,0.050,0.040,M.swing);
+      a.position.set(-B.swingL*0.49,0,z); gSw.add(a);
+    }
+  }
+  else {
+    const headTop={x:FM.x+0.04,y:FM.y+0.12}, headBot={x:FM.x-0.03,y:FM.y-0.24};
+    gCh.add(tube(headTop,headBot,0.030,M.frame,10));
+    for(const z of [0.085,-0.085]){
+      gCh.add(tube({x:headTop.x-0.01,y:headTop.y-0.02,z},{x:-0.16,y:0.18,z},0.024,M.frame,8));
+      gCh.add(tube({x:-0.16,y:0.18,z},{x:SP.x-0.03,y:SP.y+0.05,z},0.022,M.frame,8));
+      gCh.add(tube({x:headBot.x,y:headBot.y,z},{x:0.08,y:-0.34,z},0.024,M.frame,8));
+      gCh.add(tube({x:0.08,y:-0.34,z},{x:SP.x+0.02,y:SP.y-0.02,z},0.022,M.frame,8));
+    }
+    const pack=box(0.50,0.44,0.215,M.batt); pack.position.set(0.05,-0.10,0); gCh.add(pack);
+    const face=box(0.46,0.40,0.012,M.dark); face.position.set(0.05,-0.10,0.112); gCh.add(face);
+    for(let k=0;k<5;k++){ const f=box(0.46,0.014,0.235,M.dark);
+      f.position.set(0.05,-0.27+k*0.085,0); gCh.add(f); }
+    const mot=cyl(0.105,0.105,0.20,M.chrome); mot.rotation.x=Math.PI/2;
+    mot.position.set(SP.x+0.06,SP.y-0.02,0); gCh.add(mot);
+    const skid=box(0.44,0.02,0.20,M.swing); skid.position.set(0.05,-0.345,0);
+    skid.rotation.z=0.05; gCh.add(skid);
+    for(const z of [0.135,-0.135]){
+      const sh=box(0.34,0.30,0.022,M.acc); sh.position.set(0.16,0.06,z);
+      sh.rotation.z=0.30; gCh.add(sh);
+      const np=box(0.24,0.22,0.018,M.plast); np.position.set(-0.50,0.30,z*0.85);
+      np.rotation.z=0.12; gCh.add(np);
+    }
+    const seat=box(0.74,0.065,0.175,M.seat); seat.position.set(-0.20,0.335,0);
+    seat.rotation.z=-0.035; gCh.add(seat);
+    const tankTop=box(0.30,0.14,0.16,M.plast); tankTop.position.set(0.24,0.28,0);
+    tankTop.rotation.z=-0.22; gCh.add(tankTop);
+    const rf=box(0.42,0.024,0.19,M.plast); rf.position.set(-0.62,0.40,0);
+    rf.rotation.z=0.14; gCh.add(rf);
+    const stemTop={x:FM.x+0.07,y:FM.y+0.20};
+    const clamp=box(0.10,0.05,0.20,M.swing); clamp.position.set(FM.x+0.03,FM.y+0.10,0);
+    clamp.rotation.z=B.rake; gCh.add(clamp);
+    const bar=cyl(0.017,0.017,0.66,M.dark); bar.rotation.x=Math.PI/2;
+    bar.position.set(stemTop.x-0.02,stemTop.y+0.05,0); gCh.add(bar);
+    for(const z of [0.27,-0.27]){ const gr=cyl(0.023,0.023,0.11,M.dark);
+      gr.rotation.x=Math.PI/2; gr.position.set(stemTop.x-0.02,stemTop.y+0.05,z); gCh.add(gr); }
+    const phone=box(0.085,0.145,0.014,M.dark);
+    phone.position.set(stemTop.x-0.005,stemTop.y+0.125,0); phone.rotation.z=-0.16; gCh.add(phone);
+    for(const z of [0.19,-0.19]){ const pg=box(0.125,0.026,0.085,M.chrome);
+      pg.position.set(SP.x+0.10,SP.y-0.145,z); gCh.add(pg); }
+    for(const z of [0.112,-0.112]){
+      const o=cyl(0.036,0.036,0.52,M.fork); o.position.set(0,-0.25,z); gFO.add(o);
+      const i2=cyl(0.028,0.028,0.56,M.forkLo); i2.position.set(0,-0.26,z); gFI.add(i2);
+    }
+    const ff=box(0.46,0.024,0.21,M.plast); ff.position.set(0.10,0.30,0);
+    ff.rotation.z=-0.10; gFI.add(ff);
+    for(const z of [0.100,-0.100]){
+      const a=box(B.swingL*0.96,0.072,0.052,M.swing);
+      a.position.set(-B.swingL*0.48,0.006,z); gSw.add(a);
+      const b2=box(B.swingL*0.45,0.046,0.040,M.swing);
+      b2.position.set(-B.swingL*0.22,-0.035,z); gSw.add(b2);
+    }
+  }
+
+  const shBody=cyl(B.style==='varg'?0.030:0.026,B.style==='varg'?0.030:0.026,0.18,M.dark);
+  const shRod =cyl(0.013,0.013,0.16,M.chrome);
+  gSh.add(shBody,shRod);
+  const coils=[];
+  for(let i=0;i<10;i++){
+    const c=new THREE.Mesh(new THREE.TorusGeometry(B.style==='varg'?0.062:0.052,0.0085,6,20),M.acc);
+    c.rotation.x=Math.PI/2; gSh.add(c); coils.push(c);
+  }
+
+  const wF=makeWheel(B.RF,B.WF,B.col.rim,knob);
+  const wR=makeWheel(B.RR,B.WR,B.col.rim,knob);
+  root.add(wF.group,wR.group);
+  const spr=new THREE.Mesh(new THREE.CylinderGeometry(B.RR*0.30,B.RR*0.30,0.008,26),M.chrome);
+  spr.rotation.x=Math.PI/2; spr.position.z=-B.WR*0.95; wR.group.add(spr);
+
+  const CHN=48;
+  const chainGeo=new THREE.BufferGeometry();
+  const chainPos=new Float32Array(CHN*3);
+  chainGeo.setAttribute('position',new THREE.BufferAttribute(chainPos,3));
+  const chain=new THREE.Line(chainGeo,new THREE.LineBasicMaterial({color:0x8d949c}));
+  root.add(chain);
+
+  const gR=new THREE.Group(); root.add(gR);
+  const rMat=MAT(0x27313d,0.85), rJer=MAT(B.col.accent,0.75), rSkin=MAT(0x2b3138,0.6);
+  const torso=box(0.24,0.48,0.32,rJer);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.118,14,10),MAT(0xe8eaec,0.4));
+  const peak=box(0.14,0.02,0.16,rJer);
+  const armL=cyl(0.034,0.029,0.50,rJer), armR=armL.clone();
+  const legL=cyl(0.052,0.038,0.54,rMat), legR=legL.clone();
+  gR.add(torso,head,peak,armL,armR,legL,legR);
+
+  RIG={root,gCh,gFO,gFI,gSw,gSh,shBody,shRod,coils,wF,wR,chain,chainGeo,chainPos,CHN,
+       gR,torso,head,peak,armL,armR,legL,legR,M};
+  return RIG;
+}
+function aimCyl(m,a,b,base){
+  m.position.set((a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);
+  const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z, L=Math.hypot(dx,dy,dz)||1e-3;
+  m.scale.set(1,L/base,1);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),
+    new THREE.Vector3(dx,dy,dz).normalize());
+}
+
+let terr=null, bike=null, running=false, paused=false, teleOn=true, camMode=0;
+let selBike='surron', selTire='mx_int', selMap='mx', selPress=110;
+let camX=0,camY=0,camZ=12, sagF=0,sagR=0,sagDone=false,settle=0;
+const keys={};
+const HIST=420, hF=new Float32Array(HIST),hR=new Float32Array(HIST),hT=new Float32Array(HIST);
+let hi=0;
+const $=id=>document.getElementById(id);
+
+function buildMenu(){
+  const bw=$('mBikes'); bw.innerHTML='';
+  for(const k in BIKES){
+    const B=BIKES[k];
+    const b=document.createElement('button');
+    b.className='opt'+(k===selBike?' sel':'');
+    b.innerHTML='<b>'+B.name+'</b><small>'+B.blurb+'</small>';
+    b.onclick=()=>{ selBike=k; buildMenu(); };
+    bw.appendChild(b);
+  }
+  $('spec').innerHTML='<s>'+BIKES[selBike].spec+'</s>';
+
+  const tw=$('mTires'); tw.innerHTML='';
+  for(const k in TIRES){
+    const T=TIRES[k];
+    const b=document.createElement('button');
+    b.className='opt'+(k===selTire?' sel':'');
+    b.innerHTML='<b>'+T.name+'<span class="tag">'+Math.round(T.Topt)+'°C</span></b><small>'
+      +T.blurb+'</small>';
+    b.onclick=()=>{ selTire=k; selPress=TIRES[k].pDef; buildMenu(); };
+    tw.appendChild(b);
+  }
+  const T=TIRES[selTire];
+  const sl=$('pSlide');
+  sl.min=T.pMin; sl.max=T.pMax; sl.step=5;
+  selPress=Math.max(T.pMin,Math.min(T.pMax,selPress));
+  sl.value=selPress;
+  $('pVal').textContent=selPress+' kPa';
+  sl.oninput=()=>{ selPress=+sl.value; $('pVal').textContent=selPress+' kPa'; };
+
+  const mw=$('mMaps'); mw.innerHTML='';
+  for(const k in MAPS){
+    const M=MAPS[k];
+    const b=document.createElement('button');
+    b.className='opt'+(k===selMap?' sel':'');
+    b.innerHTML='<b>'+M.name+'<span class="tag">'+M.Tamb+'°C</span></b><small>'+M.blurb+'</small>';
+    b.onclick=()=>{ selMap=k; buildMenu(); };
+    mw.appendChild(b);
+  }
+}
+$('go').onclick=()=>start();
+
+function start(){
+  const M=MAPS[selMap];
+  terr=new Terrain(selMap);
+  bike=new Bike(BIKES[selBike],TIRES[selTire],terr,selPress,selPress-8);
+  buildBikeVisual(bike.B,TIRES[selTire].knob);
+  scene.background=new THREE.Color(M.sky);
+  scene.fog=new THREE.Fog(M.sky,M.fog[0],M.fog[1]);
+  buildBackdrop(new THREE.Color(M.sky).multiplyScalar(0.72).getHex());
+  const cold=M.Tamb<14;
+  sun.intensity=cold?0.85:1.25; hemi.intensity=cold?0.85:0.66;
+  $('bikeName').textContent=BIKES[selBike].short;
+  $('tireName').textContent=TIRES[selTire].name;
+  const T=TIRES[selTire];
+  const win=(a,b)=>{ const L=(T.Topt-T.wCold*0.55+25)/165*100, W=(T.wCold*0.55+T.wHot*0.55)/165*100;
+    $(a).style.left=Math.max(0,L)+'%'; $(a).style.width=W+'%'; };
+  win('fWin'); win('rWin');
+  sagF=0;sagR=0;sagDone=false;settle=0;
+  hF.fill(0);hR.fill(0);hT.fill(0);hi=0;
+  camX=bike.px; camY=bike.py;
+  $('menu').style.display='none'; $('hud').style.display='';
+  running=true; paused=false; last=performance.now(); acc=0;
+  updateTerrainMesh(bike.px);
+}
+function toMenu(){ running=false; $('menu').style.display='flex'; $('hud').style.display='none'; }
+
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase(); keys[k]=true;
+  if(k==='escape'){ if(running) toMenu(); return; }
+  if(!running) return;
+  if(k==='r'){ bike.reset(Math.max(4,bike.px-3)); flash('RESET'); }
+  if(k==='p'){ paused=!paused; flash(paused?'PAUSE':''); }
+  if(k==='t'){ teleOn=!teleOn; $('tele').style.display=teleOn?'':'none'; }
+  if(k==='c'){ camMode=(camMode+1)%3; }
+  if(k==='1') adjP(-5);
+  if(k==='2') adjP(5);
+  if(k==='3') adjPre(-0.002);
+  if(k==='4') adjPre(0.002);
+  if(k==='5') adjReb(-0.10);
+  if(k==='6') adjReb(0.10);
+  if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+function adjP(d){
+  const T=TIRES[selTire];
+  for(const t of [bike.tF,bike.tR]) t.P0=Math.max(T.pMin,Math.min(T.pMax,t.P0+d));
+  flash('GUMINYOMÁS  E '+bike.tF.P0.toFixed(0)+' / H '+bike.tR.P0.toFixed(0)+' kPa');
+}
+function adjPre(d){
+  const B=bike.B;
+  B.fPreload=Math.max(0,Math.min(0.06,B.fPreload+d));
+  B.rPreload=Math.max(0,Math.min(0.05,B.rPreload+d*1.2));
+  flash('ELŐFESZÍTÉS  '+(B.fPreload*1000).toFixed(0)+' / '+(B.rPreload*1000).toFixed(0)+' mm');
+}
+function adjReb(d){
+  for(const u of [bike.front,bike.rear])
+    u.reboundAdj=Math.max(0.5,Math.min(1.8,u.reboundAdj+d));
+  flash('REBOUND  '+(bike.front.reboundAdj*100).toFixed(0)+'%');
+}
+const flashEl=$('flash'); let flashT=0;
+function flash(msg,col){
+  flashEl.textContent=msg; flashEl.style.color=col||'#e6edf3';
+  flashEl.style.opacity=msg?1:0; flashT=msg?1.5:0;
+}
+
+const teleC=$('teleC'), tctx=teleC.getContext('2d');
+function drawTele(){
+  const W=teleC.width,H=teleC.height;
+  tctx.fillStyle='#090d12'; tctx.fillRect(0,0,W,H);
+  tctx.strokeStyle='#1a222c';
+  for(let y=0;y<=4;y++){ tctx.beginPath(); tctx.moveTo(0,y*H/4+.5); tctx.lineTo(W,y*H/4+.5); tctx.stroke(); }
+  const line=(arr,col)=>{ tctx.strokeStyle=col; tctx.lineWidth=1.3; tctx.beginPath();
+    for(let i=0;i<HIST;i++){ const k=(hi+i)%HIST, y=H-arr[k]*H;
+      if(i===0)tctx.moveTo(i*W/HIST,y); else tctx.lineTo(i*W/HIST,y); } tctx.stroke(); };
+  line(hF,'#10b981'); line(hR,'#38bdf8'); line(hT,'#f59e0b');
+  tctx.font='9px monospace'; tctx.fillStyle='#8b97a6';
+  tctx.fillText('rugóút E',6,11); tctx.fillStyle='#10b981'; tctx.fillRect(48,5,8,7);
+  tctx.fillStyle='#8b97a6'; tctx.fillText('H',62,11); tctx.fillStyle='#38bdf8'; tctx.fillRect(72,5,8,7);
+  tctx.fillStyle='#8b97a6'; tctx.fillText('gumihő',86,11); tctx.fillStyle='#f59e0b'; tctx.fillRect(124,5,8,7);
+}
+
+function updateHUD(){
+  const B=bike.B, f=bike.front, r=bike.rear;
+  $('fTrav').textContent=(f.s*1000).toFixed(0)+' / '+(B.forkTravel*1000).toFixed(0)+' mm';
+  $('rTrav').textContent=(r.s*1000).toFixed(0)+' / '+(B.rearTravel*1000).toFixed(0)+' mm';
+  const pf=f.s/B.forkTravel, pr=r.s/B.rearTravel;
+  $('fBar').style.width=(pf*100).toFixed(1)+'%';
+  $('rBar').style.width=(pr*100).toFixed(1)+'%';
+  $('fBar').style.background=pf>0.92?'var(--bad)':pf>0.75?'var(--warn)':'var(--acc)';
+  $('rBar').style.background=pr>0.92?'var(--bad)':pr>0.75?'var(--warn)':'var(--acc)';
+  $('fSag').style.left=(sagF/B.forkTravel*100).toFixed(0)+'%';
+  $('rSag').style.left=(sagR/B.rearTravel*100).toFixed(0)+'%';
+  $('oilT').textContent=f.Toil.toFixed(0)+' / '+r.Toil.toFixed(0)+' °C';
+  const vf=Math.pow(Math.max(0.35,Math.min(1.6,Math.exp(-0.032*(f.Toil-40)))),0.8);
+  $('fade').textContent=(vf<1?'−'+((1-vf)*100).toFixed(0)+'% (fade)'
+                             :'+'+((vf-1)*100).toFixed(0)+'% (hideg)')
+                        +(f.foam>0.1?' +kav.':'');
+  $('bo').textContent=f.bottomCount+' / '+r.bottomCount;
+  $('sag').textContent=(sagF*1000).toFixed(0)+' mm ('+(sagF/B.forkTravel*100).toFixed(0)+'%) / '
+                      +(sagR*1000).toFixed(0)+' mm ('+(sagR/B.rearTravel*100).toFixed(0)+'%)';
+
+  const show=(t,a,b)=>{ const T=t.maxTs();
+    $(a).textContent=T.toFixed(0)+' °C';
+    $(b).style.left=Math.max(0,Math.min(100,(T+25)/165*100)).toFixed(1)+'%'; };
+  show(bike.tF,'fT','fTm'); show(bike.tR,'rT','rTm');
+  $('fTc').textContent=bike.tF.Tcore.toFixed(0)+' / '+bike.tF.Tgas.toFixed(0)+' °C';
+  $('rTc').textContent=bike.tR.Tcore.toFixed(0)+' / '+bike.tR.Tgas.toFixed(0)+' °C';
+  const dp=t=>((t.P-t.P0>=0?'+':'')+(t.P-t.P0).toFixed(0));
+  $('fP').textContent=bike.tF.P.toFixed(0)+' kPa ('+dp(bike.tF)+')';
+  $('rP').textContent=bike.tR.P.toFixed(0)+' kPa ('+dp(bike.tR)+')';
+  $('fCP').textContent=(bike.tF.Lcp*1000).toFixed(0)+' mm / '+bike.tF.nContact+' szeg.';
+  $('rCP').textContent=(bike.tR.Lcp*1000).toFixed(0)+' mm / '+bike.tR.nContact+' szeg.';
+  $('rSlip').textContent=(bike.tR.kappa*100).toFixed(0)+' %';
+  $('rGr').textContent=(bike.tR.avgGrain()*100).toFixed(0)+'% / '+(bike.tR.clog*100).toFixed(0)+'%';
+
+  const m=terr.matAt(bike.px), sp=TIRES[selTire];
+  $('matName').innerHTML='<i class="mat" style="background:#'
+    +m.col.toString(16).padStart(6,'0')+'"></i>'+m.name;
+  $('matMu').textContent='μ '+(m.mu*sp.muMul[m.cls]).toFixed(2);
+
+  $('speedo').innerHTML=(Math.abs(bike.vx)*3.6).toFixed(0)+'<small> km/h</small>';
+  const P=Math.abs(bike.motorT*bike.tR.omega);
+  $('pwr').textContent=(P/1000).toFixed(1)+' kW';
+  $('pwrBar').style.width=Math.min(100,P/B.Pmax*100).toFixed(0)+'%';
+  $('trq').textContent=bike.motorT.toFixed(0)+' Nm';
+  $('dist').textContent=bike.px.toFixed(0)+' m';
+}
+
+function updateTerrainMesh(cx){
+  const dx=terr.dx, start=Math.max(0,Math.floor((cx-34)/dx));
+  for(let i=0;i<COLS;i++){
+    const gi=Math.min(terr.n-1,start+i);
+    const x=gi*dx, y=terr.h[gi]+terr.d[gi], o=i*9;
+    tPos[o]=x;   tPos[o+1]=y;      tPos[o+2]=ZB;
+    tPos[o+3]=x; tPos[o+4]=y;      tPos[o+5]=ZF;
+    tPos[o+6]=x; tPos[o+7]=y-WALL; tPos[o+8]=ZF;
+    const m=MATS[terr.mat[gi]];
+    _c.setHex(m.col).multiplyScalar(1-0.28*terr.wet[gi]);
+    const dd=Math.min(1,Math.max(0,-terr.d[gi]*6));
+    _c.multiplyScalar(1-0.32*dd);
+    for(let k=0;k<3;k++){ const s=(k===2)?0.55:1;
+      tCol[o+k*3]=_c.r*s; tCol[o+k*3+1]=_c.g*s; tCol[o+k*3+2]=_c.b*s; }
+  }
+  tGeo.attributes.position.needsUpdate=true;
+  tGeo.attributes.color.needsUpdate=true;
+  tGeo.computeVertexNormals();
+}
+
+let last=performance.now(), acc=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dtF=Math.min(0.05,(now-last)/1000); last=now;
+  if(!running){ renderer.render(scene,camera); return; }
+  const B=bike.B;
+
+  if(!paused){
+    acc+=dtF;
+    const dt=SIM.dt;
+    const inp={ thr:(keys['w']||keys['arrowup'])?1:0, brk:(keys['s']||keys['arrowdown'])?1:0 };
+    const tgt=((keys['a']||keys['arrowleft'])?-1:0)+((keys['d']||keys['arrowright'])?1:0);
+    inp.tgt = tgt; 
+    
+    // 3. JAVÍTÁS: Sokkal gyorsabb motoros súlypontáthelyezés (szaltóhoz elengedhetetlen)
+    bike.shift+=(tgt-bike.shift)*Math.min(1,dtF*12);
+    bike.rise +=((keys[' ']?1:0)-bike.rise)*Math.min(1,dtF*9);
+    let n=0;
+    while(acc>=dt&&n<SIM.maxSub){ bike.step(dt,inp); acc-=dt; n++; }
+    if(acc>0.06) acc=0;
+
+    if(!sagDone){ settle+=dtF;
+      if(settle>1.8&&Math.abs(bike.vx)<0.3){ sagF=bike.front.s; sagR=bike.rear.s; }
+      if(settle>3.0) sagDone=true; }
+
+    hF[hi]=bike.front.s/B.forkTravel;
+    hR[hi]=bike.rear.s/B.rearTravel;
+    hT[hi]=Math.max(0,Math.min(1,(bike.tR.maxTs()+25)/165));
+    hi=(hi+1)%HIST;
+
+    if(bike.crashT>0.85) flash('BUKÁS — R a folytatáshoz','#ef4444');
+    if(bike.crashT>2.2){ bike.reset(Math.max(4,bike.px-4)); flash(''); }
+    if(bike.bigAir>0){ flash('AIR '+bike.bigAir.toFixed(2)+' s','#38bdf8'); bike.bigAir=0; }
+  }
+  if(flashT>0){ flashT-=dtF; if(flashT<=0) flashEl.style.opacity=0; }
+
+  const R=RIG;
+  R.gCh.position.set(bike.px,bike.py,0); R.gCh.rotation.z=bike.th;
+  const fm=bike.L2W(B.forkMount);
+  R.gFO.position.set(fm.x,fm.y,0); R.gFO.rotation.z=bike.th+B.rake;
+  const hubF=bike.L2W(bike.hubLocalF(bike.front.s));
+  const hubR=bike.L2W(bike.hubLocalR(bike.rear.s));
+  R.gFI.position.set(hubF.x,hubF.y,0); R.gFI.rotation.z=bike.th+B.rake;
+  const sp=bike.L2W(B.swingPivot);
+  R.gSw.position.set(sp.x,sp.y,0); R.gSw.rotation.z=bike.th-bike.swingAngle();
+
+  R.wF.group.position.set(hubF.x,hubF.y,0); R.wF.group.rotation.z=-bike.tF.phi;
+  R.wR.group.position.set(hubR.x,hubR.y,0); R.wR.group.rotation.z=-bike.tR.phi;
+  updateWheelMesh(R.wF,bike.tF); updateWheelMesh(R.wR,bike.tR);
+
+  {
+    const top=bike.L2W({x:-0.14,y:B.riderAttach.y-0.04});
+    const a=bike.swingAngle(), l=B.swingL*0.42;
+    const arm=bike.L2W({x:B.swingPivot.x-l*Math.cos(a), y:B.swingPivot.y-l*Math.sin(a)});
+    const dx=arm.x-top.x, dy=arm.y-top.y, L=Math.hypot(dx,dy);
+    R.gSh.position.set((top.x+arm.x)/2,(top.y+arm.y)/2,0);
+    R.gSh.rotation.z=Math.atan2(dy,dx)-Math.PI/2;
+    R.shBody.scale.y=L/0.36; R.shBody.position.y=L*0.20;
+    R.shRod.scale.y=L/0.34;  R.shRod.position.y=-L*0.24;
+    for(let i=0;i<R.coils.length;i++)
+      R.coils[i].position.y=-L*0.44+(L*0.84)*(i/(R.coils.length-1));
+  }
+  {
+    const cs=bike.L2W({x:B.swingPivot.x+0.04,y:B.swingPivot.y-0.02});
+    const dx=hubR.x-cs.x, dy=hubR.y-cs.y, L=Math.hypot(dx,dy);
+    const nx=-dy/L, ny=dx/L, rS=B.RR*0.30, cS=0.048;
+    const Lstat=B.swingL+0.10;
+    const slack=Math.max(0,Lstat-L+0.03);
+    const sagAmt=(bike.motorT>B.wheelTmax*0.08)? slack*0.10 : slack*0.95;
+    let k=0, H=R.CHN/2;
+    for(let i=0;i<H;i++){ const t=i/(H-1);
+      R.chainPos[k++]=cs.x+dx*t+nx*(cS*(1-t)+rS*t);
+      R.chainPos[k++]=cs.y+dy*t+ny*(cS*(1-t)+rS*t);
+      R.chainPos[k++]=-B.WR*0.95; }
+    for(let i=0;i<H;i++){ const t=1-i/(H-1), sg=4*sagAmt*t*(1-t);
+      R.chainPos[k++]=cs.x+dx*t-nx*(cS*(1-t)+rS*t);
+      R.chainPos[k++]=cs.y+dy*t-ny*(cS*(1-t)+rS*t)-sg;
+      R.chainPos[k++]=-B.WR*0.95; }
+    R.chainGeo.attributes.position.needsUpdate=true;
+  }
+  {
+    const hip={x:bike.rx,y:bike.ry,z:0}, th=bike.th;
+    const lean=Math.atan2(bike.rx-bike.px,Math.max(0.15,bike.ry-bike.py));
+    const sh={x:hip.x+0.10*Math.cos(th+0.5),y:hip.y+0.42,z:0};
+    R.torso.position.set((hip.x+sh.x)/2,(hip.y+sh.y)/2-0.02,0);
+    R.torso.rotation.z=th-lean*0.55;
+    R.head.position.set(sh.x+0.07*Math.cos(th),sh.y+0.18,0);
+    R.peak.position.set(sh.x+0.07*Math.cos(th)+0.10,sh.y+0.19,0);
+    R.peak.rotation.z=th-0.12;
+    const gw=bike.L2W({x:B.forkMount.x+0.05,y:B.forkMount.y+0.22});
+    const gz=B.style==='varg'?0.27:0.235;
+    aimCyl(R.armL,{x:sh.x,y:sh.y,z:0.16},{x:gw.x,y:gw.y,z:gz},0.50);
+    aimCyl(R.armR,{x:sh.x,y:sh.y,z:-0.16},{x:gw.x,y:gw.y,z:-gz},0.50);
+    const pgz=B.style==='varg'?0.19:0.165;
+    const pg=bike.L2W({x:B.swingPivot.x+(B.style==='varg'?0.10:0.06),
+                       y:B.swingPivot.y-(B.style==='varg'?0.145:0.11)});
+    aimCyl(R.legL,{x:hip.x,y:hip.y-0.10,z:0.15},{x:pg.x,y:pg.y,z:pgz},0.54);
+    aimCyl(R.legR,{x:hip.x,y:hip.y-0.10,z:-0.15},{x:pg.x,y:pg.y,z:-pgz},0.54);
+  }
+
+  updateTerrainMesh(bike.px);
+
+  const scl=B.wheelbase/1.26;
+  let tx,ty,tz;
+  if(camMode===0){ tx=bike.px+3.4*scl; ty=bike.py+1.5*scl; tz=11.8*scl; }
+  else if(camMode===1){ tx=bike.px+1.1*scl; ty=bike.py+0.8*scl; tz=6.4*scl; }
+  else { tx=bike.px+6.2*scl; ty=bike.py+3.4*scl; tz=19*scl; }
+  camX+=(tx-camX)*Math.min(1,dtF*4.5);
+  camY+=(ty-camY)*Math.min(1,dtF*3.2);
+  camZ+=(tz-camZ)*Math.min(1,dtF*3.0);
+  camera.position.set(camX,camY,camZ);
+  camera.lookAt(camX-3.4*scl,camY-1.1*scl,0);
+  camera.fov=52+Math.min(10,Math.abs(bike.vx)*0.32);
+  camera.updateProjectionMatrix();
+  sun.position.set(bike.px+18,bike.py+34,22);
+  sun.target.position.set(bike.px,bike.py,0);
+  if(bgMesh) bgMesh.position.x=bike.px;
+
+  updateHUD();
+  if(teleOn) drawTele();
+  renderer.render(scene,camera);
+}
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+buildMenu();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

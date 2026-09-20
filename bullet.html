@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>ArmorSim Ultimate - Végeselemes Ballisztika</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0a0a0c; font-family: 'Segoe UI', Tahoma, sans-serif; color: #fff; }
+        canvas { display: block; }
+        
+        /* Mérnöki szoftveres UI stílus */
+        #ui {
+            position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 18, 0.9);
+            padding: 15px; border-radius: 6px; box-shadow: 0 4px 25px rgba(0,0,0,0.9);
+            border: 1px solid #333; width: 340px; backdrop-filter: blur(5px);
+        }
+        h2 { margin: 0 0 15px 0; font-size: 16px; color: #00ccff; border-bottom: 1px solid #333; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1.5px;}
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        input[type="range"] { width: 100%; accent-color: #00ccff; cursor: pointer; }
+        select { width: 100%; padding: 8px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; }
+        select:focus { border-color: #00ccff; }
+        
+        button {
+            width: 100%; padding: 12px; background: #cc2200; color: white; border: none;
+            border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px; font-size: 14px;
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        button:hover { background: #ff3300; box-shadow: 0 0 10px rgba(255,51,0,0.5); }
+        
+        /* ArmorSim stílusú Hőtérkép Legenda */
+        #legend {
+            position: absolute; top: 15px; right: 20px; text-align: right; font-family: 'Consolas', monospace; font-size: 11px;
+            background: rgba(15, 15, 18, 0.8); padding: 15px; border-radius: 6px; border: 1px solid #333;
+        }
+        .color-bar {
+            width: 16px; height: 300px; display: inline-block; vertical-align: top; margin-left: 12px;
+            background: linear-gradient(to top, #000066 0%, #0000ff 20%, #00ffff 40%, #ffff00 60%, #ff0000 80%, #990000 100%);
+            border: 1px solid #000; box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+        }
+        .legend-labels { display: inline-block; height: 300px; position: relative; vertical-align: top; color: #ddd;}
+        .legend-labels span { position: absolute; right: 0; transform: translateY(-50%); }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h2>ArmorSim Ultimate</h2>
+        
+        <div class="control-group">
+            <label>Fegyverzet / Lövedék</label>
+            <select id="proj-type">
+                <option value="apfsds">120mm APFSDS (Volfrám Nyíl)</option>
+                <option value="bullet">7.62x51mm FMJ (Pisztoly/Puska)</option>
+                <option value="he">155mm HE (Orrgyújtós Robbanó)</option>
+                <option value="drone">FPV Kamikaze Drón (PG-7V HEAT)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Célpont Páncélzata</label>
+            <select id="armor-type">
+                <option value="solid">RHA Tömör Acéllemez</option>
+                <option value="spaced">Üreges (Spaced) Acélpáncél</option>
+                <option value="ceramic">Chobham (Kerámia Kompozit)</option>
+                <option value="era">Kontakt-5 ERA (Reaktív kazetta)</option>
+                <option value="bunker">Megerősített Beton Bunker</option>
+                <option value="fuel">Üzemanyagtartály (Hidrosztatikus)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Becsapódási Sebesség: <span id="v-val">1600</span> m/s</label>
+            <input type="range" id="vel-slider" min="200" max="3000" step="100" value="1600">
+        </div>
+        
+        <div class="control-group">
+            <label>Páncél Dőlésszöge (Sloped): <span id="a-val">60</span>°</label>
+            <input type="range" id="angle-slider" min="0" max="75" step="5" value="60">
+        </div>
+
+        <div class="control-group">
+            <label>Időskálázás (High-Speed Kamera): <span id="time-val">100</span>%</label>
+            <input type="range" id="time-slider" min="1" max="100" step="1" value="100">
+        </div>
+
+        <button id="fire-btn">Tűzkiváltás (Reset)</button>
+    </div>
+
+    <div id="legend">
+        <div style="margin-bottom: 8px; color:#aaa; border-bottom: 1px solid #444; padding-bottom: 4px;">|v| [m/s]</div>
+        <div class="legend-labels">
+            <span style="top: 0%;" id="l-1">2000</span>
+            <span style="top: 20%;" id="l-2">1600</span>
+            <span style="top: 40%;" id="l-3">1200</span>
+            <span style="top: 60%;" id="l-4">800</span>
+            <span style="top: 80%;" id="l-5">400</span>
+            <span style="top: 100%;">0</span>
+        </div>
+        <div class="color-bar"></div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    
+    let width, height;
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // FIZIKAI MOTOR MAGJA
+    const PR = 3.5; // Részecskesugár
+    let globalMaxVelocity = 1600; // Színskála maximuma
+
+    let nodes = [];
+    let projNodes = [];
+    let armorNodes = [];
+    let liquidNodes = [];
+    let links = [];
+
+    // Anyagtulajdonságok adatbázisa [Tömeg, Folyáshatár(Yield), Szakadás(Break)]
+    const MAT_PROJ_W = [10.0, 1.05, 3.00]; // Volfrám (Nehéz, szívós, lassan törik)
+    const MAT_PROJ_PB = [3.0, 1.01, 1.30]; // Ólom (Könnyen deformálódik, kenődik)
+    const MAT_STEEL = [1.0, 1.02, 1.25]; // RHA Acél (Maradandóan horpad, majd szakad)
+    const MAT_CERAMIC = [0.6, 1.005, 1.05]; // Kerámia (Könnyű, extrém rideg, üvegszerűen törik)
+    const MAT_CONCRETE = [2.0, 1.001, 1.03]; // Beton (Nehéz, azonnal törik, porlad)
+    const MAT_EXPLOSIVE = [0.2, 1.01, 1.10]; // C4 (Könnyű)
+    const MAT_PLASTIC = [0.3, 1.05, 1.15]; // Drón teste
+
+    class Node {
+        constructor(x, y, materialData, type) {
+            this.x = x; this.y = y;
+            this.oldx = x; this.oldy = y;
+            this.mass = materialData[0];
+            this.type = type; // 'proj', 'armor', 'liquid', 'explosive'
+            this.isFixed = false;
+        }
+    }
+
+    class Link {
+        constructor(n1, n2, materialData, isProj) {
+            this.n1 = n1; this.n2 = n2;
+            this.restLength = Math.hypot(n1.x - n2.x, n1.y - n2.y);
+            this.yieldStrain = materialData[1];
+            this.breakStrain = materialData[2];
+            this.isProj = isProj;
+        }
+    }
+
+    function createPlate(startX, centerY, thickness, plateHeight, angleRad, materialData, type) {
+        let grid = [];
+        for (let x = 0; x < thickness; x++) {
+            grid[x] = [];
+            for (let y = 0; y < plateHeight; y++) {
+                const localX = (x - thickness / 2) * PR * 2;
+                const localY = (y - plateHeight / 2) * PR * 2;
+                const rotX = localX * Math.cos(angleRad) - localY * Math.sin(angleRad);
+                const rotY = localX * Math.sin(angleRad) + localY * Math.cos(angleRad);
+                
+                const node = new Node(startX + rotX, centerY + rotY, materialData, type);
+                
+                // Erős rögzítés, hogy ne repüljön el az egész építmény
+                if (type !== 'liquid' && type !== 'explosive') {
+                    if (y < 4 || y > plateHeight - 5) node.isFixed = true;
+                }
+                
+                nodes.push(node);
+                if (type === 'liquid') liquidNodes.push(node);
+                else armorNodes.push(node);
+                
+                grid[x][y] = node;
+            }
+        }
+
+        if (type === 'liquid') return; // A folyadék részecske-alapú (SPH lite), nincsenek kötései
+
+        for (let x = 0; x < thickness; x++) {
+            for (let y = 0; y < plateHeight; y++) {
+                if (x < thickness - 1) links.push(new Link(grid[x][y], grid[x+1][y], materialData, false));
+                if (y < plateHeight - 1) links.push(new Link(grid[x][y], grid[x][y+1], materialData, false));
+                if (x < thickness - 1 && y < plateHeight - 1) {
+                    links.push(new Link(grid[x][y], grid[x+1][y+1], materialData, false));
+                    links.push(new Link(grid[x+1][y], grid[x][y+1], materialData, false));
+                }
+            }
+        }
+    }
+
+    function initSimulation() {
+        nodes = []; projNodes = []; armorNodes = []; liquidNodes = []; links = [];
+        
+        const velocityMS = parseInt(document.getElementById('vel-slider').value);
+        globalMaxVelocity = velocityMS;
+        updateLegend();
+
+        // Képkockánként mennyi pixelt tesz meg?
+        const velocityPX = velocityMS / 30.0; 
+
+        const angleRad = parseInt(document.getElementById('angle-slider').value) * (Math.PI / 180);
+        const projType = document.getElementById('proj-type').value;
+        const armorType = document.getElementById('armor-type').value;
+        
+        const centerY = height / 2;
+        const startX = width * 0.55;
+
+        // --- CÉLPONTOK ---
+        if (armorType === 'solid') {
+            createPlate(startX, centerY, 8, 80, angleRad, MAT_STEEL, 'armor'); 
+        } 
+        else if (armorType === 'spaced') {
+            createPlate(startX, centerY, 2, 80, angleRad, MAT_STEEL, 'armor'); 
+            createPlate(startX + 100, centerY, 6, 80, angleRad, MAT_STEEL, 'armor'); 
+        } 
+        else if (armorType === 'ceramic') {
+            createPlate(startX, centerY, 2, 80, angleRad, MAT_STEEL, 'armor'); 
+            createPlate(startX + 14, centerY, 8, 80, angleRad, MAT_CERAMIC, 'armor'); 
+            createPlate(startX + 50, centerY, 2, 80, angleRad, MAT_STEEL, 'armor'); 
+        }
+        else if (armorType === 'era') {
+            createPlate(startX, centerY, 1, 80, angleRad, MAT_STEEL, 'armor'); 
+            createPlate(startX + 10, centerY, 2, 80, angleRad, MAT_EXPLOSIVE, 'explosive'); 
+            createPlate(startX + 20, centerY, 1, 80, angleRad, MAT_STEEL, 'armor'); 
+            createPlate(startX + 80, centerY, 6, 80, angleRad, MAT_STEEL, 'armor'); 
+        }
+        else if (armorType === 'bunker') {
+            createPlate(startX, centerY, 20, 100, angleRad, MAT_CONCRETE, 'armor'); 
+        }
+        else if (armorType === 'fuel') {
+            createPlate(startX, centerY, 1, 90, angleRad, MAT_STEEL, 'armor'); // Előfal
+            createPlate(startX + 100, centerY, 1, 90, angleRad, MAT_STEEL, 'armor'); // Hátfal
+            createPlate(startX + 50, centerY - Math.cos(angleRad)*45*PR*2, 14, 1, angleRad, MAT_STEEL, 'armor'); // Tető
+            createPlate(startX + 50, centerY + Math.cos(angleRad)*45*PR*2, 14, 1, angleRad, MAT_STEEL, 'armor'); // Alj
+            createPlate(startX + 50, centerY, 12, 80, angleRad, [0.3, 0, 0], 'liquid'); // Kerozin
+        }
+
+        // --- LÖVEDÉK ---
+        const projStartX = width * 0.15;
+        let projGrid = [];
+        let pLen = 0; let mat = MAT_PROJ_W;
+
+        if (projType === 'apfsds') { pLen = 50; mat = MAT_PROJ_W; }
+        else if (projType === 'bullet') { pLen = 12; mat = MAT_PROJ_PB; }
+        else if (projType === 'he') { pLen = 20; mat = MAT_STEEL; }
+        else if (projType === 'drone') { pLen = 16; mat = MAT_PLASTIC; }
+
+        for (let x = 0; x < pLen; x++) {
+            projGrid[x] = [];
+            let yStart = 0; let yEnd = 0;
+            let isExplosive = false;
+            
+            // X=0 a hátulja, X=pLen a hegye
+            if (projType === 'apfsds') {
+                if (x > pLen - 6) { yStart = 1; yEnd = 2; } // Hegy
+                else if (x < 5) { yStart = -1; yEnd = 4; } // Vezérsík
+                else { yStart = 0; yEnd = 3; } // Test
+            } 
+            else if (projType === 'bullet') {
+                if (x > pLen - 4) { yStart = 1; yEnd = 2; } else { yStart = 0; yEnd = 3; }
+            }
+            else if (projType === 'he') {
+                if (x > pLen - 3) { yStart = 1; yEnd = 2; isExplosive = true; } // Orrcsapódó
+                else { yStart = 0; yEnd = 3; }
+            }
+            else if (projType === 'drone') {
+                if (x > pLen - 2) { yStart = 1; yEnd = 2; isExplosive = true; } // HEAT fej
+                else if (x === 2 || x === pLen - 4) { yStart = -3; yEnd = 6; } // Propeller
+                else { yStart = 1; yEnd = 2; } 
+            }
+
+            for (let y = yStart; y < yEnd; y++) {
+                const localX = x * PR * 2;
+                const localY = (y - 1.5) * PR * 2;
+                
+                const type = isExplosive ? 'explosive' : 'proj';
+                const node = new Node(projStartX + localX, centerY + localY, mat, type);
+                
+                // Mivel a substep a lövedék sebességétől függ, a "kezdő lökés" a substepenkénti elmozdulás.
+                // A tényleges elmozdulás lejjebb kerül kiszámításra a dinamikus substephez.
+                node.baseVelocity = velocityPX;
+                
+                nodes.push(node);
+                projNodes.push(node);
+                projGrid[x][y] = node;
+            }
+        }
+
+        for (let x = 0; x < pLen; x++) {
+            if (!projGrid[x]) continue;
+            for (let y = -4; y < 7; y++) {
+                if (!projGrid[x][y]) continue;
+                if (projGrid[x+1] && projGrid[x+1][y]) links.push(new Link(projGrid[x][y], projGrid[x+1][y], mat, true));
+                if (projGrid[x][y+1]) links.push(new Link(projGrid[x][y], projGrid[x][y+1], mat, true));
+                if (projGrid[x+1] && projGrid[x+1][y+1]) links.push(new Link(projGrid[x][y], projGrid[x+1][y+1], mat, true));
+                if (projGrid[x+1] && projGrid[x+1][y-1]) links.push(new Link(projGrid[x][y], projGrid[x+1][y-1], mat, true));
+            }
+        }
+        
+        // Dinamikus indítás
+        const subStepsNeeded = Math.max(10, Math.ceil(velocityPX / (PR * 0.9)));
+        const vSub = velocityPX / subStepsNeeded;
+        for (let n of projNodes) {
+            n.oldx = n.x - vSub;
+            n.oldy = n.y;
+        }
+    }
+
+    function triggerExplosion(ex, ey, power, radius) {
+        // Anyag elpárologtatása / Linkek roncsolása a magban
+        for (let i = links.length - 1; i >= 0; i--) {
+            const link = links[i];
+            const cx = (link.n1.x + link.n2.x) / 2;
+            const cy = (link.n1.y + link.n2.y) / 2;
+            const distSq = (cx - ex)**2 + (cy - ey)**2;
+            if (distSq < (radius * 0.5)**2) links.splice(i, 1);
+        }
+        // Kinetikus lökéshullám
+        for (let n of nodes) {
+            if (n.isFixed) continue;
+            const dx = n.x - ex; const dy = n.y - ey;
+            const distSq = dx*dx + dy*dy;
+            if (distSq < radius * radius && distSq > 0.1) {
+                const dist = Math.sqrt(distSq);
+                const force = power * (1 - dist / radius) / n.mass;
+                n.oldx -= (dx / dist) * force;
+                n.oldy -= (dy / dist) * force;
+            }
+        }
+    }
+
+    function updateLegend() {
+        const v = globalMaxVelocity;
+        document.getElementById('l-1').innerText = Math.round(v);
+        document.getElementById('l-2').innerText = Math.round(v * 0.8);
+        document.getElementById('l-3').innerText = Math.round(v * 0.6);
+        document.getElementById('l-4').innerText = Math.round(v * 0.4);
+        document.getElementById('l-5').innerText = Math.round(v * 0.2);
+    }
+
+    let timeAccumulator = 0.0;
+
+    function updatePhysics() {
+        // Dinamikus Substepping az "Anti-Tunneling" (Átesés-védelem) érdekében
+        let maxV = 0;
+        for (let n of projNodes) {
+            const v = Math.hypot(n.x - n.oldx, n.y - n.oldy);
+            if (v > maxV) maxV = v;
+        }
+        // Min. 15 substep, de ha gyors a lövedék, megsokszorozzuk! Emiatt tökéletes az ütközés.
+        let subSteps = Math.max(15, Math.ceil(maxV / (PR * 0.6))); 
+        
+        for (let step = 0; step < subSteps; step++) {
+            
+            // 1. Mozgás
+            for (let n of nodes) {
+                if (n.isFixed) continue;
+                const vx = (n.x - n.oldx);
+                const vy = (n.y - n.oldy) + 0.0002; // Gyenge gravitáció
+                n.oldx = n.x; n.oldy = n.y;
+                n.x += vx; n.y += vy;
+            }
+
+            const collDist = PR * 2.0;
+            const collDistSq = collDist * collDist;
+
+            // 2. Képlékeny Alakváltozás és Anyagtörés
+            for (let i = links.length - 1; i >= 0; i--) {
+                const link = links[i];
+                const dx = link.n2.x - link.n1.x;
+                const dy = link.n2.y - link.n1.y;
+                const distSq = dx*dx + dy*dy;
+                
+                if (distSq === 0) continue;
+                const dist = Math.sqrt(distSq);
+                
+                // Törés
+                if (dist > link.restLength * link.breakStrain) {
+                    links.splice(i, 1); 
+                    continue;
+                } 
+                // Képlékeny folyás (Nem rugózik vissza!)
+                else if (dist > link.restLength * link.yieldStrain) {
+                    link.restLength = dist / link.yieldStrain; 
+                }
+                
+                const diff = (dist - link.restLength) / dist;
+                const w1 = link.n1.isFixed ? 0 : 1 / link.n1.mass;
+                const w2 = link.n2.isFixed ? 0 : 1 / link.n2.mass;
+                const wSum = w1 + w2;
+                
+                if (wSum > 0) {
+                    const offsetX = dx * diff / wSum;
+                    const offsetY = dy * diff / wSum;
+                    if (!link.n1.isFixed) { link.n1.x += offsetX * w1; link.n1.y += offsetY * w1; }
+                    if (!link.n2.isFixed) { link.n2.x -= offsetX * w2; link.n2.y -= offsetY * w2; }
+                }
+            }
+
+            // 3. Lövedék fúrja a Páncélt (Inelasztikus ütközés)
+            for (let p of projNodes) {
+                for (let a of armorNodes) {
+                    const dx = a.x - p.x; const dy = a.y - p.y;
+                    if (Math.abs(dx) > collDist || Math.abs(dy) > collDist) continue;
+                    
+                    const distSq = dx*dx + dy*dy;
+                    if (distSq < collDistSq && distSq > 0.0001) {
+                        const dist = Math.sqrt(distSq);
+                        const overlap = collDist - dist;
+                        const nx = dx / dist; const ny = dy / dist;
+                        
+                        const w1 = 1 / p.mass;
+                        const w2 = a.isFixed ? 0 : 1 / a.mass;
+                        const wSum = w1 + w2;
+                        
+                        // Helyzet korrekció
+                        p.x -= (nx * overlap / wSum) * w1; p.y -= (ny * overlap / wSum) * w1;
+                        if (!a.isFixed) { a.x += (nx * overlap / wSum) * w2; a.y += (ny * overlap / wSum) * w2; }
+
+                        // INELASZTIKUS ENERGIA-ELNYELÉS (Nincs visszapattanás)
+                        const rvx = (p.x - p.oldx) - (a.x - a.oldx);
+                        const rvy = (p.y - p.oldy) - (a.y - a.oldy);
+                        
+                        // Fúrási ellenállás és súrlódás
+                        const damping = 0.15; 
+                        p.oldx += rvx * (w1/wSum) * damping; p.oldy += rvy * (w1/wSum) * damping;
+                        if (!a.isFixed) { a.oldx -= rvx * (w2/wSum) * damping; a.oldy -= rvy * (w2/wSum) * damping; }
+
+                        // Robbanóanyag Detonáció!
+                        if (a.type === 'explosive') {
+                            a.type = 'armor'; triggerExplosion(a.x, a.y, 1.5, 90); // ERA felrobban
+                        }
+                        if (p.type === 'explosive') {
+                            p.type = 'proj'; triggerExplosion(p.x, p.y, 2.0, 150); // HE felrobban
+                        }
+                    }
+                }
+            }
+
+            // 4. Folyadék dinamika (Hidrosztatikus sokk)
+            if (liquidNodes.length > 0) {
+                for (let l of liquidNodes) {
+                    // Folyadék feszül a páncélnak
+                    for (let a of armorNodes) {
+                        const dx = a.x - l.x; const dy = a.y - l.y;
+                        if (dx*dx + dy*dy < collDistSq) {
+                            const dist = Math.sqrt(dx*dx + dy*dy) || 0.001;
+                            const overlap = collDist - dist;
+                            const wSum = (1/l.mass) + (a.isFixed ? 0 : 1/a.mass);
+                            l.x -= (dx/dist)*overlap/wSum * (1/l.mass); l.y -= (dy/dist)*overlap/wSum * (1/l.mass);
+                            if (!a.isFixed) { a.x += (dx/dist)*overlap/wSum * (1/a.mass); a.y += (dy/dist)*overlap/wSum * (1/a.mass); }
+                        }
+                    }
+                    // Folyadék részecskék taszítják egymást (SPH-lite inkompresszibilitás)
+                    for (let l2 of liquidNodes) {
+                        if (l === l2) continue;
+                        const dx = l2.x - l.x; const dy = l2.y - l.y;
+                        if (Math.abs(dx) > collDist || Math.abs(dy) > collDist) continue;
+                        if (dx*dx + dy*dy < collDistSq) {
+                            const dist = Math.sqrt(dx*dx + dy*dy) || 0.001;
+                            const push = (collDist - dist) * 0.5;
+                            l.x -= (dx/dist)*push; l.y -= (dy/dist)*push;
+                            l2.x += (dx/dist)*push; l2.y += (dy/dist)*push;
+                        }
+                    }
+                    // Lövedék becsapódik a kerozinba -> Robbanásszerű hidrosztatikus nyomás!
+                    for (let p of projNodes) {
+                        const dx = p.x - l.x; const dy = p.y - l.y;
+                        if (dx*dx + dy*dy < collDistSq) {
+                            const v = Math.hypot(p.x - p.oldx, p.y - p.oldy);
+                            if (v > 0.5) triggerExplosion(l.x, l.y, v * 2.0, 40); // Szétveti a tartályt
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function getVelocityColor(n) {
+        // A valós sebesség visszaskálázása a hőtérképhez
+        let vPxPerSubstep = Math.hypot(n.x - n.oldx, n.y - n.oldy);
+        // Sebesség normalizálása (Figyelembe véve, hogy a substep dinamikus, az oldx/oldy távolsága maga az 1 substep alatti út)
+        // Viszont a megjelenítéshez tudnunk kell az eredeti "viszonyítási" max sebességet.
+        let speed = vPxPerSubstep * 1500; // Vizuális szorzó a látványos hőtérképhez
+        
+        let t = Math.min(Math.max(speed / globalMaxVelocity, 0), 1); 
+        let r=0, g=0, b=0;
+        
+        // Precíz hőtérkép (Dark Blue -> Blue -> Cyan -> Yellow -> Red -> Dark Red)
+        if (t < 0.2) { r=0; g=0; b=128 + 127 * (t / 0.2); }                   
+        else if (t < 0.4) { r=0; g=255 * ((t - 0.2) / 0.2); b=255; }   
+        else if (t < 0.6) { r=255 * ((t - 0.4) / 0.2); g=255; b=255 - r; } 
+        else if (t < 0.8) { r=255; g=255 - 255 * ((t - 0.6) / 0.2); b=0; }
+        else { r=255 - 100 * ((t - 0.8) / 0.2); g=0; b=0; } // Sötétvörös a maximumon
+        
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+    }
+
+    function draw() {
+        // Mérnöki fekete háttér mozgáselmosódással (Motion Blur)
+        ctx.fillStyle = 'rgba(10, 10, 12, 0.35)'; 
+        ctx.fillRect(0, 0, width, height);
+
+        // Diszkrét háttérrács
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i=0; i<width; i+=40) { ctx.moveTo(i,0); ctx.lineTo(i,height); }
+        for(let j=0; j<height; j+=40) { ctx.moveTo(0,j); ctx.lineTo(width,j); }
+        ctx.stroke();
+
+        // Finom kötések kirajzolása (Mesh Grid láthatósága)
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let i = 0; i < links.length; i++) {
+            ctx.moveTo(links[i].n1.x, links[i].n1.y);
+            ctx.lineTo(links[i].n2.x, links[i].n2.y);
+        }
+        ctx.strokeStyle = 'rgba(150, 150, 150, 0.15)';
+        ctx.stroke();
+
+        // Részecskék Végeselem (FEM) stílusú rajzolása (Négyzetek)
+        for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            ctx.fillStyle = getVelocityColor(n);
+            ctx.fillRect(n.x - PR, n.y - PR, PR * 2, PR * 2);
+        }
+    }
+
+    function loop() {
+        const timeScaleVal = parseInt(document.getElementById('time-slider').value) / 100.0;
+        timeAccumulator += timeScaleVal;
+        
+        while (timeAccumulator >= 1.0) {
+            updatePhysics();
+            timeAccumulator -= 1.0;
+        }
+
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    // UI Eseménykezelők
+    document.getElementById('vel-slider').addEventListener('input', function() { document.getElementById('v-val').innerText = this.value; });
+    document.getElementById('angle-slider').addEventListener('input', function() { document.getElementById('a-val').innerText = this.value; });
+    document.getElementById('time-slider').addEventListener('input', function() { document.getElementById('time-val').innerText = this.value; });
+    document.getElementById('fire-btn').addEventListener('click', initSimulation);
+
+    initSimulation();
+    loop();
+
+</script>
+</body>
+</html>

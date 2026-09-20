@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sniper Elite Ultimate - Hardcore Ballistics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'Consolas', monospace; user-select: none; }
+        #canvas-container { width: 100%; height: 100%; display: block; filter: contrast(1.1) saturate(1.2); }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        /* Oxigénhiány / Fókusz Vignette */
+        #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%); opacity: 0; transition: opacity 0.3s; }
+        
+        #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #050505; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; pointer-events: auto; z-index: 100; text-align: center; }
+        h1 { font-size: 4rem; color: #ff3333; letter-spacing: 5px; text-shadow: 0 0 20px #ff0000; margin-bottom: 0; }
+        
+        #start-btn { padding: 15px 50px; font-size: 24px; background: #111; color: white; border: 2px solid #ff3333; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.2s; margin-top: 30px; box-shadow: 0 0 10px rgba(255,0,0,0.3); }
+        #start-btn:hover { background: #ff3333; color: #000; box-shadow: 0 0 30px red; }
+
+        .hud { position: absolute; color: #fff; text-shadow: 1px 1px 2px #000; font-size: 15px; padding: 15px; background: rgba(0,0,0,0.6); }
+        #top-left { top: 10px; left: 10px; border-left: 3px solid #ff3333; }
+        #bottom-panel { bottom: 10px; left: 50%; transform: translateX(-50%); text-align: center; color: #aaa; font-size: 13px; }
+        
+        /* Bullet Cam */
+        #bullet-cam-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; border: 2px solid rgba(255,0,0,0.2); box-sizing: border-box; }
+        #bullet-speed { position: absolute; bottom: 80px; right: 50px; color: #ffaa00; font-size: 32px; font-weight: bold; font-style: italic; }
+        
+        /* Optikák */
+        #scope-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, transparent 38%, rgba(0,0,0,0.98) 45%, #000 50%); display: none; box-shadow: inset 0 0 100px rgba(0,0,0,1); }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 50%; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1>SNIPER ULTIMATE</h1>
+        <p style="color: #888; font-size: 18px; margin-bottom: 30px;">[ Diegetikus UI | Spin Drift | Ricochet Fizika ]</p>
+        <button id="start-btn">BEVETÉS INDÍTÁSA</button>
+        <p style="color: #555; margin-top: 30px; font-size: 14px; max-width: 600px;">
+            A széladatok nincsenek a képernyőn. Figyeld a célpontok melletti piros zászlókat!<br>
+            A tartós fókuszálás (SHIFT) növeli a pulzust és elhomályosítja a látást.
+        </p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="vignette"></div>
+        <div id="scope-overlay"><canvas id="reticle-canvas" style="width:100%; height:100%;"></canvas></div>
+        <div id="crosshair" style="display: block;"></div>
+        
+        <div id="player-hud">
+            <div id="top-left" class="hud">
+                <div style="font-size: 22px; color: #ffcc00;" id="wpn-name">.338 Lapua Magnum</div>
+                <div id="wpn-stats">Sebesség: 950 m/s<br>Ballisztikai Együttható: 0.667</div>
+            </div>
+            <div id="bottom-panel" class="hud">
+                [1-3] Fegyver | [4-6] Optika | [SPACE] Célzás | [SHIFT] Visszatartott Lélegzet
+            </div>
+        </div>
+
+        <div id="bullet-cam-hud">
+            <div style="position: absolute; top: 30px; left: 30px; color: #ff3333; font-size: 20px; letter-spacing: 2px;">● SLOW-MOTION TRACKING</div>
+            <div id="bullet-speed">--- m/s</div>
+        </div>
+    </div>
+
+<script>
+// --- FEGYVERTÁR & BALLISZTIKA ---
+const GRAVITY = 9.81;
+const WEAPONS = {
+    1: { name: ".308 Winchester", speed: 820, drop: 9.81, recoil: 0.015, color: 0x4a3c2c, drag: 0.9992, penetration: 1 },
+    2: { name: ".338 Lapua Mag", speed: 950, drop: 9.81, recoil: 0.025, color: 0x2b2b2b, drag: 0.9995, penetration: 2 },
+    3: { name: ".50 BMG", speed: 1050, drop: 9.81, recoil: 0.05, color: 0x111111, drag: 0.9998, penetration: 3 }
+};
+const SCOPES = {
+    4: { name: "Red Dot", zoom: 2, reticle: 'dot' },
+    5: { name: "Taktikai 8x", zoom: 8, reticle: 'cross' },
+    6: { name: "Mesterlövész 15x", zoom: 15, reticle: 'mil' }
+};
+
+let currentWeapon = WEAPONS[2];
+let currentScope = SCOPES[6];
+
+// --- 3D MOTOR ---
+let scene, renderer, playerCamera, bulletCamera, activeCamera;
+let pitchObject, yawObject, weaponMesh;
+let bullets = [], targets = [], decals = [], particles = [], windFlags = [];
+let raycaster = new THREE.Raycaster();
+const clock = new THREE.Clock();
+
+let isPlaying = false, isAiming = false;
+let holdBreath = false, breathTimer = 0;
+let swayTime = 0, recoilOffset = 0, recoilVelocity = 0, windSpeed = 0;
+
+let replayState = { active: false, bullet: null, impactTimer: 0 };
+let audioCtx, masterGain;
+
+init3D();
+updateHUD();
+
+function init3D() {
+    const container = document.getElementById('canvas-container');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Világos ég
+    scene.fog = new THREE.FogExp2(0x87CEEB, 0.0006); 
+
+    playerCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 4000);
+    bulletCamera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.01, 1000);
+    activeCamera = playerCamera;
+
+    pitchObject = new THREE.Object3D(); pitchObject.add(playerCamera);
+    yawObject = new THREE.Object3D(); yawObject.position.y = 1.6; yawObject.add(pitchObject);
+    scene.add(yawObject);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8); scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xffeedd, 1.0);
+    dirLight.position.set(-100, 200, 100); dirLight.castShadow = true;
+    dirLight.shadow.camera.far = 2000; scene.add(dirLight);
+
+    buildEnvironment();
+    window.addEventListener('resize', onWindowResize, false);
+}
+
+function buildEnvironment() {
+    const groundGeo = new THREE.PlaneGeometry(4000, 4000);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x4b5e35 }); 
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+    
+    // Tereptárgy a Ricochet teszthez
+    const rockMat = new THREE.MeshLambertMaterial({color: 0x555555});
+    const rock = new THREE.Mesh(new THREE.BoxGeometry(10, 2, 5), rockMat);
+    rock.position.set(5, 1, -150); rock.castShadow = true; rock.receiveShadow = true;
+    rock.userData = { type: 'stone' }; scene.add(rock); targets.push(rock);
+
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 1.5), new THREE.MeshLambertMaterial({ color: 0x2a1f18 }));
+    bench.position.set(0, 0.6, -1.2); bench.receiveShadow = true; bench.castShadow = true; scene.add(bench);
+
+    buildWeaponModel();
+
+    for(let i=0; i<200; i++) {
+        let x = (Math.random() - 0.5) * 500; let z = -Math.random() * 1200 - 50;
+        if(Math.abs(x) < 15) continue; 
+        
+        let tree = new THREE.Group(); tree.position.set(x, 0, z);
+        let trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 3), new THREE.MeshLambertMaterial({color: 0x3d2817})); trunk.position.y = 1.5;
+        let leaves = new THREE.Mesh(new THREE.ConeGeometry(2.5, 6, 7), new THREE.MeshLambertMaterial({color: 0x203b22})); leaves.position.y = 4.5;
+        tree.add(trunk); tree.add(leaves); scene.add(tree);
+    }
+
+    const distances = [100, 300, 500, 800, 1200];
+    distances.forEach(dist => {
+        let xPos = (Math.random() - 0.5) * (dist * 0.08); 
+        createTarget(xPos, -dist, dist % 200 !== 0 ? 'wood' : 'metal'); 
+    });
+}
+
+function buildWeaponModel() {
+    if(weaponMesh) pitchObject.remove(weaponMesh);
+    weaponMesh = new THREE.Group();
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 1.0, 8), new THREE.MeshLambertMaterial({color: 0x111})); barrel.rotation.x = Math.PI/2; barrel.position.set(0, 0, -0.4); weaponMesh.add(barrel);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.7), new THREE.MeshLambertMaterial({color: currentWeapon.color})); body.position.set(0, -0.04, 0.2); weaponMesh.add(body);
+    weaponMesh.position.set(0.25, -0.2, -0.4);
+    pitchObject.add(weaponMesh);
+}
+
+function createTarget(x, z, type) {
+    const tg = new THREE.Group(); tg.position.set(x, 0, z);
+
+    if (type === 'wood') {
+        const mat = new THREE.MeshLambertMaterial({ color: 0xb58c63 });
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.1), mat); torso.position.y = 1.0; 
+        torso.userData = { isTarget: true, type: 'wood' }; tg.add(torso); targets.push(torso);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.1), mat); head.position.y = 1.6;
+        head.userData = { isTarget: true, type: 'wood' }; tg.add(head); targets.push(head);
+    } else {
+        const board = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16), new THREE.MeshStandardMaterial({ color: 0x777, metalness: 0.9, roughness: 0.4 })); 
+        board.rotation.x = Math.PI / 2; board.position.y = 1.2;
+        board.userData = { isTarget: true, type: 'metal' }; tg.add(board); targets.push(board);
+    }
+    
+    // DIEGETIKUS SZÉLJELZŐ (Fizikai Zászló)
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.0), new THREE.MeshLambertMaterial({color: 0x333}));
+    pole.position.set(-1.0, 1.0, 0); tg.add(pole);
+    
+    const flagMat = new THREE.MeshLambertMaterial({color: 0xff0000, side: THREE.DoubleSide});
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.3), flagMat);
+    flag.position.set(-0.75, 1.8, 0); 
+    tg.add(flag); windFlags.push(flag);
+
+    scene.add(tg); 
+}
+
+function fireBullet() {
+    if (replayState.active || !audioCtx) { if(!audioCtx) initAudio(); if(replayState.active) return; }
+    playGunshot();
+    
+    recoilVelocity = currentWeapon.recoil;
+    weaponMesh.position.z += 0.15; 
+
+    // Golyó és Mach Kúp
+    const bulletGroup = new THREE.Group();
+    const bullet = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness:1, roughness:0 }));
+    bullet.rotateX(Math.PI / 2); bulletGroup.add(bullet);
+    
+    const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.3, 1.5, 16), 
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    cone.rotateX(-Math.PI / 2); cone.position.z = 0.5; bulletGroup.add(cone);
+
+    bulletGroup.position.copy(playerCamera.getWorldPosition(new THREE.Vector3()));
+    const dir = new THREE.Vector3(); playerCamera.getWorldDirection(dir);
+    const velocity = dir.multiplyScalar(currentWeapon.speed);
+
+    let bObj = { mesh: bulletGroup, velocity: velocity, timeAlive: 0, hitTargets: new Set(), speed: currentWeapon.speed, isRicochet: false };
+    bullets.push(bObj); scene.add(bulletGroup);
+
+    replayState.active = true; replayState.bullet = bObj; replayState.impactTimer = 0;
+    activeCamera = bulletCamera;
+    
+    document.getElementById('player-hud').style.display = 'none';
+    document.getElementById('scope-overlay').style.display = 'none';
+    document.getElementById('bullet-cam-hud').style.display = 'block';
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (!isPlaying) return;
+    
+    let rawDt = Math.min(clock.getDelta(), 0.1);
+    let simDt = rawDt;
+
+    // Légzés / Szívverés logika
+    if (holdBreath) {
+        breathTimer += rawDt;
+        document.getElementById('vignette').style.opacity = Math.min(0.8, breathTimer / 4);
+        if (breathTimer > 3 && Math.floor(breathTimer*10) % 10 === 0) playHeartbeat();
+    } else {
+        breathTimer = Math.max(0, breathTimer - rawDt * 2);
+        document.getElementById('vignette').style.opacity = Math.min(0.8, breathTimer / 4);
+    }
+
+    // Zászlók lobogása a szélben
+    windFlags.forEach(f => {
+        f.rotation.y = Math.PI/2 + (windSpeed * -0.15); 
+        f.geometry.verticesNeedUpdate = true; // Finom lobogást lehetne vertex shaderrel, itt statikus dőlés
+    });
+
+    if (replayState.active && replayState.bullet) {
+        let bulletZ = Math.abs(replayState.bullet.mesh.position.z);
+        let nearTarget = targets.some(t => {
+            let targetWorldZ = new THREE.Vector3(); t.getWorldPosition(targetWorldZ);
+            return Math.abs(Math.abs(targetWorldZ.z) - bulletZ) < 30;
+        });
+        if (nearTarget && !replayState.bullet.isRicochet) simDt *= 0.03; // Brutális mátrix lassítás
+    }
+
+    updatePlayer(rawDt); updateBullets(simDt); updateDecals(rawDt); updateParticles(simDt); updateBulletCam(rawDt);
+    renderer.render(scene, activeCamera);
+}
+
+function updatePlayer(dt) {
+    if (replayState.active) return;
+
+    swayTime += dt;
+    const swayAmp = holdBreath ? 0.0002 : (breathTimer > 4 ? 0.003 : 0.001); // Kifulladás után jobban mozog
+    
+    // Ha 15x távcső, Délibáb / Mirage wobbling hozzáadása
+    let mirage = (isAiming && currentScope.zoom === 15) ? Math.sin(Date.now()*0.02)*0.0002 : 0;
+    
+    // Szívverés rángás
+    let pulse = (holdBreath && breathTimer > 3) ? Math.sin(breathTimer * 10) * 0.0005 : 0;
+
+    playerCamera.position.x = Math.sin(swayTime * 1.5) * swayAmp + mirage;
+    playerCamera.position.y = Math.cos(swayTime * 1.2) * swayAmp + pulse;
+
+    if (recoilVelocity > 0 || recoilOffset > 0) {
+        recoilVelocity -= recoilOffset * 25 * dt; recoilVelocity -= recoilVelocity * 10 * dt; 
+        recoilOffset += Math.max(recoilVelocity, 0); if(recoilOffset < 0.0001) recoilOffset = 0; 
+    }
+    pitchObject.rotation.x = currentPitch + recoilOffset;
+    weaponMesh.position.z = THREE.MathUtils.lerp(weaponMesh.position.z, -0.4, dt * 8);
+}
+
+function updateBullets(dt) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        let prevPos = b.mesh.position.clone();
+
+        // FIZIKA: Gravitáció, Légellenállás, Spin Drift, Szél
+        b.velocity.y -= GRAVITY * dt;
+        b.velocity.multiplyScalar(currentWeapon.drag); // Nem lineáris lassulás
+        b.velocity.x += windSpeed * dt; // Crosswind
+        b.velocity.x += 0.15 * dt; // SPIN DRIFT (Jobbra húz a huzagolás miatt)
+
+        b.speed = b.velocity.length(); 
+        b.mesh.position.addScaledVector(b.velocity, dt);
+        b.mesh.lookAt(b.mesh.position.clone().add(b.velocity));
+        
+        // Pörgés (Motion Blur illúzió a tengely körül)
+        b.mesh.children[0].rotation.y += b.speed * 0.1 * dt; 
+        
+        b.timeAlive += dt;
+
+        let moveVec = new THREE.Vector3().subVectors(b.mesh.position, prevPos);
+        raycaster.set(prevPos, moveVec.normalize());
+        let intersects = raycaster.intersectObjects(targets.concat(scene.children.filter(c => c.geometry && c.geometry.type === 'PlaneGeometry'))); // Talajt is belevesszük
+        
+        if (intersects.length > 0 && intersects[0].distance <= moveVec.length()) {
+            let hit = intersects[0];
+            let tType = hit.object.userData.type || 'ground';
+            
+            // RICOCHET (Gellert) Vizsgálat (lapos szög esetén)
+            let impactAngle = Math.abs(b.velocity.clone().normalize().dot(hit.face.normal));
+            if (impactAngle < 0.25 && b.speed > 300) { // Sekély szög
+                b.velocity.reflect(hit.face.normal).multiplyScalar(0.6); // Visszapattan és lassul
+                b.mesh.position.copy(hit.point).add(hit.face.normal.clone().multiplyScalar(0.1));
+                b.isRicochet = true;
+                playRicochet();
+                spawnSparks(hit.point, hit.face.normal);
+                continue; // Nem pusztul el a golyó!
+            }
+
+            if (tType !== 'ground' && !b.hitTargets.has(hit.object)) {
+                b.hitTargets.add(hit.object);
+                createDecal(hit.point, hit.face.normal, tType);
+                spawnSparks(hit.point, hit.face.normal, tType);
+                
+                if (tType === 'wood' || (tType === 'metal' && currentWeapon.penetration === 3)) {
+                    // Átütés! (Ha fa, vagy .50 BMG fémre)
+                    b.velocity.multiplyScalar(tType==='metal' ? 0.3 : 0.7);
+                    b.velocity.y -= 1;
+                    playHitSound(tType, hit.distance);
+                } else {
+                    // Megáll (Normál kaliber fémen)
+                    b.speed = 0; b.velocity.set(0,0,0);
+                    if(replayState.bullet === b) replayState.impactTimer = 1.5;
+                    playHitSound(tType, hit.distance);
+                    scene.remove(b.mesh); bullets.splice(i, 1);
+                    continue; 
+                }
+            } else if (tType === 'ground') {
+                // Földbe csapódás (Nem gellert)
+                spawnSparks(hit.point, hit.face.normal, 'dirt');
+                if(replayState.bullet === b) replayState.impactTimer = 1.0;
+                scene.remove(b.mesh); bullets.splice(i, 1);
+                continue;
+            }
+        }
+
+        if (b.mesh.position.y < -10 || b.timeAlive > 8) {
+            if(replayState.bullet === b) replayState.impactTimer = 1.0;
+            scene.remove(b.mesh); bullets.splice(i, 1);
+        }
+    }
+}
+
+function updateBulletCam(dt) {
+    if (!replayState.active || !replayState.bullet) return;
+    let b = replayState.bullet;
+    
+    if (replayState.impactTimer > 0) {
+        replayState.impactTimer -= dt; // Valós idejű visszaszámlálás a freeze után
+        if (replayState.impactTimer <= 0) endReplay();
+        return;
+    }
+
+    if (b.speed > 0) {
+        let offset = b.velocity.clone().normalize().multiplyScalar(-2).add(new THREE.Vector3(0, 0.4, 0));
+        bulletCamera.position.copy(b.mesh.position).add(offset);
+        
+        // Légellenállás miatti kamera rázkódás (Turbulencia)
+        let shake = b.speed > 500 ? (Math.random()-0.5)*0.03 : 0;
+        bulletCamera.position.x += shake;
+        bulletCamera.position.y += shake;
+        bulletCamera.lookAt(b.mesh.position);
+        
+        document.getElementById('bullet-speed').innerText = b.speed.toFixed(0) + " m/s";
+    }
+}
+
+function endReplay() {
+    replayState.active = false; replayState.bullet = null; activeCamera = playerCamera;
+    document.getElementById('bullet-cam-hud').style.display = 'none';
+    document.getElementById('player-hud').style.display = 'block';
+    if (isAiming) document.getElementById('scope-overlay').style.display = 'block';
+}
+
+function createDecal(point, normal, type) {
+    const holeGeo = new THREE.CircleGeometry(0.04, 16);
+    let holeMat = new THREE.MeshLambertMaterial({ color: 0x050505, depthWrite: false });
+    
+    if (type === 'metal') holeMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xff2200, emissiveIntensity: 2.0, depthWrite: false });
+
+    const hole = new THREE.Mesh(holeGeo, holeMat);
+    hole.position.copy(point).add(normal.clone().multiplyScalar(0.005));
+    hole.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    scene.add(hole);
+
+    if (type === 'metal') decals.push({ mesh: hole, heat: 2.0 });
+}
+
+function updateDecals(dt) {
+    for (let i = decals.length - 1; i >= 0; i--) {
+        let d = decals[i]; d.heat -= dt * 0.15; 
+        if (d.heat <= 0) { d.mesh.material.emissiveIntensity = 0; d.mesh.material.color.setHex(0x111111); decals.splice(i, 1); } 
+        else { d.mesh.material.emissiveIntensity = d.heat; }
+    }
+}
+
+function spawnSparks(pos, normal, type='metal') {
+    const pCount = 20;
+    const pGeo = new THREE.BoxGeometry(0.05, 0.05, 0.15); // Repeszek (Spalling)
+    const color = type === 'wood' ? 0x5c3a21 : (type==='dirt' ? 0x3d2817 : 0xffaa00);
+    const pMat = new THREE.MeshBasicMaterial({ color: color });
+
+    for(let i=0; i<pCount; i++) {
+        let p = new THREE.Mesh(pGeo, pMat); p.position.copy(pos);
+        // Visszapattanás a normál vektor irányába
+        let bounce = normal.clone().multiplyScalar(Math.random() * 5 + 2);
+        let spread = new THREE.Vector3((Math.random()-0.5)*5, (Math.random()-0.5)*5, (Math.random()-0.5)*5);
+        let vel = bounce.add(spread);
+        scene.add(p); particles.push({ mesh: p, velocity: vel, life: 0.8 });
+    }
+}
+
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i]; p.velocity.y -= GRAVITY * dt;
+        p.mesh.position.addScaledVector(p.velocity, dt);
+        p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); // Forgácsok repülésbe fordulnak
+        p.life -= dt; p.mesh.scale.setScalar(Math.max(0.01, p.life));
+        if (p.life <= 0 || p.mesh.position.y < 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+    }
+}
+
+// --- IRÁNYÍTÁS ---
+document.addEventListener('mousemove', (e) => {
+    if (!isPlaying || document.pointerLockElement !== document.body || replayState.active) return;
+    let sens = isAiming ? (0.002 / currentScope.zoom) : 0.002;
+    yawObject.rotation.y -= e.movementX * sens; currentPitch -= e.movementY * sens;
+    currentPitch = Math.max(-Math.PI/4, Math.min(Math.PI/4, currentPitch));
+    pitchObject.rotation.x = currentPitch + recoilOffset;
+});
+
+document.addEventListener('mousedown', (e) => { if (isPlaying && document.pointerLockElement === document.body && e.button === 0) fireBullet(); });
+
+document.addEventListener('keydown', (e) => {
+    if (!isPlaying || replayState.active) return;
+    if (e.key === '1') { currentWeapon = WEAPONS[1]; buildWeaponModel(); updateHUD(); }
+    if (e.key === '2') { currentWeapon = WEAPONS[2]; buildWeaponModel(); updateHUD(); }
+    if (e.key === '3') { currentWeapon = WEAPONS[3]; buildWeaponModel(); updateHUD(); }
+    if (e.key === '4') { currentScope = SCOPES[4]; updateHUD(); applyScope(); }
+    if (e.key === '5') { currentScope = SCOPES[5]; updateHUD(); applyScope(); }
+    if (e.key === '6') { currentScope = SCOPES[6]; updateHUD(); applyScope(); }
+    if (e.code === 'Space') { isAiming = !isAiming; applyScope(); }
+    if (e.code === 'ShiftLeft') holdBreath = true;
+});
+document.addEventListener('keyup', (e) => { if (e.code === 'ShiftLeft') holdBreath = false; });
+
+function updateHUD() {
+    document.getElementById('wpn-name').innerText = currentWeapon.name;
+    document.getElementById('wpn-stats').innerHTML = `Sebesség: ${currentWeapon.speed} m/s<br>Ballisztikai Együttható: ${currentWeapon.drag.toFixed(4)}`;
+}
+
+function applyScope() {
+    updateHUD();
+    if (isAiming) {
+        document.getElementById('scope-overlay').style.display = 'block'; document.getElementById('crosshair').style.display = 'none';
+        weaponMesh.visible = false; playerCamera.fov = 60 / currentScope.zoom; drawReticle(currentScope.reticle);
+    } else {
+        document.getElementById('scope-overlay').style.display = 'none'; document.getElementById('crosshair').style.display = 'block';
+        weaponMesh.visible = true; playerCamera.fov = 60;
+    }
+    playerCamera.updateProjectionMatrix();
+}
+
+function drawReticle(type) {
+    const c = document.getElementById('reticle-canvas'); const ctx = c.getContext('2d');
+    c.width = window.innerWidth; c.height = window.innerHeight; let cx = c.width/2, cy = c.height/2;
+    ctx.clearRect(0, 0, c.width, c.height); 
+
+    if (type === 'dot') {
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 200, 0, Math.PI*2); ctx.stroke();
+    } else {
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, c.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(c.width, cy); ctx.stroke();
+        
+        if (type === 'mil') {
+            ctx.fillStyle = '#000'; ctx.font = '14px Consolas';
+            for(let i=1; i<=15; i++) {
+                let sp = i * 40; 
+                ctx.fillRect(cx - 3, cy + sp, 6, 2); if(i%2===0) ctx.fillText(i*2, cx - 25, cy + sp + 5);
+                ctx.fillRect(cx - 3, cy - sp, 6, 2); ctx.fillRect(cx + sp, cy - 3, 2, 6); ctx.fillRect(cx - sp, cy - 3, 2, 6);
+            }
+        }
+    }
+}
+
+function onWindowResize() {
+    playerCamera.aspect = window.innerWidth / window.innerHeight; playerCamera.updateProjectionMatrix();
+    bulletCamera.aspect = window.innerWidth / window.innerHeight; bulletCamera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight); if(isAiming) drawReticle(currentScope.reticle);
+}
+
+// --- AUDIO MOTOR ---
+function initAudio() { audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.8; masterGain.connect(audioCtx.destination); }
+
+function playGunshot() {
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator(); osc.frequency.setValueAtTime(250, t); osc.frequency.exponentialRampToValueAtTime(20, t + 0.1);
+    const gain = audioCtx.createGain(); gain.gain.setValueAtTime(2.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+    osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t+0.3);
+
+    const bSize = audioCtx.sampleRate * 2; const buffer = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0); for (let i = 0; i < bSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(3500, t); filter.frequency.exponentialRampToValueAtTime(200, t + 1.0);
+    const nGain = audioCtx.createGain(); nGain.gain.setValueAtTime(2.0, t); nGain.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
+    noise.connect(filter).connect(nGain).connect(masterGain); noise.start(t);
+}
+
+function playHitSound(type, dist) {
+    let vol = Math.max(0.1, Math.min(1.0, 300 / dist));
+    const t = audioCtx.currentTime;
+    if (type === 'metal') {
+        [1200, 2400].forEach(f => {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(f, t); osc.frequency.exponentialRampToValueAtTime(f*0.9, t+0.4);
+            gain.gain.setValueAtTime(0.8*vol, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
+            osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t+0.5);
+        });
+    } else {
+        const osc = audioCtx.createOscillator(); osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(50, t+0.1);
+        const gain = audioCtx.createGain(); gain.gain.setValueAtTime(1.5*vol, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.15);
+        osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t+0.2);
+    }
+}
+
+function playRicochet() {
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator(); osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1800, t); osc.frequency.exponentialRampToValueAtTime(300, t+0.6); // Visító zuhanó hang
+    const gain = audioCtx.createGain(); gain.gain.setValueAtTime(1.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.6);
+    
+    // Sztereo pan (elfut a hang)
+    const panner = audioCtx.createStereoPanner();
+    panner.pan.setValueAtTime(-1, t); panner.pan.linearRampToValueAtTime(1, t+0.6);
+    
+    osc.connect(gain).connect(panner).connect(masterGain); osc.start(t); osc.stop(t+0.6);
+}
+
+function playHeartbeat() {
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator(); osc.frequency.setValueAtTime(50, t); osc.frequency.exponentialRampToValueAtTime(20, t+0.2);
+    const gain = audioCtx.createGain(); gain.gain.setValueAtTime(1.5, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.3);
+    osc.connect(gain).connect(masterGain); osc.start(t); osc.stop(t+0.3);
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    windSpeed = (Math.random() - 0.5) * 8; // Random szél minden indításnál
+    document.body.requestPointerLock();
+});
+
+document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === document.body) {
+        isPlaying = true; document.getElementById('start-screen').style.display = 'none'; clock.getDelta(); animate();
+    } else {
+        isPlaying = false; document.getElementById('start-screen').style.display = 'flex';
+        document.querySelector('#start-screen h1').innerText = 'BEVETÉS MEGSZAKÍTVA';
+    }
+});
+</script>
+</body>
+</html>

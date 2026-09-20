@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>KAPCS — Global Video Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nsfwjs@2.4.2/dist/nsfwjs.min.js"></script>
+  <script async src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --card: #121927;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --dev: #a855f7;
+      --heart: #f43f5e;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+    .badge-wrap {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; cursor: help; margin-left: 4px;
+    }
+    .badge-icon {
+      width: 15px; height: 15px; vertical-align: middle; flex-shrink: 0; display: inline-block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+    }
+    .badge-wrap::after {
+      content: attr(data-tooltip); position: absolute; bottom: calc(100% + 7px); left: 50%;
+      transform: translateX(-50%); background: rgba(15, 23, 42, 0.96); color: #f8fafc; padding: 4px 8px;
+      border-radius: 6px; font-size: 10px; font-weight: 700; white-space: nowrap; pointer-events: none;
+      opacity: 0; visibility: hidden; transition: opacity 0.15s ease; border: 1px solid rgba(255, 255, 255, 0.15); z-index: 1000;
+    }
+    .badge-wrap:hover::after { opacity: 1; visibility: visible; }
+
+    .like-chip {
+      display: inline-flex; align-items: center; gap: 3px; background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3); color: #fda4af; font-size: 10px; font-weight: 800;
+      padding: 1px 6px; border-radius: 12px; margin-left: 5px; vertical-align: middle;
+    }
+    .like-chip svg { width: 10px; height: 10px; fill: var(--heart); }
+
+    #name-modal {
+      position: fixed; inset: 0; background: rgba(6, 9, 16, 0.96); backdrop-filter: blur(20px);
+      z-index: 99999; display: none; place-content: center; text-align: center; padding: 16px;
+    }
+    .name-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 28px 20px; max-width: 380px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    }
+    .name-box h2 { font-family: "Outfit", sans-serif; font-size: 24px; margin-bottom: 6px; color: #fff; }
+    .name-box p { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.4; }
+    .name-box input {
+      width: 100%; padding: 12px; background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+      border-radius: 8px; color: #fff; font-size: 14px; text-align: center; font-weight: 700; outline: none;
+    }
+    .name-box button {
+      width: 100%; padding: 12px; background: var(--primary); border: 0; color: #fff;
+      border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 12px; font-size: 13px;
+    }
+    .name-err { color: var(--danger); font-size: 11px; margin-top: 8px; display: none; font-weight: 600; }
+
+    #ban-screen {
+      display: none; position: fixed; inset: 0; background: #06080f; z-index: 999999;
+      place-content: center; text-align: center; padding: 20px;
+    }
+    #ban-screen h1 { font-family: "Outfit", sans-serif; color: var(--danger); font-size: 30px; margin-bottom: 6px; }
+    .ban-meta { background: var(--card); border: 1px solid var(--border); padding: 14px 18px; border-radius: 12px; max-width: 400px; margin: 12px auto; }
+
+    header {
+      height: 50px; border-bottom: 1px solid var(--border); display: flex;
+      align-items: center; justify-content: space-between; padding: 0 16px; background: rgba(18, 25, 39, 0.8); flex-shrink: 0;
+    }
+    .brand { font-family: "Outfit", sans-serif; font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 1px; }
+    .status-group { display: flex; align-items: center; gap: 10px; }
+    .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
+    .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.search { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+
+    .ai-badge { display: none; }
+    @media (min-width: 600px) { .ai-badge { display: flex; font-size: 10px; font-weight: 700; color: #86efac; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); padding: 3px 8px; border-radius: 20px; align-items: center; gap: 4px; } }
+
+    .btn-report {
+      background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5; padding: 5px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer;
+    }
+
+    /* MOBILBARÁT GRID ELRENDEZÉS */
+    main { flex: 1; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 220px; min-height: 0; overflow: hidden; }
+    @media (min-width: 800px) { main { grid-template-columns: 1fr 320px; grid-template-rows: 1fr; } }
+
+    .video-section { display: flex; flex-direction: column; padding: 10px; min-height: 0; overflow: hidden; }
+    .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; }
+    @media (max-width: 799px) { .video-grid { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 8px; } }
+    
+    .video-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0;
+    }
+    .video-box video { width: 100%; height: 100%; object-fit: cover; }
+    #local-video { transform: scaleX(-1); }
+
+    #remote-debug-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; display: none; }
+
+    .video-box.ai-blocked video { filter: blur(40px); }
+    .shield-overlay {
+      position: absolute; inset: 0; background: rgba(10, 14, 23, 0.9); backdrop-filter: blur(20px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px; text-align: center; z-index: 10;
+    }
+    .video-box.ai-blocked .shield-overlay { display: flex; }
+    .shield-overlay h3 { color: var(--danger); font-size: 16px; margin-bottom: 4px; }
+    .shield-overlay p { color: var(--muted); font-size: 11px; max-width: 220px; }
+
+    .video-label {
+      position: absolute; bottom: 8px; left: 8px; background: rgba(0, 0, 0, 0.75);
+      padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; z-index: 5; display: flex; align-items: center;
+    }
+    .placeholder {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 12px; text-align: center; padding: 10px;
+    }
+
+    .controls { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; flex-shrink: 0; gap: 6px; }
+    .media-tools { display: flex; gap: 6px; align-items: center; }
+    .tool-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--card); color: #fff; font-size: 14px; cursor: pointer; display: grid; place-items: center;
+    }
+    .tool-btn.off { background: rgba(239, 68, 68, 0.2); border-color: var(--danger); color: #fca5a5; }
+
+    .btn-like {
+      height: 38px; padding: 0 12px; border-radius: 19px; font-size: 12px; font-weight: 700;
+      background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.35); color: #fda4af;
+      display: flex; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .btn-like:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .tool-btn-dev {
+      height: 38px; padding: 0 10px; border-radius: 19px; font-size: 11px; font-weight: 800;
+      background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;
+      display: none; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .tool-btn-dev.active { background: #a855f7; color: #fff; }
+
+    .action-group { display: flex; gap: 6px; }
+    .btn-main {
+      background: var(--primary); color: #fff; border: 0; padding: 0 16px; height: 38px;
+      border-radius: 7px; font: 700 13px "DM Sans"; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .btn-stop { background: #334155; color: #fff; border: 0; padding: 0 12px; height: 38px; border-radius: 7px; font-weight: 700; cursor: pointer; }
+
+    .chat-section { border-top: 1px solid var(--border); background: rgba(18, 25, 39, 0.35); display: flex; flex-direction: column; min-height: 0; }
+    @media (min-width: 800px) { .chat-section { border-top: 0; border-left: 1px solid var(--border); } }
+    
+    .chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .msg { padding: 6px 10px; border-radius: 7px; font-size: 12px; max-width: 88%; word-break: break-word; line-height: 1.35; }
+    .msg b { display: flex; align-items: center; font-size: 10px; margin-bottom: 2px; color: #a5b4fc; }
+    .msg.in { align-self: flex-start; background: var(--card); }
+    .msg.out { align-self: flex-end; background: var(--primary); }
+    .msg.out b { color: #e0e7ff; justify-content: flex-end; }
+    .msg.sys { align-self: center; font-size: 10px; color: var(--muted); font-style: italic; text-align: center; }
+    .msg.warn { align-self: center; background: rgba(239, 68, 68, 0.15); color: #fca5a5; font-size: 10px; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .chat-input { padding: 8px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-shrink: 0; }
+    .chat-input input {
+      flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+      padding: 8px 10px; border-radius: 6px; color: #fff; font-size: 12px; outline: none;
+    }
+    .chat-input button { background: var(--primary); border: 0; color: #fff; padding: 0 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; }
+
+    #ai-canvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <div id="name-modal">
+    <div class="name-box">
+      <h2>Welcome to KAPCS</h2>
+      <p>Choose a unique handle. Each username is tied to your permanent device security ID.</p>
+      <input type="text" id="username-in" placeholder="e.g. shadow_ninja" maxlength="16" autocomplete="off">
+      <button id="btn-claim-name">Claim Handle & Enter</button>
+      <div class="name-err" id="name-err"></div>
+    </div>
+  </div>
+
+  <div id="ban-screen">
+    <h1>Access Suspended</h1>
+    <p style="color:var(--muted); max-width: 360px; margin-bottom: 10px;" id="ban-reason-text">Your permanent device ID has been restricted by moderation.</p>
+    <div class="ban-meta">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">REMAINING TIME</div>
+      <div id="ban-duration-text" style="font-size:16px; font-weight:700; color:var(--danger)">Checking...</div>
+      <div style="font-size:10px; color:#64748b; margin-top:6px;" id="ban-id-display"></div>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">KAPCS</div>
+    <div class="status-group">
+      <div class="ai-badge" id="ai-status"><span>🛡️</span> AI Active</div>
+      <div class="status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Ready</span>
+      </div>
+    </div>
+    <button class="btn-report" id="btn-report">⚠️ Report</button>
+  </header>
+
+  <main>
+    <div class="video-section">
+      <div class="video-grid">
+        <div class="video-box" id="remote-box">
+          <video id="remote-video" autoplay playsinline></video>
+          <canvas id="remote-debug-canvas"></canvas>
+          <div class="placeholder" id="remote-placeholder">
+            <span id="remote-placeholder-text">Click "Start / Next" to find a partner</span>
+          </div>
+          <div class="shield-overlay">
+            <h3>⚠️ Prohibited Content</h3>
+            <p id="shield-reason">Hate symbol or explicit nudity intercepted.</p>
+          </div>
+          <div class="video-label" id="partner-label">Partner</div>
+        </div>
+
+        <div class="video-box" id="local-box">
+          <video id="local-video" autoplay playsinline muted></video>
+          <div class="placeholder" id="local-placeholder">
+            <span id="cam-err-msg">Accessing camera...</span>
+          </div>
+          <div class="shield-overlay">
+            <h3>⚠️ Violation Detected</h3>
+            <p>Prohibited content on camera.</p>
+          </div>
+          <div class="video-label" id="self-label">You</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="media-tools">
+          <button class="tool-btn" id="btn-cam" title="Toggle Camera">📷</button>
+          <button class="tool-btn" id="btn-mic" title="Toggle Microphone">🎤</button>
+          <button class="btn-like" id="btn-like-partner" disabled title="Send like">❤️ Like</button>
+          <button class="tool-btn-dev" id="btn-dev-hud" title="AI Vision Debug">👁️ AI</button>
+        </div>
+        <div class="action-group">
+          <button class="btn-stop" id="btn-stop">Stop</button>
+          <button class="btn-main" id="btn-next">Start / Next ➔</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-section">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg sys">Welcome to KAPCS! Click Start to begin matching.</div>
+      </div>
+      <form class="chat-input" id="chat-form">
+        <input type="text" id="chat-in" placeholder="Type a message..." autocomplete="off">
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <canvas id="ai-canvas" width="224" height="224"></canvas>
+
+  <script>
+    let globalRolesMap = JSON.parse(localStorage.getItem('kapcs_roles_cache') || '{}');
+    let myLikes = parseInt(localStorage.getItem('kapcs_user_likes') || '0', 10);
+    let partnerLikes = 0;
+    let hasLikedCurrentPartner = false;
+
+    function getBadgeHTML(role) {
+      if (!role || role === 'none') return '';
+      let tooltipText = '', svg = '';
+      if (role === 'verified') {
+        tooltipText = 'Verified Partner';
+        svg = `<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      } else if (role === 'moderator') {
+        tooltipText = 'Community Moderator';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5 L85 18 C85 62 50 88 50 95 C50 88 15 62 15 18 Z" fill="#151e2e" stroke="#253248" stroke-width="2"/><path d="M50 12 L78 22 C78 57 50 78 50 84 C50 78 22 57 22 22 Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68 C34 52 42 50 47 51 L50 56 L53 51 C58 50 66 52 66 68 Z" fill="white"/></svg>`;
+      } else if (role === 'developer') {
+        tooltipText = 'Platform Developer';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="devGrad" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#devGrad)"/><path d="M38 38 L24 50 L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38 L76 50 L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30 L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`;
+      } else if (role === 'vip') {
+        tooltipText = 'VIP Supporter';
+        svg = `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="goldGrad" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset="0.5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#goldGrad)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="41" fill="#c48a0e" stroke="#ffe57f" stroke-width="2"/><circle cx="50" cy="50" r="38" fill="url(#goldGrad)"/><polygon points="50,14 52.5,21 60,21 54,25.5 56.5,32.5 50,28 43.5,32.5 46,25.5 40,21 47.5,21" fill="#fff5b8"/><text x="50" y="58" font-family="'Outfit', Arial, sans-serif" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text><polygon points="50,68 52.5,75 60,75 54,79.5 56.5,86.5 50,82 43.5,86.5 46,79.5 40,75 47.5,75" fill="#fff5b8"/></svg>`;
+      }
+      return `<span class="badge-wrap" data-tooltip="${tooltipText}">${svg}</span>`;
+    }
+
+    function getUserRole(name) {
+      if (!name) return 'none';
+      return globalRolesMap[name.replace('@', '').toLowerCase()] || 'none';
+    }
+
+    function getLikeChipHTML(count) {
+      return `<span class="like-chip" title="${count} Likes"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>${count}</span></span>`;
+    }
+
+    let permanentDeviceId = null;
+    async function initPermanentID() {
+      let fpId = null;
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        fpId = result.visitorId;
+      } catch (e) {
+        fpId = Math.random().toString(36).substring(2, 10);
+      }
+      const hardwareKey = `DEV-${fpId}`;
+      let resolved = localStorage.getItem('kapcs_dev_id') || document.cookie.match(/(^| )kapcs_dev_id=([^;]+)/)?.[2] || hardwareKey;
+      localStorage.setItem('kapcs_dev_id', resolved);
+      document.cookie = `kapcs_dev_id=${encodeURIComponent(resolved)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+      permanentDeviceId = resolved;
+      return resolved;
+    }
+
+    let myUsername = null;
+    let myPeerId = null;
+    let isCurrentlyBanned = false;
+    let banCountdownTimer = null;
+
+    const nameModal = document.getElementById('name-modal');
+    const nameInput = document.getElementById('username-in');
+    const nameErr = document.getElementById('name-err');
+    const btnClaim = document.getElementById('btn-claim-name');
+    const btnDevHud = document.getElementById('btn-dev-hud');
+    const btnLike = document.getElementById('btn-like-partner');
+
+    const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const TOPIC_QUEUE = 'kapcs_v10_match';
+    const TOPIC_BANS = 'kapcs_v10_bans';
+    const TOPIC_REPORTS = 'kapcs_v10_reports';
+    const TOPIC_ROLES = 'kapcs_v10_roles';
+    const TOPIC_USERS = 'kapcs_v10_users';
+    const TOPIC_LIKES = 'kapcs_v10_likes';
+
+    (async function boot() {
+      await initPermanentID();
+      myUsername = localStorage.getItem('kapcs_username') || document.cookie.match(/(^| )kapcs_username=([^;]+)/)?.[2];
+      await checkBanStatus();
+      if (!isCurrentlyBanned) {
+        if (myUsername) {
+          syncUsernameEverywhere(myUsername);
+          initPeerWithHandle(myUsername);
+        } else {
+          nameModal.style.display = 'grid';
+        }
+      }
+    })();
+
+    function syncUsernameEverywhere(name) {
+      localStorage.setItem('kapcs_username', name);
+      document.cookie = `kapcs_username=${encodeURIComponent(name)};expires=Fri, 31 Dec 2030 23:59:59 GMT;path=/;SameSite=Lax`;
+    }
+
+    async function checkBanStatus() {
+      let raw = localStorage.getItem('kapcs_ban_info') || document.cookie.match(/(^| )kapcs_ban_info=([^;]+)/)?.[2];
+      if (raw) {
+        try {
+          const info = JSON.parse(decodeURIComponent(raw));
+          if (info.expiresAt && Date.now() > info.expiresAt) await liftBan();
+          else showBanScreen(info.reason, info.expiresAt);
+        } catch (e) { await liftBan(); }
+      }
+    }
+
+    function showBanScreen(reason, expiresAt) {
+      isCurrentlyBanned = true;
+      stopSearching();
+      nameModal.style.display = 'none';
+      document.getElementById('ban-screen').style.display = 'grid';
+      document.getElementById('ban-reason-text').textContent = reason || 'Access restricted.';
+      document.getElementById('ban-id-display').textContent = `Handle: @${myUsername || 'unregistered'}`;
+      if (banCountdownTimer) clearInterval(banCountdownTimer);
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (currentCall) currentCall.close();
+      if (peer) peer.destroy();
+    }
+
+    async function liftBan() {
+      if (banCountdownTimer) clearInterval(banCountdownTimer);
+      localStorage.removeItem('kapcs_ban_info');
+      document.cookie = 'kapcs_ban_info=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+      isCurrentlyBanned = false;
+      document.getElementById('ban-screen').style.display = 'none';
+      if (!myUsername) nameModal.style.display = 'grid';
+      else initPeerWithHandle(myUsername);
+    }
+
+    btnClaim.addEventListener('click', async () => {
+      const val = nameInput.value.trim().toLowerCase();
+      nameErr.style.display = 'none';
+      if (!/^[a-z0-9_]{3,16}$/.test(val)) {
+        nameErr.textContent = "Username must be 3-16 characters (a-z, 0-9, _).";
+        nameErr.style.display = 'block';
+        return;
+      }
+      btnClaim.disabled = true;
+      btnClaim.textContent = "Verifying...";
+      const testPeerId = `kapcs_u_${val}`;
+      const testPeer = new Peer(testPeerId, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+      testPeer.on('open', async () => {
+        myUsername = val; myPeerId = testPeerId; peer = testPeer;
+        await syncUsernameEverywhere(myUsername);
+        nameModal.style.display = 'none';
+        updateSelfBadge(); broadcastProfileToAdmin(); setupPeerListeners(); initMedia();
+      });
+      testPeer.on('error', (err) => {
+        btnClaim.disabled = false; btnClaim.textContent = "Claim Handle & Enter";
+        nameErr.textContent = err.type === 'unavailable-id' ? `❌ @${val} is already taken!` : `Error: ${err.type}`;
+        nameErr.style.display = 'block';
+      });
+    });
+
+    function updateSelfBadge() {
+      const myRole = getUserRole(myUsername);
+      document.getElementById('self-label').innerHTML = `@${myUsername} ${getBadgeHTML(myRole)} ${getLikeChipHTML(myLikes)} <span style="font-weight:400; opacity:0.8;">(You)</span>`;
+      if (myRole === 'developer') btnDevHud.style.display = 'inline-flex';
+      else { btnDevHud.style.display = 'none'; if (isDevHudActive) toggleDevHud(false); }
+    }
+
+    function broadcastProfileToAdmin() {
+      if (!myUsername) return;
+      mqttClient.publish(TOPIC_USERS, JSON.stringify({ action: 'register', username: myUsername, deviceId: permanentDeviceId, likes: myLikes, role: getUserRole(myUsername) }));
+    }
+
+    function initPeerWithHandle(username) {
+      updateSelfBadge();
+      myPeerId = `kapcs_u_${username}`;
+      peer = new Peer(myPeerId, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+      peer.on('open', () => { broadcastProfileToAdmin(); setupPeerListeners(); initMedia(); });
+    }
+
+    mqttClient.on('connect', () => {
+      mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_LIKES]);
+      if (!isCurrentlyBanned) setStatus('ready', 'Ready');
+    });
+
+    mqttClient.on('message', async (topic, message) => {
+      const data = JSON.parse(message.toString());
+
+      if (topic === TOPIC_LIKES && data.targetUser === myUsername) {
+        myLikes++; localStorage.setItem('kapcs_user_likes', myLikes);
+        updateSelfBadge(); broadcastProfileToAdmin();
+        addMsg(`💖 @${data.fromUser} liked you! Total: ${myLikes}`, 'sys');
+        return;
+      }
+
+      if (topic === TOPIC_ROLES && data.allRoles) {
+        globalRolesMap = data.allRoles;
+        localStorage.setItem('kapcs_roles_cache', JSON.stringify(globalRolesMap));
+        updateSelfBadge();
+        return;
+      }
+
+      if (topic === TOPIC_BANS) {
+        if (data.action === 'unban' && (data.targetDev === permanentDeviceId || (data.targetName || '').replace('@','').toLowerCase() === myUsername)) {
+          await liftBan(); return;
+        }
+        if (data.action === 'ban' && !isCurrentlyBanned && (data.targetDev === permanentDeviceId || (data.targetName || '').replace('@','').toLowerCase() === myUsername)) {
+          const banObj = { deviceId: permanentDeviceId, username: myUsername, reason: data.reason, expiresAt: data.expiresAt || null };
+          localStorage.setItem('kapcs_ban_info', JSON.stringify(banObj));
+          showBanScreen(data.reason, data.expiresAt);
+          return;
+        }
+      }
+
+      // ERŐSÍTETT PÁROSÍTÓ (AUTOMATIKUS MATCHMAKING)
+      if (!isCurrentlyBanned && topic === TOPIC_QUEUE && isSearching && !partnerId) {
+        if (data.senderId !== myPeerId && data.action === 'search') {
+          if (myPeerId < data.senderId) {
+            connectToPartner(data.senderId, data.username, data.deviceId, data.likes || 0);
+          }
+        }
+      }
+    });
+
+    async function executeLocalBan(reason, days = 3) {
+      const expiresAt = days > 0 ? Date.now() + (days * 86400000) : null;
+      const banObj = { deviceId: permanentDeviceId, username: myUsername, reason, expiresAt };
+      localStorage.setItem('kapcs_ban_info', JSON.stringify(banObj));
+      showBanScreen(reason, expiresAt);
+      mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: permanentDeviceId, targetName: myUsername, reason, expiresAt }));
+    }
+
+    let partnerId = null, partnerUsername = 'Partner', partnerDeviceId = null, localStream = null, currentCall = null, dataConn = null, peer = null;
+    let isSearching = false, autoSearchEnabled = false, searchHeartbeat = null;
+
+    const localVideo = document.getElementById('local-video');
+    const remoteVideo = document.getElementById('remote-video');
+    const localPlaceholder = document.getElementById('local-placeholder');
+    const remotePlaceholder = document.getElementById('remote-placeholder');
+    const remotePlaceholderText = document.getElementById('remote-placeholder-text');
+    const remoteBox = document.getElementById('remote-box');
+    const localBox = document.getElementById('local-box');
+
+    async function initMedia() {
+      if (isCurrentlyBanned || !myUsername) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+        localVideo.srcObject = localStream;
+        localPlaceholder.style.display = 'none';
+        initAI(); startContinuousAIScanner();
+      } catch (err) {
+        document.getElementById('cam-err-msg').innerHTML = "⚠️ <b>Camera Blocked</b>";
+        setStatus('error', 'Camera denied');
+      }
+    }
+
+    function setupPeerListeners() {
+      peer.on('call', (call) => {
+        if (isCurrentlyBanned) return;
+        stopSearchHeartbeat(); isSearching = false;
+        partnerId = call.peer; partnerUsername = call.peer.replace('kapcs_u_', '');
+        hasLikedCurrentPartner = false; btnLike.disabled = false; btnLike.innerHTML = `❤️ Like`;
+        currentCall = call; call.answer(localStream);
+        call.on('stream', (stream) => {
+          remoteVideo.srcObject = stream; remotePlaceholder.style.display = 'none';
+          document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} ${getLikeChipHTML(partnerLikes)}`;
+          setStatus('live', 'Connected');
+        });
+        call.on('close', disconnectPartner);
+      });
+      peer.on('connection', (conn) => { dataConn = conn; setupDataChannel(); });
+    }
+
+    function connectToPartner(targetId, targetUsername, targetDevId, initialLikes = 0) {
+      if (isCurrentlyBanned) return;
+      stopSearchHeartbeat(); isSearching = false;
+      partnerId = targetId; partnerUsername = targetUsername || targetId.replace('kapcs_u_', ''); partnerDeviceId = targetDevId; partnerLikes = initialLikes;
+      hasLikedCurrentPartner = false; btnLike.disabled = false; btnLike.innerHTML = `❤️ Like`;
+      setStatus('search', 'Connecting...');
+      dataConn = peer.connect(targetId); setupDataChannel();
+      currentCall = peer.call(targetId, localStream);
+      currentCall.on('stream', (stream) => {
+        remoteVideo.srcObject = stream; remotePlaceholder.style.display = 'none';
+        document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} ${getLikeChipHTML(partnerLikes)}`;
+        setStatus('live', 'Connected');
+      });
+      currentCall.on('close', disconnectPartner);
+    }
+
+    function setupDataChannel() {
+      dataConn.on('data', (data) => {
+        if (data.type === 'handshake') { partnerDeviceId = data.deviceId; partnerLikes = data.likes || 0; return; }
+        if (data.type === 'like_given') {
+          myLikes++; localStorage.setItem('kapcs_user_likes', myLikes); updateSelfBadge(); broadcastProfileToAdmin();
+          addMsg(`💖 @${partnerUsername} liked you! Total: ${myLikes}`, 'sys'); return;
+        }
+        addMsg(data.text, 'in', data.sender, data.role, data.likes);
+      });
+      dataConn.on('open', () => { dataConn.send({ type: 'handshake', deviceId: permanentDeviceId, likes: myLikes }); });
+      dataConn.on('close', disconnectPartner);
+    }
+
+    function disconnectPartner() {
+      if (remoteVideo.srcObject) { remoteVideo.srcObject.getTracks().forEach(t => t.stop()); remoteVideo.srcObject = null; }
+      remoteBox.classList.remove('ai-blocked'); remotePlaceholder.style.display = 'flex';
+      partnerId = null; partnerUsername = 'Partner'; partnerDeviceId = null; btnLike.disabled = true;
+      document.getElementById('partner-label').textContent = 'Partner';
+
+      if (autoSearchEnabled && !isCurrentlyBanned) {
+        setStatus('search', 'Searching...');
+        remotePlaceholderText.textContent = 'Searching for next partner...';
+        setTimeout(() => { if (!partnerId && autoSearchEnabled && !isCurrentlyBanned) startSearching(); }, 800);
+      } else {
+        setStatus('ready', 'Disconnected');
+        remotePlaceholderText.textContent = 'Click "Start / Next" to find a partner';
+      }
+    }
+
+    function startSearching() {
+      if (isCurrentlyBanned || !myUsername) return;
+      isSearching = true; autoSearchEnabled = true;
+      setStatus('search', 'Searching...');
+      remotePlaceholderText.textContent = 'Looking for someone to talk to...';
+      stopSearchHeartbeat(); broadcastSearch();
+
+      searchHeartbeat = setInterval(() => {
+        if (isSearching && !partnerId && !isCurrentlyBanned) broadcastSearch();
+        else stopSearchHeartbeat();
+      }, 1000);
+    }
+
+    function broadcastSearch() {
+      mqttClient.publish(TOPIC_QUEUE, JSON.stringify({ action: 'search', senderId: myPeerId, username: myUsername, deviceId: permanentDeviceId, likes: myLikes }));
+    }
+
+    function stopSearchHeartbeat() {
+      if (searchHeartbeat) { clearInterval(searchHeartbeat); searchHeartbeat = null; }
+    }
+
+    function stopSearching() {
+      isSearching = false; autoSearchEnabled = false; stopSearchHeartbeat();
+      setStatus('ready', 'Stopped');
+      remotePlaceholderText.textContent = 'Matchmaking stopped.';
+    }
+
+    // AI HUD ÉS SZŰRŐK
+    let isDevHudActive = false; let devHudAnimFrame = null;
+    const remoteDebugCanvas = document.getElementById('remote-debug-canvas');
+    const remoteDebugCtx = remoteDebugCanvas.getContext('2d');
+    let latestPartnerAiData = { predictions: [], swastikaCheck: { hit: false }, sampledPoints: [], boundingBox: null, lastScanMs: 0 };
+
+    btnDevHud.addEventListener('click', () => {
+      isDevHudActive = !isDevHudActive;
+      btnDevHud.classList.toggle('active', isDevHudActive);
+      remoteDebugCanvas.style.display = isDevHudActive ? 'block' : 'none';
+      if (isDevHudActive) renderDevHudLoop();
+      else if (devHudAnimFrame) cancelAnimationFrame(devHudAnimFrame);
+    });
+
+    function renderDevHudLoop() {
+      if (!isDevHudActive) return;
+      const w = remoteDebugCanvas.clientWidth, h = remoteDebugCanvas.clientHeight;
+      if (remoteDebugCanvas.width !== w || remoteDebugCanvas.height !== h) { remoteDebugCanvas.width = w; remoteDebugCanvas.height = h; }
+      remoteDebugCtx.clearRect(0, 0, w, h);
+      if (remoteVideo.videoWidth > 0 && !remotePlaceholder.offsetParent) {
+        remoteDebugCtx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        remoteDebugCtx.fillRect(0, (Date.now() / 15) % h, w, 4);
+      }
+      devHudAnimFrame = requestAnimationFrame(renderDevHudLoop);
+    }
+
+    let nsfwModel = null;
+    const aiCanvas = document.getElementById('ai-canvas');
+    const aiCtx = aiCanvas.getContext('2d');
+    const BAD_WORDS = ["nigger", "nigga", "faggot", "chink", "kike", "cunt", "heil hitler", "kill yourself", "retard", "whore", "slut"];
+
+    async function initAI() {
+      try { nsfwModel = await nsfwjs.load(); } catch (e) {}
+      initAudioAI();
+    }
+
+    function startContinuousAIScanner() {
+      setInterval(async () => {
+        if (isCurrentlyBanned) return;
+        if (localVideo.videoWidth > 0 && localVideo.readyState >= 2) {
+          aiCtx.drawImage(localVideo, 0, 0, 224, 224);
+          if (nsfwModel) {
+            try {
+              const preds = await nsfwModel.classify(aiCanvas);
+              if ((preds[0].className === 'Porn' || preds[0].className === 'Hentai') && preds[0].probability > 0.45) {
+                localBox.classList.add('ai-blocked');
+                executeLocalBan("Violation: Adult nudity / explicit content", 3);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
+        if (remoteVideo.videoWidth > 0 && remoteVideo.readyState >= 2 && partnerId) {
+          aiCtx.drawImage(remoteVideo, 0, 0, 224, 224);
+          if (nsfwModel) {
+            try {
+              const preds = await nsfwModel.classify(aiCanvas);
+              if ((preds[0].className === 'Porn' || preds[0].className === 'Hentai') && preds[0].probability > 0.45) {
+                remoteBox.classList.add('ai-blocked');
+                setTimeout(() => disconnectPartner(), 2000);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
+      }, 1000);
+    }
+
+    function initAudioAI() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
+      recognition.onresult = (event) => {
+        if (isCurrentlyBanned) return;
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const text = event.results[i][0].transcript.toLowerCase();
+          for (const word of BAD_WORDS) {
+            if (text.includes(word)) {
+              if (localStream) localStream.getAudioTracks().forEach(t => t.stop());
+              executeLocalBan(`Violation: Hate speech ("${word}")`, 3);
+              return;
+            }
+          }
+        }
+      };
+      recognition.onerror = () => {}; recognition.onend = () => { try { recognition.start(); } catch (e) {} };
+      try { recognition.start(); } catch (e) {}
+    }
+
+    btnLike.addEventListener('click', () => {
+      if (!partnerId || hasLikedCurrentPartner) return;
+      hasLikedCurrentPartner = true; btnLike.disabled = true; btnLike.innerHTML = `💖 Liked!`;
+      partnerLikes++;
+      document.getElementById('partner-label').innerHTML = `@${partnerUsername} ${getBadgeHTML(getUserRole(partnerUsername))} ${getLikeChipHTML(partnerLikes)}`;
+      if (dataConn && dataConn.open) dataConn.send({ type: 'like_given' });
+      mqttClient.publish(TOPIC_LIKES, JSON.stringify({ fromUser: myUsername, targetUser: partnerUsername }));
+      addMsg(`You liked @${partnerUsername}! ❤️`, 'sys');
+    });
+
+    document.getElementById('btn-next').addEventListener('click', () => {
+      if (isCurrentlyBanned || !myUsername) return;
+      autoSearchEnabled = true;
+      if (partnerId) disconnectPartner();
+      else startSearching();
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', () => {
+      autoSearchEnabled = false; stopSearching();
+      if (partnerId) { if (currentCall) currentCall.close(); if (dataConn) dataConn.close(); disconnectPartner(); }
+    });
+
+    document.getElementById('btn-report').addEventListener('click', () => {
+      if (!partnerId) return alert('No partner connected.');
+      mqttClient.publish(TOPIC_BANS, JSON.stringify({ action: 'ban', targetDev: partnerDeviceId, targetName: partnerUsername, reason: "Manual Report", expiresAt: Date.now() + 86400000 }));
+      alert(`User @${partnerUsername} banned.`);
+      disconnectPartner();
+    });
+
+    document.getElementById('chat-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('chat-in');
+      const val = input.value.trim();
+      if (!val) return;
+      const myRole = getUserRole(myUsername);
+      addMsg(val, 'out', `@${myUsername}`, myRole, myLikes);
+      input.value = '';
+      if (dataConn && dataConn.open) dataConn.send({ text: val, sender: `@${myUsername}`, role: myRole, likes: myLikes });
+    });
+
+    function addMsg(txt, type, sender = null, role = null, likesCount = null) {
+      const el = document.createElement('div');
+      el.className = `msg ${type}`;
+      if (sender) {
+        el.innerHTML = `<b>${sender} ${getBadgeHTML(role)} ${likesCount !== null ? getLikeChipHTML(likesCount) : ''}</b><span>${txt}</span>`;
+      } else {
+        el.textContent = txt;
+      }
+      const box = document.getElementById('chat-messages');
+      box.appendChild(el); box.scrollTop = box.scrollHeight;
+    }
+
+    let cam = true, mic = true;
+    document.getElementById('btn-cam').addEventListener('click', function() {
+      if (!localStream) return; cam = !cam; localStream.getVideoTracks().forEach(t => t.enabled = cam); this.classList.toggle('off', !cam);
+    });
+    document.getElementById('btn-mic').addEventListener('click', function() {
+      if (!localStream) return; mic = !mic; localStream.getAudioTracks().forEach(t => t.enabled = mic); this.classList.toggle('off', !mic);
+    });
+  </script>
+</body>
+</html>

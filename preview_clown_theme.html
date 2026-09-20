@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KAPCS — Clown Theme Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0508;
+      --card: #1a0a0e;
+      --primary: #e8001a;
+      --primary-hover: #c0001a;
+      --accent: #FFD700;
+      --accent2: #ff6b00;
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --text: #fff5f5;
+      --muted: #c4a0a8;
+      --border: rgba(255, 80, 80, 0.12);
+      --header-bg: rgba(26, 10, 14, 0.92);
+      --chat-bg: rgba(26, 10, 14, 0.4);
+      font-family: "DM Sans", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* SUBTLE NOISE TEXTURE */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle at 20% 80%, rgba(232,0,26,0.06) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(255,215,0,0.04) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* HEADER */
+    header {
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: var(--header-bg);
+      flex-shrink: 0;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand {
+      font-family: "Outfit", sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+    }
+    .brand-emoji {
+      font-size: 22px;
+      filter: drop-shadow(0 0 8px rgba(232,0,26,0.5));
+    }
+
+    .header-center { display: flex; align-items: center; gap: 8px; }
+
+    .country-selector-wrap {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(232,0,26,0.08);
+      border: 1px solid rgba(232,0,26,0.2);
+      padding: 3px 8px; border-radius: 20px;
+    }
+    .country-selector-wrap select {
+      background: transparent; border: 0; color: var(--text);
+      font-size: 11px; font-weight: 700; outline: none; cursor: pointer;
+    }
+
+    .session-stats {
+      display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700;
+      background: rgba(232,0,26,0.08); border: 1px solid rgba(232,0,26,0.2);
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .stat-pill { display: flex; align-items: center; gap: 3px; color: var(--muted); }
+    .stat-pill span { color: var(--accent); }
+
+    .status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
+    .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.search { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .btn-theme {
+      background: rgba(232,0,26,0.1); border: 1px solid rgba(232,0,26,0.2);
+      color: var(--text); width: 32px; height: 32px; border-radius: 50%;
+      cursor: pointer; display: grid; place-items: center; font-size: 14px;
+    }
+    .btn-report {
+      background: rgba(232,0,26,0.15); border: 1px solid rgba(232,0,26,0.3);
+      color: #ffaaaa; padding: 5px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer;
+    }
+
+    /* MAIN */
+    main {
+      flex: 1; display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: 1fr;
+      min-height: 0; overflow: hidden;
+      position: relative; z-index: 1;
+    }
+
+    .video-section { display: flex; flex-direction: column; padding: 10px; min-height: 0; }
+    .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; }
+
+    .video-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* CLOWN RADAR */
+    .radar-container {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, rgba(232,0,26,0.07) 0%, rgba(13,5,8,0.95) 75%);
+      z-index: 4; gap: 14px; text-align: center; padding: 20px;
+    }
+
+    .radar-scanner {
+      position: relative; width: 110px; height: 110px; border-radius: 50%;
+      border: 1px solid rgba(232,0,26,0.35);
+      display: grid; place-items: center;
+      box-shadow: 0 0 25px rgba(232,0,26,0.12);
+    }
+    .radar-circle {
+      position: absolute; border-radius: 50%;
+      border: 1px dashed rgba(232,0,26,0.22);
+    }
+    .radar-c1 { width: 40px; height: 40px; }
+    .radar-c2 { width: 75px; height: 75px; }
+    .radar-sweep {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 70%, rgba(232,0,26,0.5) 100%);
+      animation: sweep 2s linear infinite;
+    }
+    .radar-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 12px var(--primary); z-index: 2;
+      font-size: 18px; display: grid; place-items: center;
+      background: none;
+    }
+    @keyframes sweep { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+    .radar-title { font-family: "Outfit", sans-serif; font-size: 16px; font-weight: 800; color: #fff; letter-spacing: .5px; }
+    .radar-sub { font-size: 12px; color: var(--muted); max-width: 240px; line-height: 1.4; }
+    .radar-pulse-pill {
+      font-size: 10px; font-weight: 800; color: var(--accent);
+      background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3);
+      padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: .8px;
+    }
+
+    .video-label {
+      position: absolute; bottom: 8px; left: 8px;
+      background: rgba(0,0,0,.75); color: #fff;
+      padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; z-index: 5;
+    }
+
+    /* CONTROLS */
+    .controls {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 8px; flex-shrink: 0; gap: 6px;
+    }
+    .media-tools { display: flex; gap: 6px; align-items: center; }
+    .tool-btn {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 1px solid rgba(232,0,26,0.2);
+      background: rgba(232,0,26,0.06); color: var(--text);
+      font-size: 14px; cursor: pointer; display: grid; place-items: center;
+    }
+    .btn-like {
+      height: 38px; padding: 0 12px; border-radius: 19px; font-size: 12px; font-weight: 700;
+      background: rgba(232,0,26,0.12); border: 1px solid rgba(232,0,26,0.3); color: #ffaaaa;
+      display: flex; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .action-group { display: flex; gap: 6px; }
+    .btn-main {
+      background: linear-gradient(135deg, var(--primary), #ff3300);
+      color: #fff; border: 0; padding: 0 16px; height: 38px;
+      border-radius: 7px; font: 700 13px "DM Sans"; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 4px 16px rgba(232,0,26,0.35);
+    }
+    .btn-stop {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #fff; padding: 0 12px; height: 38px; border-radius: 7px; font-weight: 700; cursor: pointer;
+    }
+
+    /* CHAT */
+    .chat-section {
+      border-left: 1px solid var(--border);
+      background: var(--chat-bg);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .msg {
+      padding: 6px 10px; border-radius: 7px; font-size: 12px;
+      max-width: 88%; word-break: break-word; line-height: 1.35;
+    }
+    .msg.in { align-self: flex-start; background: var(--card); border: 1px solid var(--border); }
+    .msg.out {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--primary), #cc0015);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(232,0,26,0.3);
+    }
+    .msg.sys { align-self: center; font-size: 10px; color: var(--muted); font-style: italic; }
+    .msg b { display: flex; align-items: center; font-size: 10px; margin-bottom: 2px; color: var(--accent); }
+    .msg.out b { color: rgba(255,215,0,0.8); justify-content: flex-end; }
+
+    .chat-input {
+      padding: 8px; border-top: 1px solid var(--border);
+      display: flex; gap: 6px; flex-shrink: 0;
+    }
+    .chat-input input {
+      flex: 1; background: rgba(232,0,26,0.06);
+      border: 1px solid rgba(232,0,26,0.15);
+      padding: 8px 10px; border-radius: 6px; color: var(--text); font-size: 12px; outline: none;
+    }
+    .chat-input input::placeholder { color: var(--muted); }
+    .chat-input input:focus { border-color: rgba(232,0,26,0.4); }
+    .chat-input button {
+      background: linear-gradient(135deg, var(--primary), #cc0015);
+      border: 0; color: #fff; padding: 0 12px; border-radius: 6px;
+      font-weight: 700; cursor: pointer; font-size: 12px;
+    }
+
+    /* PING BADGE */
+    .ping-badge {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.75); color: #6ee7b7;
+      font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 5px;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    /* TYPING */
+    .typing-indicator {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; font-size: 11px; color: var(--muted); font-style: italic;
+      border-top: 1px solid var(--border);
+    }
+    .typing-dots { display: flex; gap: 3px; }
+    .typing-dots span {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--primary);
+      animation: typingBounce 1.2s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4;} 30%{transform:translateY(-4px);opacity:1;} }
+
+    /* LABEL BADGE */
+    .label-note {
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(13,5,8,0.85); border: 1px solid rgba(232,0,26,0.3);
+      color: var(--accent); font-size: 9px; font-weight: 800;
+      padding: 2px 7px; border-radius: 12px; letter-spacing: .5px;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(232,0,26,0.3); border-radius: 2px; }
+
+    /* PREVIEW LABEL */
+    .preview-badge {
+      position: fixed; bottom: 16px; right: 16px;
+      background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.3);
+      color: var(--accent); font-size: 11px; font-weight: 700;
+      padding: 6px 14px; border-radius: 20px; z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-emoji">🤡</span>
+    KAPCS
+  </div>
+
+  <div class="header-center">
+    <div class="country-selector-wrap">
+      <span>🌐</span>
+      <select>
+        <option>🌐 Global (Any)</option>
+        <option>🇭🇺 Hungary</option>
+        <option>🇺🇸 United States</option>
+      </select>
+    </div>
+
+    <div class="session-stats">
+      <div class="stat-pill">🟢 <span>3</span></div>
+      <div style="color:var(--border)">|</div>
+      <div class="stat-pill">⚡ <span>7</span></div>
+    </div>
+
+    <div class="status">
+      <span class="status-dot search"></span>
+      <span>Searching...</span>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <button class="btn-theme">🌙</button>
+    <button class="btn-report">⚠️ Report</button>
+  </div>
+</header>
+
+<main>
+  <div class="video-section">
+    <div class="video-grid">
+
+      <!-- REMOTE BOX -->
+      <div class="video-box">
+        <div class="radar-container">
+          <div class="radar-scanner">
+            <div class="radar-sweep"></div>
+            <div class="radar-circle radar-c1"></div>
+            <div class="radar-circle radar-c2"></div>
+            <div class="radar-dot">🤡</div>
+          </div>
+          <div class="radar-title">Looking for a match...</div>
+          <div class="radar-sub">Click "Start / Next" to find someone new to talk to.</div>
+          <div class="radar-pulse-pill">READY</div>
+        </div>
+        <div class="video-label">Partner</div>
+      </div>
+
+      <!-- LOCAL BOX -->
+      <div class="video-box" style="background: linear-gradient(135deg, #1a0a0e 0%, #0d0508 100%);">
+        <div style="text-align:center; color: var(--muted);">
+          <div style="font-size: 40px; margin-bottom: 8px;">📷</div>
+          <div style="font-size: 12px;">Camera preview</div>
+        </div>
+        <div class="video-label">You 🤡</div>
+        <div class="ping-badge">42 ms</div>
+        <div class="label-note">🔴 LIVE</div>
+      </div>
+
+    </div>
+
+    <div class="controls">
+      <div class="media-tools">
+        <button class="tool-btn">📷</button>
+        <button class="tool-btn">🎤</button>
+        <button class="btn-like">❤️ Like</button>
+      </div>
+      <div class="action-group">
+        <button class="btn-stop">Stop</button>
+        <button class="btn-main">Start / Next ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-section">
+    <div class="chat-messages">
+      <div class="msg sys">Welcome to KAPCS! Ready to connect.</div>
+
+      <div style="display:flex;align-items:flex-end;gap:4px;">
+        <div class="msg in">
+          <b>@shadow_ninja 🇭🇺</b>
+          <span>hey whats up</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:row-reverse;align-items:flex-end;gap:4px;">
+        <div class="msg out">
+          <b style="justify-content:flex-end;">@dox 🇭🇺</b>
+          <span>nothing much lol</span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:4px;">
+        <div class="msg in">
+          <b>@shadow_ninja 🇭🇺</b>
+          <span>cool app bro 🤡</span>
+        </div>
+      </div>
+
+      <div class="msg sys">Partner liked you! ❤️</div>
+    </div>
+
+    <div class="typing-indicator">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span>Partner is typing...</span>
+    </div>
+
+    <div class="chat-input">
+      <input type="text" placeholder="Type a message..." value="">
+      <button>Send</button>
+    </div>
+  </div>
+</main>
+
+<div class="preview-badge">🎨 Clown Theme Preview</div>
+
+</body>
+</html>

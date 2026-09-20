@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KAPCS — User Profile</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤡</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root{--bg:#0a0e17;--card:#121927;--primary:#6366f1;--danger:#ef4444;--success:#10b981;--warning:#f59e0b;--text:#f8fafc;--muted:#94a3b8;--border:rgba(255,255,255,0.08);font-family:"DM Sans",system-ui,sans-serif;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 16px;}
+    a{color:var(--primary);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+
+    .topbar{max-width:700px;margin:0 auto 24px;display:flex;align-items:center;justify-content:space-between;}
+    .topbar .brand{font-family:"Outfit",sans-serif;font-weight:800;font-size:20px;letter-spacing:1px;}
+    .topbar-links{display:flex;gap:12px;font-size:12px;}
+
+    .profile-wrap{max-width:700px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}
+
+    /* HERO */
+    .profile-hero{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+    .avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#a855f7);display:grid;place-items:center;font-family:"Outfit",sans-serif;font-size:26px;font-weight:800;flex-shrink:0;border:3px solid rgba(99,102,241,.35);}
+    .hero-info{flex:1;}
+    .hero-name{font-family:"Outfit",sans-serif;font-size:24px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .hero-meta{font-size:12px;color:var(--muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;}
+    .hero-meta span{display:flex;align-items:center;gap:4px;}
+    .online-dot{width:7px;height:7px;border-radius:50%;background:#64748b;display:inline-block;}
+    .online-dot.live{background:var(--success);box-shadow:0 0 6px var(--success);}
+
+    /* STATS GRID */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    @media(max-width:500px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+    .stat-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;}
+    .stat-box .val{font-family:"Outfit",sans-serif;font-size:28px;font-weight:800;margin-bottom:2px;}
+    .stat-box .lbl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+    /* RATING STARS DISPLAY */
+    .rating-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;}
+    .rating-card h3{font-family:"Outfit",sans-serif;font-size:15px;margin-bottom:16px;}
+    .stars-display{display:flex;align-items:center;gap:4px;margin-bottom:8px;}
+    .star-filled{color:#fbbf24;font-size:22px;}
+    .star-empty{color:#334155;font-size:22px;}
+    .rating-score{font-family:"Outfit",sans-serif;font-size:36px;font-weight:800;margin-right:6px;}
+    .rating-count{font-size:12px;color:var(--muted);}
+    .rating-bars{display:flex;flex-direction:column;gap:5px;margin-top:14px;}
+    .rating-bar-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+    .rating-bar-row .star-label{width:14px;text-align:right;color:var(--muted);font-weight:700;}
+    .rating-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+    .rating-bar-fill{height:100%;background:linear-gradient(90deg,#fbbf24,#f59e0b);border-radius:3px;transition:width .4s ease;}
+    .rating-bar-count{width:24px;text-align:right;font-size:11px;color:var(--muted);}
+
+    /* RECENT RATINGS */
+    .ratings-list{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
+    .rating-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .rating-item .from{font-size:12px;font-weight:700;color:var(--primary);}
+    .rating-item .stars{font-size:14px;letter-spacing:1px;}
+    .rating-item .time{font-size:10px;color:var(--muted);}
+    .no-ratings{text-align:center;color:var(--muted);padding:24px;font-size:13px;}
+
+    /* BADGES */
+    .badges-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .badge-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+    .badge-icon{width:16px;height:16px;vertical-align:-2px;}
+
+    /* LEADERBOARD LINK */
+    .lb-link{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;font-size:13px;}
+    .lb-link a{font-weight:700;color:var(--primary);}
+
+    /* NOT FOUND */
+    #not-found{display:none;text-align:center;padding:60px 20px;}
+    #not-found h2{font-family:"Outfit",sans-serif;font-size:24px;margin-bottom:8px;}
+    #not-found p{color:var(--muted);font-size:14px;}
+
+    /* LOADING */
+    #loading{text-align:center;padding:60px;color:var(--muted);font-size:14px;}
+    .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">🤡 KAPCS</div>
+  <div class="topbar-links">
+    <a href="/">← Back to Chat</a>
+    <a href="/leaderboard.html">🏆 Leaderboard</a>
+  </div>
+</div>
+
+<div id="loading"><span class="spinner"></span>Loading profile...</div>
+<div id="not-found">
+  <h2>User not found</h2>
+  <p>This profile doesn't exist or hasn't been seen online yet.</p>
+  <a href="/" style="margin-top:16px;display:inline-block;">← Back to KAPCS</a>
+</div>
+
+<div class="profile-wrap" id="profile-content" style="display:none;">
+
+  <div class="profile-hero">
+    <div class="avatar" id="p-avatar">?</div>
+    <div class="hero-info">
+      <div class="hero-name">
+        <span id="p-username">@username</span>
+        <span id="p-badges"></span>
+      </div>
+      <div class="hero-meta">
+        <span><span class="online-dot" id="p-online-dot"></span> <span id="p-status">Offline</span></span>
+        <span>🌍 <span id="p-country">—</span></span>
+        <span>📅 Seen: <span id="p-lastseen">—</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box"><div class="val" id="p-likes" style="color:#f43f5e;">0</div><div class="lbl">❤️ Likes</div></div>
+    <div class="stat-box"><div class="val" id="p-avg-rating" style="color:#fbbf24;">—</div><div class="lbl">⭐ Avg Rating</div></div>
+    <div class="stat-box"><div class="val" id="p-rating-count" style="color:var(--primary);">0</div><div class="lbl">📊 Ratings</div></div>
+    <div class="stat-box"><div class="val" id="p-sessions" style="color:var(--success);">—</div><div class="lbl">💬 Sessions</div></div>
+  </div>
+
+  <div class="rating-card">
+    <h3>⭐ Rating Breakdown</h3>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <div class="rating-score" id="p-rating-score">—</div>
+          <div class="rating-count" id="p-rating-label">No ratings yet</div>
+        </div>
+        <div class="stars-display" id="p-stars-display"></div>
+      </div>
+      <div class="rating-bars" style="flex:1;min-width:160px;" id="p-rating-bars"></div>
+    </div>
+    <div class="ratings-list" id="p-ratings-list">
+      <div class="no-ratings">No ratings received yet.</div>
+    </div>
+  </div>
+
+  <div class="lb-link">
+    <span>See how <strong id="p-lb-name">this user</strong> ranks globally</span>
+    <a href="/leaderboard.html">View Leaderboard →</a>
+  </div>
+
+</div>
+
+<script>
+// ── MQTT ──────────────────────────────────────────────────────
+const TOPIC_USERS   = 'kapcs_v13_users';
+const TOPIC_RATINGS = 'kapcs_v13_ratings';
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+// ── URL PARAM ─────────────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+const targetUser = (params.get('u') || '').toLowerCase().replace('@','');
+
+if (!targetUser) { showNotFound(); }
+else { document.title = `@${targetUser} — KAPCS`; loadProfile(); }
+
+// ── DATA ──────────────────────────────────────────────────────
+// Admin localStorage-ból olvassuk az adatokat (ugyanazon domain)
+let usersDir   = JSON.parse(localStorage.getItem('kapcs_admin_users_v13') || '{}');
+let ratingsLog = JSON.parse(localStorage.getItem('kapcs_admin_ratings_v13') || '[]');
+let bannedList = JSON.parse(localStorage.getItem('kapcs_admin_bans_v13') || '[]');
+let rolesMap   = JSON.parse(localStorage.getItem('kapcs_admin_roles_v13') || '{}');
+
+// Ha nem admin, az index.html roles cache-ből
+if (!Object.keys(rolesMap).length) rolesMap = JSON.parse(localStorage.getItem('kapcs_roles_cache') || '{}');
+
+function getFlagEmoji(code) { if(!code||code==='GLOBAL'||code.length!==2)return '🌐'; return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())); }
+
+function timeSince(ts) {
+  if (!ts) return '—';
+  const d = Date.now() - ts;
+  if (d < 60000) return 'just now';
+  if (d < 3600000) return Math.floor(d/60000) + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  return Math.floor(d/86400000) + 'd ago';
+}
+
+function getInitials(name) {
+  return name ? name.slice(0,2).toUpperCase() : '?';
+}
+
+function getBadgesHTML(role) {
+  const map = {
+    verified:  `<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    moderator: `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5L85 18C85 62 50 88 50 95C50 88 15 62 15 18Z" fill="#151e2e"/><path d="M50 12L78 22C78 57 50 78 50 84C50 78 22 57 22 22Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68C34 52 42 50 47 51L50 56L53 51C58 50 66 52 66 68Z" fill="white"/></svg>`,
+    developer: `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#dg)"/><path d="M38 38L24 50L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38L76 50L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`,
+    vip:       `<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="vg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset=".5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#vg)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="url(#vg)"/><text x="50" y="58" font-family="Outfit,Arial" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text></svg>`
+  };
+  if (!role || role === 'none' || !map[role]) return '';
+  const labels = { verified:'Verified', moderator:'Moderator', developer:'Developer', vip:'VIP' };
+  return `<span class="badge-pill">${map[role]} ${labels[role]}</span>`;
+}
+
+function starsHTML(avg, size=18) {
+  let html = '';
+  for (let i = 1; i <= 5; i++) {
+    html += `<span style="font-size:${size}px;color:${i <= Math.round(avg) ? '#fbbf24' : '#334155'}">★</span>`;
+  }
+  return html;
+}
+
+function loadProfile() {
+  const u = usersDir[targetUser];
+  if (!u) {
+    // Kérjük le MQTT-n
+    client.on('connect', () => {
+      client.subscribe([TOPIC_USERS, TOPIC_RATINGS]);
+      setTimeout(() => client.publish(TOPIC_USERS, JSON.stringify({action:'request_presence'})), 300);
+      setTimeout(() => { if (!usersDir[targetUser]) showNotFound(); }, 5000);
+    });
+    client.on('message', (topic, msg) => {
+      try {
+        const d = JSON.parse(msg.toString());
+        if (topic === TOPIC_USERS && (d.action === 'presence_pulse') && d.username === targetUser) {
+          usersDir[targetUser] = { username:targetUser, deviceId:d.deviceId||'—', likes:Number(d.likes||0), country:d.country||'GLOBAL', countryName:d.countryName||'', warned:!!d.warned, lastSeen:Date.now(), liveState:d.status||'ONLINE' };
+          renderProfile();
+        }
+        if (topic === TOPIC_RATINGS && d.target === targetUser) {
+          ratingsLog.push(d); renderRatings();
+        }
+      } catch(e){}
+    });
+    return;
+  }
+  renderProfile();
+  // MQTT ratings figyelése
+  client.on('connect', () => client.subscribe(TOPIC_RATINGS));
+  client.on('message', (topic, msg) => {
+    try { const d = JSON.parse(msg.toString()); if (topic===TOPIC_RATINGS && d.target===targetUser) { ratingsLog.push(d); renderRatings(); } } catch(e){}
+  });
+}
+
+function renderProfile() {
+  const u = usersDir[targetUser]; if (!u) { showNotFound(); return; }
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('profile-content').style.display = 'flex';
+  document.title = `@${targetUser} — KAPCS`;
+
+  // Avatar
+  document.getElementById('p-avatar').textContent = getInitials(targetUser);
+
+  // Name + badges
+  document.getElementById('p-username').textContent = `@${targetUser}`;
+  const role = rolesMap[targetUser] || 'none';
+  document.getElementById('p-badges').innerHTML = getBadgesHTML(role);
+
+  // Online status
+  const isOnline = u.lastSeen && (Date.now() - u.lastSeen < 18000);
+  const dot = document.getElementById('p-online-dot');
+  if (isOnline) { dot.classList.add('live'); document.getElementById('p-status').textContent = u.liveState || 'Online'; }
+  else { document.getElementById('p-status').textContent = 'Offline'; }
+
+  // Meta
+  document.getElementById('p-country').textContent = `${getFlagEmoji(u.country)} ${u.countryName || u.country || '—'}`;
+  document.getElementById('p-lastseen').textContent = timeSince(u.lastSeen);
+
+  // Stats
+  document.getElementById('p-likes').textContent = u.likes || 0;
+  document.getElementById('p-lb-name').textContent = `@${targetUser}`;
+
+  renderRatings();
+}
+
+function renderRatings() {
+  const myRatings = ratingsLog.filter(r => r.target === targetUser);
+  const count = myRatings.length;
+  document.getElementById('p-rating-count').textContent = count;
+
+  if (!count) {
+    document.getElementById('p-avg-rating').textContent = '—';
+    document.getElementById('p-rating-score').textContent = '—';
+    document.getElementById('p-rating-label').textContent = 'No ratings yet';
+    document.getElementById('p-stars-display').innerHTML = starsHTML(0);
+    document.getElementById('p-rating-bars').innerHTML = '';
+    document.getElementById('p-ratings-list').innerHTML = '<div class="no-ratings">No ratings received yet.</div>';
+    return;
+  }
+
+  const avg = myRatings.reduce((s, r) => s + r.stars, 0) / count;
+  const avgRound = Math.round(avg * 10) / 10;
+  document.getElementById('p-avg-rating').textContent = avgRound.toFixed(1);
+  document.getElementById('p-rating-score').textContent = avgRound.toFixed(1);
+  document.getElementById('p-rating-label').textContent = `${count} rating${count!==1?'s':''}`;
+  document.getElementById('p-stars-display').innerHTML = starsHTML(avg);
+
+  // Bar breakdown
+  const counts = [0,0,0,0,0];
+  myRatings.forEach(r => { if (r.stars >= 1 && r.stars <= 5) counts[r.stars-1]++; });
+  const barsHtml = [5,4,3,2,1].map(s => {
+    const c = counts[s-1], pct = count ? Math.round(c/count*100) : 0;
+    return `<div class="rating-bar-row"><span class="star-label">${s}</span><div class="rating-bar-bg"><div class="rating-bar-fill" style="width:${pct}%"></div></div><span class="rating-bar-count">${c}</span></div>`;
+  }).join('');
+  document.getElementById('p-rating-bars').innerHTML = barsHtml;
+
+  // Recent ratings list (max 10)
+  const recent = [...myRatings].reverse().slice(0, 10);
+  document.getElementById('p-ratings-list').innerHTML = recent.map(r => {
+    const stars = '⭐'.repeat(r.stars) + '☆'.repeat(5-r.stars);
+    const t = r.time ? new Date(r.time).toLocaleDateString() : '—';
+    return `<div class="rating-item"><span class="from">@${r.from||'anonymous'}</span><span class="stars">${stars}</span><span class="time">${t}</span></div>`;
+  }).join('');
+
+  // Sessions estimate
+  document.getElementById('p-sessions').textContent = count + '+';
+}
+
+function showNotFound() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('not-found').style.display = 'block';
+}
+</script>
+</body>
+</html>

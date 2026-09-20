@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KAPCS — Leaderboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤡</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root{--bg:#0a0e17;--card:#121927;--primary:#6366f1;--danger:#ef4444;--success:#10b981;--warning:#f59e0b;--text:#f8fafc;--muted:#94a3b8;--border:rgba(255,255,255,.08);font-family:"DM Sans",system-ui,sans-serif;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);min-height:100vh;padding:24px 16px;}
+    a{color:var(--primary);text-decoration:none;}
+
+    .topbar{max-width:860px;margin:0 auto 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .brand{font-family:"Outfit",sans-serif;font-weight:800;font-size:20px;}
+    .topbar-links{display:flex;gap:12px;font-size:12px;}
+
+    .page-title{max-width:860px;margin:0 auto 24px;text-align:center;}
+    .page-title h1{font-family:"Outfit",sans-serif;font-size:32px;font-weight:800;margin-bottom:6px;}
+    .page-title p{font-size:13px;color:var(--muted);}
+
+    .lb-tabs{max-width:860px;margin:0 auto 20px;display:flex;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;}
+    .lb-tab{flex:1;padding:9px;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);border:none;background:none;transition:all .15s;}
+    .lb-tab.active{background:var(--primary);color:#fff;}
+
+    .lb-wrap{max-width:860px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    @media(max-width:640px){.lb-wrap{grid-template-columns:1fr;}}
+
+    .lb-section{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    .lb-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+    .lb-header h2{font-family:"Outfit",sans-serif;font-size:15px;}
+    .lb-header .sub{font-size:11px;color:var(--muted);margin-left:auto;}
+
+    .lb-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+    .lb-row:last-child{border-bottom:none;}
+    .lb-row:hover{background:rgba(255,255,255,.03);}
+    .lb-row.top1{background:linear-gradient(90deg,rgba(255,215,0,.07),transparent);}
+    .lb-row.top2{background:linear-gradient(90deg,rgba(192,192,192,.05),transparent);}
+    .lb-row.top3{background:linear-gradient(90deg,rgba(205,127,50,.05),transparent);}
+    .lb-row.me{background:rgba(99,102,241,.08);border-left:3px solid var(--primary);}
+
+    .rank{font-family:"Outfit",sans-serif;font-size:18px;font-weight:800;width:32px;text-align:center;flex-shrink:0;}
+    .rank.gold{color:#fbbf24;}
+    .rank.silver{color:#94a3b8;}
+    .rank.bronze{color:#b45309;}
+
+    .lb-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#a855f7);display:grid;place-items:center;font-family:"Outfit",sans-serif;font-size:13px;font-weight:800;flex-shrink:0;}
+    .lb-info{flex:1;min-width:0;}
+    .lb-name{font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px;}
+    .lb-name a{color:var(--text);}
+    .lb-name a:hover{color:var(--primary);}
+    .lb-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:2px;}
+    .lb-val{font-family:"Outfit",sans-serif;font-size:17px;font-weight:800;flex-shrink:0;}
+    .lb-val.likes{color:#f43f5e;}
+    .lb-val.stars{color:#fbbf24;}
+
+    .badge-icon{width:14px;height:14px;vertical-align:-2px;}
+
+    .online-pip{width:6px;height:6px;border-radius:50%;background:#64748b;display:inline-block;margin-right:2px;}
+    .online-pip.live{background:var(--success);box-shadow:0 0 5px var(--success);}
+
+    .empty-row{padding:28px;text-align:center;color:var(--muted);font-size:13px;}
+
+    .refresh-bar{max-width:860px;margin:16px auto 0;text-align:right;font-size:11px;color:var(--muted);}
+    .refresh-bar span{cursor:pointer;color:var(--primary);}
+    .refresh-bar span:hover{text-decoration:underline;}
+
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">🤡 KAPCS</div>
+  <div class="topbar-links">
+    <a href="/">← Back to Chat</a>
+  </div>
+</div>
+
+<div class="page-title">
+  <h1>🏆 Leaderboard</h1>
+  <p>The most liked and highest rated users on KAPCS.</p>
+</div>
+
+<div class="lb-tabs">
+  <button class="lb-tab active" onclick="setFilter('all',this)">🌐 All Time</button>
+  <button class="lb-tab" onclick="setFilter('week',this)">📅 This Week</button>
+  <button class="lb-tab" onclick="setFilter('online',this)">🟢 Online Now</button>
+</div>
+
+<div class="lb-wrap">
+  <div class="lb-section">
+    <div class="lb-header"><span>❤️</span><h2>Most Liked</h2><span class="sub" id="likes-count"></span></div>
+    <div id="likes-list"><div class="empty-row"><span class="spinner"></span>Loading...</div></div>
+  </div>
+  <div class="lb-section">
+    <div class="lb-header"><span>⭐</span><h2>Highest Rated</h2><span class="sub" id="ratings-count"></span></div>
+    <div id="ratings-list"><div class="empty-row"><span class="spinner"></span>Loading...</div></div>
+  </div>
+</div>
+
+<div class="refresh-bar">Last updated <span id="last-updated">—</span> · <span onclick="renderBoards()">↻ Refresh</span></div>
+
+<script>
+const TOPIC_USERS   = 'kapcs_v13_users';
+const TOPIC_RATINGS = 'kapcs_v13_ratings';
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+let usersDir     = JSON.parse(localStorage.getItem('kapcs_admin_users_v13') || '{}');
+let ratingsLog   = JSON.parse(localStorage.getItem('kapcs_admin_ratings_v13') || '[]');
+let rolesMap     = JSON.parse(localStorage.getItem('kapcs_admin_roles_v13') || '{}');
+let myUsername   = localStorage.getItem('kapcs_username') || '';
+let currentFilter = 'all';
+
+if (!Object.keys(rolesMap).length) rolesMap = JSON.parse(localStorage.getItem('kapcs_roles_cache') || '{}');
+
+client.on('connect', () => {
+  client.subscribe([TOPIC_USERS, TOPIC_RATINGS]);
+  setTimeout(() => client.publish(TOPIC_USERS, JSON.stringify({action:'request_presence'})), 300);
+});
+client.on('message', (topic, msg) => {
+  try {
+    const d = JSON.parse(msg.toString());
+    if (topic === TOPIC_USERS && d.action === 'presence_pulse' && d.username) {
+      const u = d.username.toLowerCase();
+      if (!usersDir[u]) usersDir[u] = { username:u, likes:Number(d.likes||0), country:d.country||'GLOBAL', countryName:d.countryName||'', warned:false, lastSeen:Date.now(), liveState:d.status||'ONLINE' };
+      else { usersDir[u].lastSeen = Date.now(); usersDir[u].liveState = d.status||'ONLINE'; if(d.likes!==undefined) usersDir[u].likes = Number(d.likes); }
+      renderBoards();
+    }
+    if (topic === TOPIC_RATINGS && d.action === 'rating') {
+      ratingsLog.push(d); renderBoards();
+    }
+  } catch(e) {}
+});
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderBoards();
+}
+
+function getFlagEmoji(code) { if(!code||code==='GLOBAL'||code.length!==2)return '🌐'; return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())); }
+
+function getInitials(name) { return name ? name.slice(0,2).toUpperCase() : '?'; }
+
+function getRatingData(username) {
+  const rs = ratingsLog.filter(r => r.target === username);
+  if (!rs.length) return { avg: 0, count: 0 };
+  return { avg: rs.reduce((s,r) => s + r.stars, 0) / rs.length, count: rs.length };
+}
+
+function getBadgeHTML(role) {
+  const map = {
+    verified:`<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    moderator:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5L85 18C85 62 50 88 50 95C50 88 15 62 15 18Z" fill="#151e2e"/><path d="M50 12L78 22C78 57 50 78 50 84C50 78 22 57 22 22Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68C34 52 42 50 47 51L50 56L53 51C58 50 66 52 66 68Z" fill="white"/></svg>`,
+    developer:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#dg)"/><path d="M38 38L24 50L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38L76 50L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`,
+    vip:`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="vg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset=".5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#vg)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="url(#vg)"/><text x="50" y="58" font-family="Outfit,Arial" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text></svg>`
+  };
+  return map[role] || '';
+}
+
+function starsStr(avg) {
+  const f = Math.round(avg);
+  return '★'.repeat(f) + '☆'.repeat(5-f);
+}
+
+function renderRow(u, rank, valueHTML, isMe) {
+  const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+  const rowClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+  const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+  const isOnline = u.lastSeen && (Date.now() - u.lastSeen < 18000);
+  const role = rolesMap[u.username] || 'none';
+  const badge = getBadgeHTML(role);
+  const flag = getFlagEmoji(u.country);
+  return `<div class="lb-row ${rowClass}${isMe?' me':''}">
+    <div class="rank ${rankClass}">${rankEmoji}</div>
+    <div class="lb-avatar">${getInitials(u.username)}</div>
+    <div class="lb-info">
+      <div class="lb-name">
+        <a href="/profile.html?u=${encodeURIComponent(u.username)}">@${u.username}</a>
+        ${badge}
+        ${isMe ? '<span style="font-size:10px;color:var(--primary);font-weight:700;">(you)</span>' : ''}
+      </div>
+      <div class="lb-meta">
+        <span class="online-pip${isOnline?' live':''}"></span>
+        ${isOnline ? u.liveState||'Online' : 'Offline'}
+        · ${flag} ${u.country||'—'}
+      </div>
+    </div>
+    ${valueHTML}
+  </div>`;
+}
+
+function renderBoards() {
+  const now = Date.now();
+  let users = Object.values(usersDir);
+
+  if (currentFilter === 'online') users = users.filter(u => u.lastSeen && (now - u.lastSeen < 18000));
+  if (currentFilter === 'week') {
+    const weekAgo = now - 7*86400000;
+    users = users.filter(u => u.lastSeen && u.lastSeen >= weekAgo);
+  }
+
+  // LIKES BOARD
+  const likesSorted = [...users].sort((a,b) => (b.likes||0) - (a.likes||0)).slice(0, 10);
+  document.getElementById('likes-count').textContent = `${likesSorted.length} users`;
+  if (!likesSorted.length) {
+    document.getElementById('likes-list').innerHTML = '<div class="empty-row">No users yet.</div>';
+  } else {
+    document.getElementById('likes-list').innerHTML = likesSorted.map((u, i) =>
+      renderRow(u, i+1, `<div class="lb-val likes">❤️ ${u.likes||0}</div>`, u.username === myUsername)
+    ).join('');
+  }
+
+  // RATINGS BOARD
+  const ratingUsers = users.map(u => ({ ...u, ...getRatingData(u.username) }))
+    .filter(u => u.count >= 1)
+    .sort((a,b) => b.avg - a.avg || b.count - a.count)
+    .slice(0, 10);
+  document.getElementById('ratings-count').textContent = `${ratingUsers.length} rated`;
+  if (!ratingUsers.length) {
+    document.getElementById('ratings-list').innerHTML = '<div class="empty-row">No ratings yet. Be the first!</div>';
+  } else {
+    document.getElementById('ratings-list').innerHTML = ratingUsers.map((u, i) =>
+      renderRow(u, i+1, `<div class="lb-val stars" title="${u.count} ratings">${u.avg.toFixed(1)} <span style="font-size:12px;">${starsStr(u.avg)}</span></div>`, u.username === myUsername)
+    ).join('');
+  }
+
+  document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+}
+
+renderBoards();
+</script>
+</body>
+</html>
