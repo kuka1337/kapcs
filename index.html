@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -189,20 +189,89 @@
     #broadcast-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(18,25,39,.97);border:1px solid var(--primary);color:#a5b4fc;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9998;display:none;gap:8px;align-items:center;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.6);animation:slideDown .3s ease;}
     @keyframes slideDown{from{opacity:0;top:50px;}to{opacity:1;top:70px;}}
 
-    #ai-canvas,#forensic-canvas{display:none;}
 
-    /* ── RATING MODAL ── */
-    #rating-modal{position:fixed;inset:0;background:rgba(6,9,16,.92);backdrop-filter:blur(16px);z-index:99990;display:none;place-content:center;text-align:center;padding:16px;}
-    .rating-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 24px;max-width:340px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.6);}
-    .rating-box h2{font-family:"Outfit",sans-serif;font-size:20px;margin-bottom:6px;}
-    .rating-box p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.4;}
-    .stars-row{display:flex;justify-content:center;gap:8px;margin-bottom:20px;}
-    .star-btn{background:none;border:none;font-size:32px;cursor:pointer;transition:transform .15s;opacity:.35;filter:grayscale(1);}
-    .star-btn.active,.star-btn:hover{opacity:1;filter:none;transform:scale(1.2);}
-    .star-btn.active~.star-btn{opacity:.35;filter:grayscale(1);transform:none;}
-    .rating-skip{font-size:11px;color:var(--muted);text-decoration:underline;cursor:pointer;margin-top:4px;background:none;border:none;}
-    .rating-submit{width:100%;padding:11px;background:var(--primary);border:0;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;}
-    .rating-submit:disabled{opacity:.4;cursor:not-allowed;}
+    /* ── PiP GOMB ── */
+    #btn-pip{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;display:none;place-items:center;font-size:12px;z-index:9;transition:background .15s;}
+    #btn-pip:hover{background:rgba(99,102,241,.6);}
+    .video-box:hover #btn-pip{display:grid;}
+
+    /* ── KEYBOARD SHORTCUTS HINT ── */
+    #kb-hint{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(18,25,39,.95);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:11px;color:var(--muted);z-index:9997;display:none;gap:12px;flex-wrap:wrap;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+    .kb-key{display:inline-flex;align-items:center;gap:4px;}
+    .kb-key kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 6px;font-size:10px;font-family:"JetBrains Mono",monospace;color:#f8fafc;}
+
+    /* ── ADMIN DM TOAST ── */
+    #admin-dm-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(18,25,39,.97);border:1px solid #a855f7;color:#e9d5ff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9998;display:none;gap:10px;align-items:center;max-width:90vw;box-shadow:0 4px 20px rgba(168,85,247,.3);animation:slideDown .3s ease;}
+    #admin-dm-toast .dm-icon{font-size:18px;}
+
+    /* ── MOBIL JAVÍTÁSOK ── */
+    @media(max-width:799px){
+      header{height:48px;padding:0 10px;}
+      .brand{font-size:17px;}
+      .session-stats{display:none;}
+      .country-selector-wrap select{max-width:90px;}
+      .status{font-size:10px;}
+
+      main{grid-template-rows:1fr auto;}
+
+      .video-section{padding:6px;}
+      .video-grid{gap:5px;}
+      .video-grid .video-box:first-child{flex:2;}
+      .video-grid .video-box:last-child{flex:1;}
+
+      /* Mobil: remote videó nagyobb, local kisebb */
+      @media(max-width:799px) and (orientation:portrait){
+        .video-grid{grid-template-columns:1fr!important;grid-template-rows:55vh 28vh!important;}
+      }
+      @media(max-width:799px) and (orientation:landscape){
+        .video-grid{grid-template-columns:1fr 1fr!important;grid-template-rows:1fr!important;}
+        main{grid-template-rows:1fr;}
+        .chat-section{display:none;}
+        .video-section{height:100vh;}
+      }
+
+      .controls{padding:5px 0 0;gap:4px;flex-wrap:wrap;}
+      .media-tools{gap:4px;}
+      .tool-btn{width:36px;height:36px;font-size:13px;}
+      .btn-like{padding:0 10px;font-size:11px;height:36px;}
+      .btn-main{padding:0 14px;height:36px;font-size:12px;}
+      .btn-stop{padding:0 10px;height:36px;font-size:12px;}
+
+      /* Mobil chat: kompaktabb */
+      .chat-section{height:200px;min-height:200px;max-height:200px;}
+      .chat-messages{padding:6px;}
+      .msg{font-size:11px;padding:5px 8px;}
+      .chat-input{padding:5px;}
+      .chat-input input{padding:7px 8px;font-size:12px;}
+      .chat-input button{padding:0 10px;font-size:12px;}
+
+      /* Mobil: radar kisebb */
+      .radar-scanner{width:80px;height:80px;}
+      .radar-title{font-size:14px;}
+      .radar-sub{font-size:11px;}
+
+      /* Mobil: video label kisebb */
+      .video-label{font-size:10px;padding:3px 6px;}
+      #ping-badge{font-size:9px;padding:2px 5px;}
+
+      /* Mobil: partner kártya teljes szélességű */
+      #partner-card{min-width:unset;max-width:90vw;left:5vw!important;right:5vw;width:90vw;}
+
+      /* Mobil: toastok */
+      #reconnect-toast{font-size:11px;padding:8px 14px;white-space:normal;text-align:center;}
+      #broadcast-toast{font-size:12px;padding:10px 14px;}
+    }
+
+    /* ── MOBIL: LANDSCAPE CHAT TOGGLE GOMB ── */
+    #mobile-chat-toggle{display:none;position:fixed;bottom:70px;right:12px;width:44px;height:44px;border-radius:50%;background:var(--primary);border:0;color:#fff;font-size:18px;cursor:pointer;z-index:9996;box-shadow:0 4px 14px rgba(99,102,241,.4);}
+    @media(max-width:799px) and (orientation:landscape){
+      #mobile-chat-toggle{display:grid;place-items:center;}
+    }
+
+    /* ── SESSION TIMER ── */
+    #session-timer-display{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#6ee7b7;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:7;font-family:"JetBrains Mono",monospace;display:none;}
+
+    #ai-canvas,#forensic-canvas{display:none;}
   </style>
 </head>
 <body>
@@ -258,7 +327,6 @@
   </div>
   <div class="header-right" id="header-right">
     <button class="btn-theme" id="btn-theme-toggle" title="Toggle theme">🌙</button>
-    <a href="/leaderboard.html" target="_blank" class="btn-theme" title="Leaderboard" style="text-decoration:none;display:grid;place-items:center;">🏆</a>
     <button class="btn-report" id="btn-report">⚠️ Report</button>
   </div>
 </header>
@@ -283,6 +351,8 @@
         </div>
         <div class="shield-overlay"><h3>⚠️ Prohibited Content</h3><p id="shield-reason">Content violation intercepted.</p></div>
         <div class="video-label" id="partner-label" onclick="showPartnerCard(event)">Partner</div>
+        <div id="btn-pip" title="Picture in Picture" onclick="togglePiP()">⧉</div>
+        <div id="session-timer-display"></div>
         <div id="ping-badge">— ms</div>
       </div>
       <div class="video-box" id="local-box">
@@ -328,24 +398,25 @@
 <canvas id="ai-canvas" width="224" height="224"></canvas>
 <canvas id="forensic-canvas" width="640" height="480"></canvas>
 
-<!-- RATING MODAL -->
-<div id="rating-modal">
-  <div class="rating-box">
-    <h2>Rate your partner</h2>
-    <p id="rating-partner-name">How was your session with @Partner?</p>
-    <div class="stars-row" id="stars-row">
-      <button class="star-btn" data-v="1" onclick="setRating(1)">⭐</button>
-      <button class="star-btn" data-v="2" onclick="setRating(2)">⭐</button>
-      <button class="star-btn" data-v="3" onclick="setRating(3)">⭐</button>
-      <button class="star-btn" data-v="4" onclick="setRating(4)">⭐</button>
-      <button class="star-btn" data-v="5" onclick="setRating(5)">⭐</button>
-    </div>
-    <button class="rating-submit" id="rating-submit-btn" disabled onclick="submitRating()">Submit Rating</button>
-    <button class="rating-skip" onclick="closeRatingModal()">Skip</button>
-  </div>
-</div>
-
 <!-- TOASTS & OVERLAYS -->
+  <!-- ADMIN DM TOAST -->
+  <div id="admin-dm-toast" style="display:none;">
+    <span class="dm-icon">💬</span>
+    <div><div style="font-size:10px;color:#c084fc;margin-bottom:2px;">Admin Message</div><span id="admin-dm-text"></span></div>
+  </div>
+
+  <!-- KEYBOARD HINTS -->
+  <div id="kb-hint">
+    <span class="kb-key"><kbd>N</kbd> Next</span>
+    <span class="kb-key"><kbd>S</kbd> Stop</span>
+    <span class="kb-key"><kbd>M</kbd> Mute</span>
+    <span class="kb-key"><kbd>C</kbd> Camera</span>
+    <span class="kb-key"><kbd>P</kbd> PiP</span>
+    <span class="kb-key"><kbd>?</kbd> Hide hints</span>
+  </div>
+
+  <!-- MOBIL CHAT TOGGLE -->
+  <button id="mobile-chat-toggle" onclick="toggleMobileChat()">💬</button>
 <div id="reconnect-toast">⏳ Reconnecting in <span id="reconnect-countdown">4</span>s... <button onclick="cancelAutoReconnect()" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#fca5a5;padding:3px 8px;border-radius:5px;font-weight:700;cursor:pointer;font-size:11px;">Cancel</button></div>
 <div id="broadcast-toast" style="display:none;">📢 <span id="broadcast-toast-msg"></span></div>
 
@@ -385,7 +456,7 @@ const TOPIC_USERS     = 'kapcs_v13_users';
 const TOPIC_WARNS     = 'kapcs_v13_warns';
 const TOPIC_BROADCAST = 'kapcs_v13_broadcast';
 const TOPIC_CHATMON   = 'kapcs_v13_chatmon';
-const TOPIC_RATINGS   = 'kapcs_v13_ratings';
+const TOPIC_ADMIN_DM  = 'kapcs_v13_admin_dm';
 
 const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
@@ -713,14 +784,17 @@ function initPeerWithHandle(username) {
 
 // ── MQTT ──────────────────────────────────────────────────────
 mqttClient.on('connect', () => {
-  mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_BROADCAST, TOPIC_RATINGS]);
+  mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_BROADCAST, TOPIC_ADMIN_DM]);
   if (!isCurrentlyBanned) setStatus('ready','Ready');
 });
 
 mqttClient.on('message', async (topic, message) => {
   let data; try { data = JSON.parse(message.toString()); } catch { return; }
 
-  if (topic === TOPIC_BROADCAST && data.action === 'admin_broadcast') {
+    if (topic === TOPIC_ADMIN_DM && data.target === myUsername) {
+    showAdminDM(data.message);
+    return;
+  }if (topic === TOPIC_BROADCAST && data.action === 'admin_broadcast') {
     const toast = document.getElementById('broadcast-toast');
     document.getElementById('broadcast-toast-msg').textContent = data.message;
     toast.style.display = 'flex'; clearTimeout(toast._t);
@@ -821,7 +895,7 @@ function onRemoteStream(stream) {
   applyPartnerRoleFrame(pRole);
   setStatus('live','Connected');
   playSound('connect');
-  sessionStartTime = Date.now();
+  sessionStartTime = Date.now(); startSessionTimer(); notifyNewPartner(partnerUsername);
   startPingMonitor();
   sessionMatchCount++; localStorage.setItem('kapcs_session_matches', sessionMatchCount); document.getElementById('stat-matches').textContent = sessionMatchCount;
   broadcastProfileToAdmin();
@@ -878,22 +952,16 @@ function setupDataChannel() {
 
 // ── DISCONNECT ────────────────────────────────────────────────
 function disconnectPartner() {
-  // Megőrizzük a partner nevét értékeléshez
-  const ratedUsername = partnerUsername !== 'Partner' ? partnerUsername : null;
-
   if (remoteVideo.srcObject) { remoteVideo.srcObject.getTracks().forEach(t => { t.stop(); t.enabled = false; }); remoteVideo.srcObject = null; remoteVideo.pause(); }
   remoteBox.classList.remove('ai-blocked','partner-mod','partner-dev','partner-vip');
   remotePlaceholder.style.display = 'flex';
   partnerId = null; partnerUsername = 'Partner'; partnerDeviceId = null; partnerCountryCode = null; partnerLikes = 0;
   btnLike.disabled = true; document.getElementById('partner-label').textContent = 'Partner';
   document.getElementById('remote-caption-box').style.display = 'none';
-  showTypingIndicator(false); stopPingMonitor(); closePartnerCard(); sessionStartTime = null;
+  showTypingIndicator(false); stopPingMonitor(); closePartnerCard(); sessionStartTime = null; stopSessionTimer();
   // E2E kulcsok törlése
   e2eKey = null; partnerPublicKey = null;
   playSound('disconnect');
-
-  // Rating modal megjelenítése ha volt partner
-  if (ratedUsername) showRatingModal(ratedUsername);
 
   if (autoSearchEnabled && !isCurrentlyBanned) {
     setStatus('search','Searching...'); radarTitleText.textContent = 'Scanning the globe...'; radarSubText.textContent = 'Looking for a match...'; radarPill.textContent = 'SEARCHING';
@@ -1022,46 +1090,6 @@ function setStatus(type, label) {
   document.getElementById('status-text').textContent = label;
 }
 
-// ── RATING RENDSZER ───────────────────────────────────────────
-let currentRating = 0, ratingTargetUser = null;
-
-function showRatingModal(username) {
-  ratingTargetUser = username; currentRating = 0;
-  document.getElementById('rating-partner-name').textContent = `How was your session with @${username}?`;
-  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('rating-submit-btn').disabled = true;
-  document.getElementById('rating-modal').style.display = 'grid';
-}
-function closeRatingModal() { document.getElementById('rating-modal').style.display = 'none'; ratingTargetUser = null; currentRating = 0; }
-
-window.setRating = function(val) {
-  currentRating = val;
-  document.querySelectorAll('.star-btn').forEach((b,i) => { b.classList.toggle('active', i < val); });
-  document.getElementById('rating-submit-btn').disabled = false;
-};
-
-window.submitRating = function() {
-  if (!ratingTargetUser || !currentRating) return;
-  const ratingData = {
-    action: 'rating',
-    from: myUsername,
-    target: ratingTargetUser,
-    stars: currentRating,
-    time: new Date().toISOString()
-  };
-  mqttClient.publish(TOPIC_RATINGS, JSON.stringify(ratingData));
-  // Lokálisan is tároljuk a saját értékeléseinket
-  const myRatings = JSON.parse(localStorage.getItem('kapcs_my_ratings') || '[]');
-  myRatings.unshift(ratingData);
-  if (myRatings.length > 100) myRatings.pop();
-  localStorage.setItem('kapcs_my_ratings', JSON.stringify(myRatings));
-  closeRatingModal();
-  addMsg(`⭐ You rated @${ratingTargetUser} ${currentRating}/5`, 'sys');
-};
-
-// Bejövő rating fogadása (ha minket értékelnek)
-// A TOPIC_RATINGS üzeneteket az admin figyeli, nem az index.html
-
 // ── E2E TITKOSÍTOTT CHAT ──────────────────────────────────────
 // ECDH P-256 kulcscsere + AES-GCM titkosítás
 let e2eKeyPair = null, e2eKey = null, partnerPublicKey = null;
@@ -1102,23 +1130,6 @@ async function decryptMsg(b64) {
     return new TextDecoder().decode(plain);
   } catch { return null; }
 }
-
-// ── PROFIL LINK A PARTNER LABELEN ─────────────────────────────
-function openPartnerProfile() {
-  if (!partnerUsername || partnerUsername === 'Partner') return;
-  window.open(`/profile.html?u=${encodeURIComponent(partnerUsername)}`, '_blank');
-}
-
-// partner-label long press = profil megnyitás, click = card
-let partnerLabelPressTimer = null;
-document.getElementById('partner-label').addEventListener('mousedown', () => {
-  partnerLabelPressTimer = setTimeout(() => openPartnerProfile(), 600);
-});
-document.getElementById('partner-label').addEventListener('mouseup', () => clearTimeout(partnerLabelPressTimer));
-document.getElementById('partner-label').addEventListener('touchstart', () => {
-  partnerLabelPressTimer = setTimeout(() => openPartnerProfile(), 600);
-}, { passive: true });
-document.getElementById('partner-label').addEventListener('touchend', () => clearTimeout(partnerLabelPressTimer));
 
 // ── DEV TOOLS ────────────────────────────────────────────────
 let isDevHudActive = false, devHudAnimFrame = null, isDevCaptionsActive = false;
@@ -1233,3 +1244,10 @@ window.addEventListener('beforeinstallprompt', e => {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
