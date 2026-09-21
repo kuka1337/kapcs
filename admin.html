@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KAPCS â€” Admin Console</title>
+  <title>KAPCS  Admin Console</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -150,7 +150,7 @@
     /* MQTT STATUS */
     #mqtt-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;}
     #mqtt-status.connected{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;}
-    #mqtt-status::before{content:'â—Ź';font-size:8px;}
+    #mqtt-status::before{content:'â🗺️';font-size:8px;}
 
     /* MAP */
     #leaflet-map{height:420px;border-radius:8px;overflow:hidden;}
@@ -182,9 +182,9 @@
 
   <!-- LOGIN -->
   <div id="login-box">
-    <div style="font-size:40px;margin-bottom:16px;">đź”</div>
+    <div style="font-size:40px;margin-bottom:16px;">&#x1F510;</div>
     <h2>Security Console</h2>
-    <p>KAPCS Moderation Panel â€” Authorized Access Only.<br>All actions are logged.</p>
+    <p>KAPCS Moderation Panel  Authorized Access Only.<br>All actions are logged.</p>
     <input type="password" id="pwd" placeholder="Admin password" autocomplete="off">
     <button id="btn-login">Unlock Console</button>
     <div id="login-err"></div>
@@ -197,7 +197,7 @@
       <h1>KAPCS Admin</h1>
       <div class="session-info">
         <span id="mqtt-status">Connecting...</span>
-        <span>Session: <code id="session-token-display">â€”</code></span>
+        <span>Session: <code id="session-token-display"></code></span>
         <span id="session-timer" style="color:var(--warning);"></span>
         <button class="btn-logout" onclick="doLogout()">Logout</button>
       </div>
@@ -221,11 +221,11 @@
     </div>
 
     <div id="ban-suggestions-section" style="display:none;">
-      <div class="ban-suggestions-header"><span class="pulse-dot"></span> Auto-ban Suggestions (3+ reports)</div>
+      <div class="ban-suggestions-header"><span class="pulse-dot"></span>&#x26A0;&#xFE0F; Auto-ban Suggestions (3+ reports)</div>
       <div class="ban-suggestion-wrap" id="ban-suggestions-wrap"></div>
     </div>
 <div class="broadcast-card">
-      <h3>đź“˘ Broadcast â€” send to all online users</h3>
+      <h3>📢 Broadcast  send to all online users</h3>
       <div class="broadcast-row">
         <input type="text" id="broadcast-msg" placeholder="e.g. Server maintenance in 10 minutes..." maxlength="180">
         <button class="btn-broadcast" id="btn-broadcast">Send to All</button>
@@ -234,13 +234,13 @@
     </div>
 
     <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('users',this)">đź‘Ą Users</button>
-      <button class="tab-btn" onclick="switchTab('reports',this)">đźš¨ Reports</button>
-      <button class="tab-btn" onclick="switchTab('chat-monitor',this)">đź’¬ Chat Monitor</button>
-      <button class="tab-btn" onclick="switchTab('ban-history',this)">đź“‹ Ban History</button>
-      <button class="tab-btn" onclick="switchTab('country-stats',this)">đź—şď¸Ź Countries</button>
-      <button class="tab-btn" onclick="switchTab('dashboard',this)">đź“Š Dashboard</button>
-      <button class="tab-btn" onclick="switchTab('roles',this)">đźŹ… Roles</button>
+      <button class="tab-btn active" onclick="switchTab('users',this)">👥 Users</button>
+      <button class="tab-btn" onclick="switchTab('reports',this)">&#x1F6A8; Reports</button>
+      <button class="tab-btn" onclick="switchTab('chat-monitor',this)">&#x1F4AC; Chat Monitor</button>
+      <button class="tab-btn" onclick="switchTab('ban-history',this)">📋 Ban History</button>
+      <button class="tab-btn" onclick="switchTab('country-stats',this)">&#x1F5FA;&#xFE0F; Countries</button>
+      <button class="tab-btn" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('roles',this)">&#x1F3C5; Roles</button>
     </div>
 
     <!-- TAB: USERS -->
@@ -261,14 +261,14 @@
             <input type="password" id="new-pwd-input" placeholder="New password (min 8 chars)" style="flex:1;min-width:160px;">
             <button class="btn-action btn-unban" id="btn-change-pwd" style="background:#6366f1;border-color:#6366f1;color:#fff;">Update</button>
           </div>
-          <div class="control-hint">Stored as PBKDF2 hash â€” never plain text.</div>
+          <div class="control-hint">Stored as PBKDF2 hash  never plain text.</div>
         </div>
       </div>
       <div class="search-bar-wrap">
-        <input type="text" id="user-search" placeholder="đź”Ť Search username, device ID, country...">
+        <input type="text" id="user-search" placeholder="📝 Search username, device ID, country...">
         <button class="filter-chip active" onclick="setUserFilter('all',this)">All</button>
-        <button class="filter-chip" onclick="setUserFilter('online',this)">đźź˘ Online</button>
-        <button class="filter-chip" onclick="setUserFilter('banned',this)">đź”´ Banned</button>
+        <button class="filter-chip" onclick="setUserFilter('online',this)">&#x1F3A2; Online</button>
+        <button class="filter-chip" onclick="setUserFilter('banned',this)">🔐´ Banned</button>
         <button class="filter-chip" onclick="setUserFilter('warned',this)">âš ď¸Ź Warned</button>
         <button class="btn-csv" onclick="exportCSV()">â¬‡ď¸Ź CSV</button>
       </div>
@@ -295,9 +295,9 @@
     <!-- TAB: CHAT MONITOR -->
     <div class="tab-panel" id="tab-chat-monitor">
       <div class="table-header" style="border:1px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);margin-bottom:0;">
-        <h2>đź’¬ Live Chat Monitor</h2>
+        <h2> Live Chat Monitor</h2>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="chatmon-search" placeholder="đź”Ť Filter..." style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;outline:none;width:200px;" oninput="renderChatMonitor()">
+          <input type="text" id="chatmon-search" placeholder="📝 Filter..." style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;outline:none;width:200px;" oninput="renderChatMonitor()">
           <button class="btn-action btn-warn" onclick="chatMonLogs=[];saveChatMon();renderChatMonitor();">Clear</button>
         </div>
       </div>
@@ -309,7 +309,7 @@
     <!-- TAB: BAN HISTORY -->
     <div class="tab-panel" id="tab-ban-history">
       <div class="audit-row">
-        <input type="text" class="audit-filter" id="audit-search" placeholder="đź”Ť Filter..." oninput="renderAuditLog()">
+        <input type="text" class="audit-filter" id="audit-search" placeholder="📝 Filter..." oninput="renderAuditLog()">
         <button class="btn-action btn-ban" onclick="if(confirm('Clear history?')){auditLog=[];saveAuditLog();renderAuditLog();}">Clear</button>
         <button class="btn-csv" onclick="exportAuditCSV()">â¬‡ď¸Ź CSV</button>
       </div>
@@ -333,16 +333,16 @@
 
     <!-- TAB: DASHBOARD -->
     <div class="tab-panel" id="tab-dashboard">
-      <div class="chart-card"><h3>đź“ Online Users â€” Last 24h</h3><div class="chart-wrap"><canvas id="online-chart"></canvas></div></div>
+      <div class="chart-card"><h3>📌 Online Users  Last 24h</h3><div class="chart-wrap"><canvas id="online-chart"></canvas></div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="chart-card"><h3>âŹ° Peak Hours</h3><div class="chart-wrap" style="height:140px;"><canvas id="peak-chart"></canvas></div></div>
         <div class="control-card" style="margin:0;">
-          <h3>đź“Š Quick Stats</h3>
+          <h3>📊 Quick Stats</h3>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Peak online (24h)</span><strong id="dash-peak">â€”</strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Messages captured</span><strong id="dash-msgs">â€”</strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Bans last 24h</span><strong id="dash-bans24">â€”</strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">VPN/TOR flagged</span><strong id="dash-vpn">â€”</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Peak online (24h)</span><strong id="dash-peak"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Messages captured</span><strong id="dash-msgs"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Bans last 24h</span><strong id="dash-bans24"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">VPN/TOR flagged</span><strong id="dash-vpn"></strong></div>
           </div>
         </div>
       </div>
@@ -355,8 +355,8 @@
         <div class="inline-form">
           <input type="text" id="role-username" placeholder="@handle" style="flex:1;min-width:140px;">
           <select id="role-select">
-            <option value="verified">đź”ą Verified</option>
-            <option value="moderator">đź›ˇď¸Ź Moderator</option>
+            <option value="verified">🧅 Verified</option>
+            <option value="moderator">&#x1F6C7;ď¸Ź Moderator</option>
             <option value="developer">âšˇ Developer</option>
             <option value="vip">â­ VIP</option>
             <option value="none">âťŚ Remove</option>
@@ -375,7 +375,7 @@
       <div class="control-card" style="max-width:500px;margin-bottom:20px;">
 <div class="note-modal-overlay" id="note-modal-overlay" onclick="if(event.target===this)closeNoteModal()">
   <div class="note-modal">
-    <h3>đź“ť Note for <span id="note-modal-user"></span></h3>
+    <h3>📡 Note for <span id="note-modal-user"></span></h3>
     <textarea id="note-textarea" placeholder="Internal admin note (only visible here)..."></textarea>
     <div class="note-modal-btns">
       <button class="btn-action btn-warn" onclick="closeNoteModal()">Cancel</button>
@@ -387,9 +387,9 @@
 <div id="admin-toast"></div>
 
 <script>
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  KAPCS Admin â€” clean unified build
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
+//  KAPCS Admin  clean unified build
+// &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
 
 // â”€â”€ MQTT TOPICS (must match index.html exactly) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TOPIC_REPORTS   = 'kapcs_v13_reports';
@@ -559,7 +559,7 @@ function initPanel() {
     client.publish(TOPIC_BROADCAST, JSON.stringify({action:'admin_broadcast',message:msg,time}));
     broadcastHistory.unshift({message:msg,time}); if (broadcastHistory.length>20) broadcastHistory.pop();
     localStorage.setItem('kapcs_admin_broadcasts', JSON.stringify(broadcastHistory));
-    renderBroadcastHistory(); document.getElementById('broadcast-msg').value=''; showToast('đź“˘ Broadcast sent!');
+    renderBroadcastHistory(); document.getElementById('broadcast-msg').value=''; showToast('📢 Broadcast sent!');
   });
 }
 
@@ -625,20 +625,20 @@ function renderAllUsersTable() {
     const role=rolesMap[u.username]||'none', roleBadge=getBadgePreview(role);
     const isBanned=bannedList.some(b=>(b.targetName&&b.targetName.toLowerCase()===u.username)||(b.targetDev&&b.targetDev===u.deviceId));
     const isOnline=u.lastSeen&&(now-u.lastSeen<18000);
-    const vpn=vpnFlags[u.username], vpnBadge=vpn?(vpn.tor?'<span class="vpn-flag" title="TOR">đź§… TOR</span>':vpn.vpn?'<span class="vpn-flag" title="VPN">đź›ˇď¸Ź VPN</span>':vpn.proxy?'<span class="vpn-flag proxy-flag" title="Proxy">đź”€ PRX</span>':''):'';
-    const note=userNotes[u.username], noteBadge=note?`<span class="note-badge" onclick="openNoteModal('${u.username}')" title="${note.replace(/'/g,'&apos;')}">đź“ť</span>`:`<span style="cursor:pointer;color:var(--muted);font-size:11px;" onclick="openNoteModal('${u.username}')">+ note</span>`;
+    const vpn=vpnFlags[u.username], vpnBadge=vpn?(vpn.tor?'<span class="vpn-flag" title="TOR">🧅 TOR</span>':vpn.vpn?'<span class="vpn-flag" title="VPN">&#x1F6C7;ď¸Ź VPN</span>':vpn.proxy?'<span class="vpn-flag proxy-flag" title="Proxy">🔀 PRX</span>':''):'';
+    const note=userNotes[u.username], noteBadge=note?`<span class="note-badge" onclick="openNoteModal('${u.username}')" title="${note.replace(/'/g,'&apos;')}">📡</span>`:`<span style="cursor:pointer;color:var(--muted);font-size:11px;" onclick="openNoteModal('${u.username}')">+ note</span>`;
     let sb='<span class="pill pill-offline">OFFLINE</span>';
     if (isBanned) sb='<span class="pill pill-banned">BANNED</span>';
-    else if (isOnline) sb=`<span class="pill pill-online">đźź˘ ${u.liveState||'ONLINE'}</span>`;
+    else if (isOnline) sb=`<span class="pill pill-online">&#x1F3A2; ${u.liveState||'ONLINE'}</span>`;
     if (u.warned&&!isBanned) sb+=' <span class="pill pill-warned">WARNED</span>';
     return `<tr>
       <td><strong><code>@${u.username}</code></strong>${vpnBadge}</td>
-      <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||'â€”'}</span></td>
-      <td><code style="font-size:11px;">${u.deviceId||'â€”'}</code></td>
+      <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||''}</span></td>
+      <td><code style="font-size:11px;">${u.deviceId||''}</code></td>
       <td><span style="color:#fda4af;font-weight:700;">âť¤ď¸Ź ${u.likes||0}</span> <button class="btn-action btn-clear-likes" style="padding:2px 6px;" onclick="clearUserLikes('${u.username}')">Clear</button></td>
-      <td>${roleBadge?`${roleBadge} <small style="text-transform:uppercase;color:#c084fc;font-weight:700;">${role}</small>`:'<span style="color:var(--muted)">â€”</span>'}</td>
+      <td>${roleBadge?`${roleBadge} <small style="text-transform:uppercase;color:#c084fc;font-weight:700;">${role}</small>`:'<span style="color:var(--muted)"></span>'}</td>
       <td>${sb}</td>
-      <td style="color:var(--muted);font-size:11px;">${u.lastSeen?timeSince(u.lastSeen):'â€”'}</td>
+      <td style="color:var(--muted);font-size:11px;">${u.lastSeen?timeSince(u.lastSeen):''}</td>
       <td>${noteBadge}</td>
       <td><div style="display:flex;gap:4px;">
         ${isBanned?`<button class="btn-action btn-unban" onclick="executeUnban('${u.deviceId}','${u.username}')">Unban</button>`:`<button class="btn-action btn-ban" onclick="executeBan('${u.deviceId}','${u.username}','Admin',3)">Ban 3d</button>`}
@@ -665,7 +665,7 @@ window.executeBan = function(devId, username, reason, days) {
   bannedList.push({targetDev:devId,targetName:username,reason,expiresAt:exp});
   saveBans(); addAuditEntry('BAN',username,devId,reason,days,exp); renderAllUsersTable();
   client.publish(TOPIC_BANS, JSON.stringify({action:'ban',targetDev:devId,targetName:username,reason,expiresAt:exp}));
-  showToast(`đźš« @${username||devId} banned ${days>0?days+'d':'permanently'}.`);
+  showToast(`&#x1F6AB; @${username||devId} banned ${days>0?days+'d':'permanently'}.`);
 };
 window.executeUnban = function(devId, username) {
   bannedList=bannedList.filter(b=>!(devId&&b.targetDev===devId)&&!(username&&b.targetName===username));
@@ -695,7 +695,7 @@ function checkExpiredBans() {
 
 // â”€â”€ AUDIT LOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function addAuditEntry(action, username, deviceId, reason, days, expiresAt) {
-  auditLog.unshift({ action, username:username||'â€”', deviceId:deviceId||'â€”', reason:reason||'â€”', days, expiresAt:expiresAt?new Date(expiresAt).toLocaleString():(days===0?'â€”':'Permanent'), time:new Date().toLocaleString(), by:'Admin' });
+  auditLog.unshift({ action, username:username||'', deviceId:deviceId||'', reason:reason||'', days, expiresAt:expiresAt?new Date(expiresAt).toLocaleString():(days===0?'':'Permanent'), time:new Date().toLocaleString(), by:'Admin' });
   if (auditLog.length>500) auditLog.pop(); saveAuditLog(); renderAuditLog();
 }
 function saveAuditLog() { localStorage.setItem('kapcs_admin_audit_v13', JSON.stringify(auditLog)); }
@@ -705,7 +705,7 @@ function renderAuditLog() {
   let entries=auditLog; if(q) entries=entries.filter(e=>e.username.includes(q)||e.deviceId.includes(q)||e.reason.toLowerCase().includes(q)||e.action.toLowerCase().includes(q));
   document.getElementById('audit-count').textContent=`${entries.length} entries`;
   if(!entries.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No history.</td></tr>';return;}
-  tbody.innerHTML=entries.map(e=>`<tr><td><span class="pill ${e.action==='BAN'?'pill-banned':e.action==='UNBAN'||e.action==='AUTO-UNBAN'?'pill-online':'pill-warned'}">${e.action}</span></td><td><code>@${e.username}</code></td><td><code style="font-size:11px;">${e.deviceId}</code></td><td style="max-width:180px;white-space:normal;font-size:12px;">${e.reason}</td><td style="color:var(--muted)">${e.by}</td><td style="font-size:11px;">${e.expiresAt||'â€”'}</td><td style="color:var(--muted);font-size:11px;">${e.time}</td></tr>`).join('');
+  tbody.innerHTML=entries.map(e=>`<tr><td><span class="pill ${e.action==='BAN'?'pill-banned':e.action==='UNBAN'||e.action==='AUTO-UNBAN'?'pill-online':'pill-warned'}">${e.action}</span></td><td><code>@${e.username}</code></td><td><code style="font-size:11px;">${e.deviceId}</code></td><td style="max-width:180px;white-space:normal;font-size:12px;">${e.reason}</td><td style="color:var(--muted)">${e.by}</td><td style="font-size:11px;">${e.expiresAt||''}</td><td style="color:var(--muted);font-size:11px;">${e.time}</td></tr>`).join('');
 }
 
 // â”€â”€ CHAT MONITOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -716,7 +716,7 @@ function renderChatMonitor() {
   let logs=chatMonLogs; if(q) logs=logs.filter(l=>l.from.includes(q)||l.partner.includes(q)||l.text.toLowerCase().includes(q));
   if(!logs.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No messages yet.</div>';return;}
   const BAD=/nigger|faggot|nazi|hitler|kill|porn|nude/i;
-  el.innerHTML=logs.map(l=>{const f=BAD.test(l.text);return`<div class="chatmon-item${f?' flagged':''}"><div class="chatmon-meta"><span class="chatmon-users">${l.direction==='out'?'đź“¤':'đź“Ą'} @${l.from} â†” @${l.partner}</span><span class="chatmon-time">${l.time}</span></div><div>${escHtml(l.text)}</div>${f?`<div style="margin-top:5px;"><button class="btn-action btn-ban" onclick="executeBan('','${l.from}','Suspicious chat',3)">Ban @${l.from}</button></div>`:''}</div>`;}).join('');
+  el.innerHTML=logs.map(l=>{const f=BAD.test(l.text);return`<div class="chatmon-item${f?' flagged':''}"><div class="chatmon-meta"><span class="chatmon-users">${l.direction==='out'?'🔒¤':'📁'} @${l.from} â†” @${l.partner}</span><span class="chatmon-time">${l.time}</span></div><div>${escHtml(l.text)}</div>${f?`<div style="margin-top:5px;"><button class="btn-action btn-ban" onclick="executeBan('','${l.from}','Suspicious chat',3)">Ban @${l.from}</button></div>`:''}</div>`;}).join('');
 }
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
@@ -750,7 +750,7 @@ function renderBroadcastHistory() {
 // â”€â”€ NOTES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 window.openNoteModal=function(username){ noteTargetUser=username; document.getElementById('note-modal-user').textContent='@'+username; document.getElementById('note-textarea').value=userNotes[username]||''; document.getElementById('note-modal-overlay').style.display='grid'; setTimeout(()=>document.getElementById('note-textarea').focus(),50); };
 function closeNoteModal(){ document.getElementById('note-modal-overlay').style.display='none'; noteTargetUser=null; }
-function saveNote(){ if(!noteTargetUser)return; const v=document.getElementById('note-textarea').value.trim(); if(v)userNotes[noteTargetUser]=v; else delete userNotes[noteTargetUser]; localStorage.setItem('kapcs_admin_notes',JSON.stringify(userNotes)); closeNoteModal(); renderAllUsersTable(); showToast('đź“ť Note saved.'); }
+function saveNote(){ if(!noteTargetUser)return; const v=document.getElementById('note-textarea').value.trim(); if(v)userNotes[noteTargetUser]=v; else delete userNotes[noteTargetUser]; localStorage.setItem('kapcs_admin_notes',JSON.stringify(userNotes)); closeNoteModal(); renderAllUsersTable(); showToast('📡 Note saved.'); }
 
 // â”€â”€ VPN DETECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function checkVpnFlag(username, ip) {
@@ -789,12 +789,12 @@ function renderDashboard() {
 function exportCSV() {
   const users=Object.values(usersDirectory), now=Date.now();
   const rows=[['Username','Country','Device ID','Likes','Role','Status','Last Seen']];
-  users.forEach(u=>{const isBan=bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId),isOn=u.lastSeen&&(now-u.lastSeen<18000); rows.push([u.username,u.country||'â€”',u.deviceId||'â€”',u.likes||0,rolesMap[u.username]||'none',isBan?'BANNED':isOn?'ONLINE':'OFFLINE',u.lastSeen?new Date(u.lastSeen).toLocaleString():'â€”']);});
+  users.forEach(u=>{const isBan=bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId),isOn=u.lastSeen&&(now-u.lastSeen<18000); rows.push([u.username,u.country||'',u.deviceId||'',u.likes||0,rolesMap[u.username]||'none',isBan?'BANNED':isOn?'ONLINE':'OFFLINE',u.lastSeen?new Date(u.lastSeen).toLocaleString():'']);});
   downloadCSV(rows,'kapcs_users.csv'); showToast(`â¬‡ď¸Ź Exported ${users.length} users.`);
 }
 function exportAuditCSV() {
   const rows=[['Action','Username','Device','Reason','By','Expires','Time']];
-  auditLog.forEach(e=>rows.push([e.action,e.username,e.deviceId,e.reason,e.by,e.expiresAt||'â€”',e.time]));
+  auditLog.forEach(e=>rows.push([e.action,e.username,e.deviceId,e.reason,e.by,e.expiresAt||'',e.time]));
   downloadCSV(rows,'kapcs_audit.csv'); showToast(`â¬‡ď¸Ź Exported ${auditLog.length} entries.`);
 }
 function downloadCSV(rows, filename) {
@@ -820,7 +820,7 @@ function saveUsers()   { localStorage.setItem('kapcs_admin_users_v13',JSON.strin
 function saveBans()    { localStorage.setItem('kapcs_admin_bans_v13',JSON.stringify(bannedList)); updateStats(); }
 function saveRoles()   { localStorage.setItem('kapcs_admin_roles_v13',JSON.stringify(rolesMap)); client.publish(TOPIC_ROLES,JSON.stringify({allRoles:rolesMap})); }
 // â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function getFlagEmoji(code) { if(!code||code==='GLOBAL'||code.length!==2)return 'đźŚ'; return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())); }
+function getFlagEmoji(code) { if(!code||code==='GLOBAL'||code.length!==2)return '🏅'; return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())); }
 function getBadgePreview(role) {
   if(role==='verified') return`<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   if(role==='moderator')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5L85 18C85 62 50 88 50 95C50 88 15 62 15 18Z" fill="#151e2e"/><path d="M50 12L78 22C78 57 50 78 50 84C50 78 22 57 22 22Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68C34 52 42 50 47 51L50 56L53 51C58 50 66 52 66 68Z" fill="white"/></svg>`;
