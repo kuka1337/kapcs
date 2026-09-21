@@ -1,14 +1,14 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KAPCS  Admin Console</title>
+  <title>KAPCS &mdash; Admin Console</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Outfit:wght@700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root{--bg:#090d16;--card:#111726;--danger:#ef4444;--success:#10b981;--primary:#6366f1;--heart:#f43f5e;--warning:#f59e0b;--border:rgba(255,255,255,.08);--text:#f8fafc;--muted:#94a3b8;font-family:"DM Sans",system-ui,sans-serif;}
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -52,6 +52,23 @@
     .broadcast-item{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);padding:6px 12px;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;gap:8px;}
     .broadcast-item .b-time{color:var(--muted);font-size:10px;white-space:nowrap;}
 
+    /* DM CARD */
+    .dm-card{background:var(--card);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:16px;margin-bottom:20px;}
+    .dm-card h3{font-family:"Outfit",sans-serif;font-size:14px;margin-bottom:12px;color:#c084fc;}
+    .dm-row{display:flex;gap:8px;flex-wrap:wrap;}
+    .dm-row input{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;}
+    .dm-row input:focus{border-color:#a855f7;}
+    .btn-dm{background:#a855f7;border:0;color:#fff;padding:0 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}
+
+    /* AUTO BAN SUGGESTIONS */
+    #ban-suggestions-section{display:none;margin-bottom:16px;}
+    .ban-suggestions-header{font-size:12px;font-weight:700;color:var(--danger);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+    @keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:.3;}}
+    .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:pulseDot 1.2s infinite;display:inline-block;flex-shrink:0;}
+    .ban-suggestion{display:flex;align-items:center;gap:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+    .bs-name{font-weight:700;font-size:13px;color:#fca5a5;}
+    .bs-meta{font-size:11px;color:var(--muted);}
+
     /* TABS */
     .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;}
     .tab-btn{padding:8px 14px;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0;}
@@ -87,13 +104,11 @@
     th,td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;white-space:nowrap;}
     th{background:rgba(255,255,255,.02);color:var(--muted);font-size:11px;}
     tr:last-child td{border-bottom:0;}
-
     .pill{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;}
     .pill-online{background:rgba(16,185,129,.2);color:#6ee7b7;}
     .pill-offline{background:rgba(148,163,184,.15);color:#94a3b8;}
     .pill-banned{background:rgba(239,68,68,.2);color:#fca5a5;}
     .pill-warned{background:rgba(245,158,11,.2);color:#fcd34d;}
-
     .btn-action{padding:5px 10px;border-radius:4px;font-weight:700;font-size:11px;cursor:pointer;border:0;}
     .btn-ban{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#fca5a5;}
     .btn-ban:hover{background:var(--danger);color:#fff;}
@@ -104,6 +119,9 @@
     .btn-clear-likes{background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:#fda4af;}
     .btn-clear-likes:hover{background:var(--heart);color:#fff;}
     .badge-icon{width:16px;height:16px;vertical-align:-2px;margin-left:4px;display:inline-block;}
+    .vpn-flag{display:inline-flex;align-items:center;gap:2px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;cursor:help;margin-left:4px;}
+    .proxy-flag{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;}
+    .note-badge{display:inline-flex;align-items:center;gap:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;cursor:pointer;}
 
     /* CHAT MONITOR */
     .chatmon-wrap{display:flex;flex-direction:column;gap:6px;max-height:480px;overflow-y:auto;padding:4px 0;}
@@ -113,23 +131,6 @@
     .chatmon-users{font-weight:700;font-size:11px;color:#a5b4fc;}
     .chatmon-time{font-size:10px;color:var(--muted);}
 
-    /* FLAGS */
-    .vpn-flag{display:inline-flex;align-items:center;gap:2px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;cursor:help;margin-left:4px;}
-    .proxy-flag{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;}
-
-    /* NOTES */
-    .note-badge{display:inline-flex;align-items:center;gap:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;cursor:pointer;}
-    .note-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99998;display:none;place-items:center;}
-    .note-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;width:380px;max-width:95vw;}
-    .note-modal h3{font-family:"Outfit",sans-serif;margin-bottom:12px;font-size:16px;}
-    .note-modal textarea{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-size:13px;resize:vertical;min-height:90px;outline:none;font-family:inherit;}
-    .note-modal-btns{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
-
-    /* CHART */
-    .chart-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px;}
-    .chart-card h3{font-family:"Outfit",sans-serif;font-size:14px;margin-bottom:14px;}
-    .chart-wrap{position:relative;height:180px;}
-
     /* COUNTRY STATS */
     .country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
     .country-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;}
@@ -138,6 +139,24 @@
     .country-info .c-count{font-size:11px;color:var(--muted);}
     .country-bar-wrap{height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;}
     .country-bar{height:3px;background:var(--primary);border-radius:2px;transition:width .4s;}
+
+    /* CHART */
+    .chart-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:20px;}
+    .chart-card h3{font-family:"Outfit",sans-serif;font-size:14px;margin-bottom:14px;}
+    .chart-wrap{position:relative;height:180px;}
+
+    /* MAP */
+    #leaflet-map{height:420px;border-radius:8px;overflow:hidden;}
+    .leaflet-container{background:#0d1321;}
+    .leaflet-popup-content-wrapper{background:#111726;color:#f8fafc;border:1px solid rgba(255,255,255,.1);border-radius:8px;}
+    .leaflet-popup-tip{background:#111726;}
+
+    /* NOTES MODAL */
+    .note-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99998;display:none;place-items:center;}
+    .note-modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;width:380px;max-width:95vw;}
+    .note-modal h3{font-family:"Outfit",sans-serif;margin-bottom:12px;font-size:16px;}
+    .note-modal textarea{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-size:13px;resize:vertical;min-height:90px;outline:none;font-family:inherit;}
+    .note-modal-btns{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
 
     /* AUDIT */
     .audit-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
@@ -150,31 +169,7 @@
     /* MQTT STATUS */
     #mqtt-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;}
     #mqtt-status.connected{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;}
-    #mqtt-status::before{content:'â🗺️';font-size:8px;}
-
-    /* MAP */
-    #leaflet-map{height:420px;border-radius:8px;overflow:hidden;}
-    .leaflet-container{background:#0d1321;}
-
-    /* ADMIN DM */
-    .dm-card{background:var(--card);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:16px;margin-bottom:20px;}
-    .dm-card h3{font-family:"Outfit",sans-serif;font-size:14px;margin-bottom:12px;color:#c084fc;}
-    .dm-row{display:flex;gap:8px;flex-wrap:wrap;}
-    .dm-row input{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;}
-    .dm-row input:focus{border-color:#a855f7;}
-    .btn-dm{background:#a855f7;border:0;color:#fff;padding:0 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}
-    .btn-dm:hover{background:#9333ea;}
-
-    /* AUTO BAN JAVASLAT */
-    .ban-suggestion{display:flex;align-items:center;gap:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
-    .ban-suggestion .bs-name{font-weight:700;font-size:13px;color:#fca5a5;}
-    .ban-suggestion .bs-meta{font-size:11px;color:var(--muted);}
-    .ban-suggestion-wrap{margin-bottom:16px;}
-    .ban-suggestions-header{font-size:12px;font-weight:700;color:var(--danger);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-    @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.7);}}
-    .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:pulseDot 1.2s infinite;display:inline-block;}
-    .leaflet-popup-content-wrapper{background:#111726;color:#f8fafc;border:1px solid rgba(255,255,255,.1);border-radius:8px;}
-    .leaflet-popup-tip{background:#111726;}
+    #mqtt-status::before{content:'&#x25CF;';font-size:8px;}
   </style>
 </head>
 <body>
@@ -184,7 +179,7 @@
   <div id="login-box">
     <div style="font-size:40px;margin-bottom:16px;">&#x1F510;</div>
     <h2>Security Console</h2>
-    <p>KAPCS Moderation Panel  Authorized Access Only.<br>All actions are logged.</p>
+    <p>KAPCS Moderation Panel &mdash; Authorized Access Only.<br>All actions are logged.</p>
     <input type="password" id="pwd" placeholder="Admin password" autocomplete="off">
     <button id="btn-login">Unlock Console</button>
     <div id="login-err"></div>
@@ -197,7 +192,7 @@
       <h1>KAPCS Admin</h1>
       <div class="session-info">
         <span id="mqtt-status">Connecting...</span>
-        <span>Session: <code id="session-token-display"></code></span>
+        <span>Session: <code id="session-token-display">&mdash;</code></span>
         <span id="session-timer" style="color:var(--warning);"></span>
         <button class="btn-logout" onclick="doLogout()">Logout</button>
       </div>
@@ -210,22 +205,17 @@
       <div class="stat-card"><span>WARNINGS</span><strong id="stat-active-warns" style="color:var(--warning)">0</strong></div>
     </div>
 
-        <div class="dm-card">
-      <h3>💬 Private Admin Message (target specific user)</h3>
-      <div class="dm-row">
-        <input type="text" id="dm-target" placeholder="@username" style="width:140px;">
-        <input type="text" id="dm-message" placeholder="Private message to user..." style="flex:1;min-width:200px;">
-        <button class="btn-dm" id="btn-send-dm">Send DM</button>
+    <!-- AUTO BAN SUGGESTIONS -->
+    <div id="ban-suggestions-section">
+      <div class="ban-suggestions-header">
+        <span class="pulse-dot"></span> Auto-ban Suggestions (3+ reports in 30 min)
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Only visible to the target user as a toast notification.</div>
+      <div id="ban-suggestions-wrap"></div>
     </div>
 
-    <div id="ban-suggestions-section" style="display:none;">
-      <div class="ban-suggestions-header"><span class="pulse-dot"></span>&#x26A0;&#xFE0F; Auto-ban Suggestions (3+ reports)</div>
-      <div class="ban-suggestion-wrap" id="ban-suggestions-wrap"></div>
-    </div>
-<div class="broadcast-card">
-      <h3>📢 Broadcast  send to all online users</h3>
+    <!-- BROADCAST -->
+    <div class="broadcast-card">
+      <h3>&#x1F4E2; Broadcast &mdash; send to all online users</h3>
       <div class="broadcast-row">
         <input type="text" id="broadcast-msg" placeholder="e.g. Server maintenance in 10 minutes..." maxlength="180">
         <button class="btn-broadcast" id="btn-broadcast">Send to All</button>
@@ -233,13 +223,26 @@
       <div class="broadcast-history" id="broadcast-history"></div>
     </div>
 
+    <!-- ADMIN DM -->
+    <div class="dm-card">
+      <h3>&#x1F4AC; Private Admin Message (target specific user)</h3>
+      <div class="dm-row">
+        <input type="text" id="dm-target" placeholder="@username" style="width:160px;">
+        <input type="text" id="dm-message" placeholder="Private message to user..." style="flex:1;min-width:200px;">
+        <button class="btn-dm" id="btn-send-dm">Send DM</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Only visible to the target user as a private toast.</div>
+    </div>
+
+    <!-- TABS -->
     <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('users',this)">👥 Users</button>
+      <button class="tab-btn active" onclick="switchTab('users',this)">&#x1F465; Users</button>
       <button class="tab-btn" onclick="switchTab('reports',this)">&#x1F6A8; Reports</button>
       <button class="tab-btn" onclick="switchTab('chat-monitor',this)">&#x1F4AC; Chat Monitor</button>
-      <button class="tab-btn" onclick="switchTab('ban-history',this)">📋 Ban History</button>
+      <button class="tab-btn" onclick="switchTab('ban-history',this)">&#x1F4CB; Ban History</button>
       <button class="tab-btn" onclick="switchTab('country-stats',this)">&#x1F5FA;&#xFE0F; Countries</button>
-      <button class="tab-btn" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('dashboard',this)">&#x1F4CA; Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('map',this)">&#x1F5FA;&#xFE0F; Map</button>
       <button class="tab-btn" onclick="switchTab('roles',this)">&#x1F3C5; Roles</button>
     </div>
 
@@ -261,16 +264,16 @@
             <input type="password" id="new-pwd-input" placeholder="New password (min 8 chars)" style="flex:1;min-width:160px;">
             <button class="btn-action btn-unban" id="btn-change-pwd" style="background:#6366f1;border-color:#6366f1;color:#fff;">Update</button>
           </div>
-          <div class="control-hint">Stored as PBKDF2 hash  never plain text.</div>
+          <div class="control-hint">Stored as PBKDF2 hash &mdash; never plain text.</div>
         </div>
       </div>
       <div class="search-bar-wrap">
-        <input type="text" id="user-search" placeholder="📝 Search username, device ID, country...">
+        <input type="text" id="user-search" placeholder="&#x1F50D; Search username, device ID, country...">
         <button class="filter-chip active" onclick="setUserFilter('all',this)">All</button>
-        <button class="filter-chip" onclick="setUserFilter('online',this)">&#x1F3A2; Online</button>
-        <button class="filter-chip" onclick="setUserFilter('banned',this)">🔐´ Banned</button>
-        <button class="filter-chip" onclick="setUserFilter('warned',this)">âš ď¸Ź Warned</button>
-        <button class="btn-csv" onclick="exportCSV()">â¬‡ď¸Ź CSV</button>
+        <button class="filter-chip" onclick="setUserFilter('online',this)">&#x1F7E2; Online</button>
+        <button class="filter-chip" onclick="setUserFilter('banned',this)">&#x1F534; Banned</button>
+        <button class="filter-chip" onclick="setUserFilter('warned',this)">&#x26A0;&#xFE0F; Warned</button>
+        <button class="btn-csv" onclick="exportCSV()">&#x2B07;&#xFE0F; CSV</button>
       </div>
       <div class="table-container">
         <div class="table-header"><h2>All Registered Users</h2><span id="user-count-badge" style="font-size:12px;color:var(--muted)"></span></div>
@@ -284,7 +287,7 @@
     <!-- TAB: REPORTS -->
     <div class="tab-panel" id="tab-reports">
       <div class="table-container">
-        <div class="table-header"><h2>Live Reports & Interceptions</h2><button class="btn-action btn-warn" onclick="document.getElementById('tbody-reports').innerHTML=''">Clear</button></div>
+        <div class="table-header"><h2>Live Reports &amp; Interceptions</h2><button class="btn-action btn-warn" onclick="document.getElementById('tbody-reports').innerHTML=''">Clear</button></div>
         <div class="table-scroll">
           <table><thead><tr><th>SEVERITY</th><th>DETAILS</th><th>OFFENDER</th><th>TIME</th><th>ACTIONS</th></tr></thead>
           <tbody id="tbody-reports"></tbody></table>
@@ -295,23 +298,23 @@
     <!-- TAB: CHAT MONITOR -->
     <div class="tab-panel" id="tab-chat-monitor">
       <div class="table-header" style="border:1px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);margin-bottom:0;">
-        <h2> Live Chat Monitor</h2>
+        <h2>&#x1F4AC; Live Chat Monitor</h2>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="chatmon-search" placeholder="📝 Filter..." style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;outline:none;width:200px;" oninput="renderChatMonitor()">
+          <input type="text" id="chatmon-search" placeholder="&#x1F50D; Filter..." style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;outline:none;width:200px;" oninput="renderChatMonitor()">
           <button class="btn-action btn-warn" onclick="chatMonLogs=[];saveChatMon();renderChatMonitor();">Clear</button>
         </div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px;padding:14px;">
-        <div class="chatmon-wrap" id="chat-mon-list"><div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No messages yet. Appears in real-time as users chat.</div></div>
+        <div class="chatmon-wrap" id="chat-mon-list"><div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No messages yet.</div></div>
       </div>
     </div>
 
     <!-- TAB: BAN HISTORY -->
     <div class="tab-panel" id="tab-ban-history">
       <div class="audit-row">
-        <input type="text" class="audit-filter" id="audit-search" placeholder="📝 Filter..." oninput="renderAuditLog()">
+        <input type="text" class="audit-filter" id="audit-search" placeholder="&#x1F50D; Filter..." oninput="renderAuditLog()">
         <button class="btn-action btn-ban" onclick="if(confirm('Clear history?')){auditLog=[];saveAuditLog();renderAuditLog();}">Clear</button>
-        <button class="btn-csv" onclick="exportAuditCSV()">â¬‡ď¸Ź CSV</button>
+        <button class="btn-csv" onclick="exportAuditCSV()">&#x2B07;&#xFE0F; CSV</button>
       </div>
       <div class="table-container">
         <div class="table-header"><h2>Audit Log</h2><span id="audit-count" style="font-size:12px;color:var(--muted)"></span></div>
@@ -333,18 +336,29 @@
 
     <!-- TAB: DASHBOARD -->
     <div class="tab-panel" id="tab-dashboard">
-      <div class="chart-card"><h3>📌 Online Users  Last 24h</h3><div class="chart-wrap"><canvas id="online-chart"></canvas></div></div>
+      <div class="chart-card"><h3>&#x1F4C8; Online Users &mdash; Last 24h</h3><div class="chart-wrap"><canvas id="online-chart"></canvas></div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="chart-card"><h3>âŹ° Peak Hours</h3><div class="chart-wrap" style="height:140px;"><canvas id="peak-chart"></canvas></div></div>
+        <div class="chart-card"><h3>&#x23F0; Peak Hours</h3><div class="chart-wrap" style="height:140px;"><canvas id="peak-chart"></canvas></div></div>
         <div class="control-card" style="margin:0;">
-          <h3>📊 Quick Stats</h3>
+          <h3>&#x1F4CA; Quick Stats</h3>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Peak online (24h)</span><strong id="dash-peak"></strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Messages captured</span><strong id="dash-msgs"></strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Bans last 24h</span><strong id="dash-bans24"></strong></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">VPN/TOR flagged</span><strong id="dash-vpn"></strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Peak online (24h)</span><strong id="dash-peak">&mdash;</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Messages captured</span><strong id="dash-msgs">&mdash;</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">Bans last 24h</span><strong id="dash-bans24">&mdash;</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--muted)">VPN/TOR flagged</span><strong id="dash-vpn">&mdash;</strong></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB: MAP -->
+    <div class="tab-panel" id="tab-map">
+      <div class="table-header" style="border:1px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);margin-bottom:0;">
+        <h2>&#x1F5FA;&#xFE0F; User Geolocation Map</h2>
+        <span id="map-count" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px;padding:14px;">
+        <div id="leaflet-map"></div>
       </div>
     </div>
 
@@ -355,11 +369,11 @@
         <div class="inline-form">
           <input type="text" id="role-username" placeholder="@handle" style="flex:1;min-width:140px;">
           <select id="role-select">
-            <option value="verified">🧅 Verified</option>
-            <option value="moderator">&#x1F6C7;ď¸Ź Moderator</option>
-            <option value="developer">âšˇ Developer</option>
-            <option value="vip">â­ VIP</option>
-            <option value="none">âťŚ Remove</option>
+            <option value="verified">&#x1F539; Verified</option>
+            <option value="moderator">&#x1F6E1;&#xFE0F; Moderator</option>
+            <option value="developer">&#x26A1; Developer</option>
+            <option value="vip">&#x2B50; VIP</option>
+            <option value="none">&#x274C; Remove</option>
           </select>
           <button class="btn-action btn-unban" id="btn-assign-role" style="background:#6366f1;border-color:#6366f1;color:#fff;">Set</button>
         </div>
@@ -370,12 +384,13 @@
       </div>
     </div>
 
-    <!-- TAB: ROLES -->
-    <div class="tab-panel" id="tab-roles">
-      <div class="control-card" style="max-width:500px;margin-bottom:20px;">
+  </div><!-- /panel -->
+</div><!-- /box -->
+
+<!-- NOTE MODAL -->
 <div class="note-modal-overlay" id="note-modal-overlay" onclick="if(event.target===this)closeNoteModal()">
   <div class="note-modal">
-    <h3>📡 Note for <span id="note-modal-user"></span></h3>
+    <h3>&#x1F4DD; Note for <span id="note-modal-user"></span></h3>
     <textarea id="note-textarea" placeholder="Internal admin note (only visible here)..."></textarea>
     <div class="note-modal-btns">
       <button class="btn-action btn-warn" onclick="closeNoteModal()">Cancel</button>
@@ -387,11 +402,7 @@
 <div id="admin-toast"></div>
 
 <script>
-// &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
-//  KAPCS Admin  clean unified build
-// &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
-
-// â”€â”€ MQTT TOPICS (must match index.html exactly) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// KAPCS Admin - clean build
 const TOPIC_REPORTS   = 'kapcs_v13_reports';
 const TOPIC_BANS      = 'kapcs_v13_bans';
 const TOPIC_ROLES     = 'kapcs_v13_roles';
@@ -402,8 +413,6 @@ const TOPIC_CHATMON   = 'kapcs_v13_chatmon';
 const TOPIC_ADMIN_DM  = 'kapcs_v13_admin_dm';
 
 const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-
-// MQTT status indicator
 client.on('connect',    () => setMqttStatus(true));
 client.on('offline',    () => setMqttStatus(false));
 client.on('disconnect', () => setMqttStatus(false));
@@ -414,13 +423,13 @@ function setMqttStatus(ok) {
   el.className = ok ? 'connected' : '';
 }
 
-// â”€â”€ SECURITY (PBKDF2 + rate limit + session token) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const DEFAULT_PWD     = 'admin2026';
-const PBKDF2_ITER     = 310000;
-const SALT_HEX        = '6b61706373416d696e53616c7432303236';
-const SESSION_MS      = 2 * 60 * 60 * 1000;
-const MAX_ATTEMPTS    = 5;
-const LOCKOUT_MS      = 15 * 60 * 1000;
+// SECURITY
+const DEFAULT_PWD  = 'admin2026';
+const PBKDF2_ITER  = 310000;
+const SALT_HEX     = '6b61706373416d696e53616c7432303236';
+const SESSION_MS   = 2 * 60 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS   = 15 * 60 * 1000;
 
 let sessionToken = null, sessionExpiresAt = null, sessionTimerInterval = null;
 
@@ -433,70 +442,70 @@ async function pbkdf2Hash(password) {
 }
 function hexToBuffer(hex) { const b = new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) b[i/2]=parseInt(hex.substr(i,2),16); return b; }
 function bufferToHex(buf) { return Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-async function getStoredHash() { let h = localStorage.getItem('kapcs_admin_pwd_hash'); if (!h) { h = await pbkdf2Hash(DEFAULT_PWD); localStorage.setItem('kapcs_admin_pwd_hash',h); } return h; }
-function getRateLimit() { try { return JSON.parse(localStorage.getItem('kapcs_admin_rl') || '{"attempts":0,"lockedUntil":0}'); } catch { return {attempts:0,lockedUntil:0}; } }
-function saveRateLimit(s) { localStorage.setItem('kapcs_admin_rl', JSON.stringify(s)); }
-function generateToken() { const a = new Uint8Array(16); crypto.getRandomValues(a); return bufferToHex(a); }
+async function getStoredHash() { let h=localStorage.getItem('kapcs_admin_pwd_hash'); if(!h){h=await pbkdf2Hash(DEFAULT_PWD);localStorage.setItem('kapcs_admin_pwd_hash',h);} return h; }
+function getRateLimit() { try{return JSON.parse(localStorage.getItem('kapcs_admin_rl')||'{"attempts":0,"lockedUntil":0}');}catch{return{attempts:0,lockedUntil:0};} }
+function saveRateLimit(s) { localStorage.setItem('kapcs_admin_rl',JSON.stringify(s)); }
+function generateToken() { const a=new Uint8Array(16); crypto.getRandomValues(a); return bufferToHex(a); }
 
 function startSession() {
-  sessionToken = generateToken(); sessionExpiresAt = Date.now() + SESSION_MS;
-  localStorage.setItem('kapcs_admin_session', JSON.stringify({token:sessionToken, expiresAt:sessionExpiresAt}));
-  document.getElementById('session-token-display').textContent = sessionToken.slice(0,12) + '...';
-  updateSessionTimer(); sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+  sessionToken=generateToken(); sessionExpiresAt=Date.now()+SESSION_MS;
+  localStorage.setItem('kapcs_admin_session',JSON.stringify({token:sessionToken,expiresAt:sessionExpiresAt}));
+  document.getElementById('session-token-display').textContent=sessionToken.slice(0,12)+'...';
+  updateSessionTimer(); sessionTimerInterval=setInterval(updateSessionTimer,1000);
 }
 function updateSessionTimer() {
   if (!sessionExpiresAt) return;
-  const diff = sessionExpiresAt - Date.now();
-  if (diff <= 0) { doLogout(); return; }
-  const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
-  document.getElementById('session-timer').textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const diff=sessionExpiresAt-Date.now();
+  if (diff<=0){doLogout();return;}
+  const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+  document.getElementById('session-timer').textContent=`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 function checkExistingSession() {
-  try { const s = JSON.parse(localStorage.getItem('kapcs_admin_session')||'null'); if (s && s.expiresAt && Date.now() < s.expiresAt) { sessionToken=s.token; sessionExpiresAt=s.expiresAt; document.getElementById('session-token-display').textContent=sessionToken.slice(0,12)+'...'; sessionTimerInterval=setInterval(updateSessionTimer,1000); return true; } } catch(e) {}
+  try{const s=JSON.parse(localStorage.getItem('kapcs_admin_session')||'null');if(s&&s.expiresAt&&Date.now()<s.expiresAt){sessionToken=s.token;sessionExpiresAt=s.expiresAt;document.getElementById('session-token-display').textContent=sessionToken.slice(0,12)+'...';sessionTimerInterval=setInterval(updateSessionTimer,1000);return true;}}catch(e){}
   return false;
 }
 function doLogout() {
-  localStorage.removeItem('kapcs_admin_session'); if (sessionTimerInterval) clearInterval(sessionTimerInterval);
-  sessionToken=null; sessionExpiresAt=null;
-  document.getElementById('panel').style.display='none'; document.getElementById('login-box').style.display='block'; document.getElementById('pwd').value='';
+  localStorage.removeItem('kapcs_admin_session');if(sessionTimerInterval)clearInterval(sessionTimerInterval);
+  sessionToken=null;sessionExpiresAt=null;
+  document.getElementById('panel').style.display='none';document.getElementById('login-box').style.display='block';document.getElementById('pwd').value='';
 }
 
-// â”€â”€ LOGIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// LOGIN
 document.getElementById('btn-login').addEventListener('click', async () => {
-  const rl = getRateLimit();
-  if (rl.lockedUntil > Date.now()) { document.getElementById('login-err').textContent = `â›” Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} more minute(s).`; return; }
-  const btn = document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Verifying...';
-  const inputHash = await pbkdf2Hash(document.getElementById('pwd').value);
-  const storedHash = await getStoredHash();
-  btn.disabled=false; btn.textContent='Unlock Console';
-  if (inputHash === storedHash) {
-    rl.attempts=0; rl.lockedUntil=0; saveRateLimit(rl);
+  const rl=getRateLimit();
+  if (rl.lockedUntil>Date.now()){document.getElementById('login-err').textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} more minute(s).`;return;}
+  const btn=document.getElementById('btn-login');btn.disabled=true;btn.textContent='Verifying...';
+  const inputHash=await pbkdf2Hash(document.getElementById('pwd').value);
+  const storedHash=await getStoredHash();
+  btn.disabled=false;btn.textContent='Unlock Console';
+  if (inputHash===storedHash) {
+    rl.attempts=0;rl.lockedUntil=0;saveRateLimit(rl);
     document.getElementById('login-err').textContent='';
-    document.getElementById('login-box').style.display='none'; document.getElementById('panel').style.display='block';
-    startSession(); initPanel();
+    document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';
+    startSession();initPanel();
   } else {
     rl.attempts=(rl.attempts||0)+1;
-    if (rl.attempts >= MAX_ATTEMPTS) { rl.lockedUntil=Date.now()+LOCKOUT_MS; rl.attempts=0; document.getElementById('login-err').textContent='â›” Too many attempts. Locked for 15 minutes.'; }
-    else document.getElementById('login-err').textContent = `âťŚ Wrong password. ${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
+    if(rl.attempts>=MAX_ATTEMPTS){rl.lockedUntil=Date.now()+LOCKOUT_MS;rl.attempts=0;document.getElementById('login-err').textContent='Too many attempts. Locked for 15 minutes.';}
+    else document.getElementById('login-err').textContent=`Wrong password. ${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
     saveRateLimit(rl);
   }
 });
-document.getElementById('pwd').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-login').click(); });
-document.getElementById('btn-change-pwd').addEventListener('click', async () => {
-  const v = document.getElementById('new-pwd-input').value.trim();
-  if (v.length < 8) { showToast('Password must be at least 8 characters.', true); return; }
-  localStorage.setItem('kapcs_admin_pwd_hash', await pbkdf2Hash(v));
-  document.getElementById('new-pwd-input').value=''; showToast('âś… Password updated!');
+document.getElementById('pwd').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('btn-login').click();});
+document.getElementById('btn-change-pwd').addEventListener('click', async ()=>{
+  const v=document.getElementById('new-pwd-input').value.trim();
+  if(v.length<8){showToast('Password must be at least 8 characters.',true);return;}
+  localStorage.setItem('kapcs_admin_pwd_hash',await pbkdf2Hash(v));
+  document.getElementById('new-pwd-input').value='';showToast('Password updated!');
 });
-window.addEventListener('load', () => { if (checkExistingSession()) { document.getElementById('login-box').style.display='none'; document.getElementById('panel').style.display='block'; initPanel(); } updateAttemptDisplay(); });
+window.addEventListener('load',()=>{if(checkExistingSession()){document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';initPanel();}updateAttemptDisplay();});
 function updateAttemptDisplay() {
-  const rl=getRateLimit(), el=document.getElementById('attempt-counter');
-  if (rl.lockedUntil>Date.now()) el.textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} minute(s).`;
-  else if (rl.attempts>0) el.textContent=`${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
+  const rl=getRateLimit(),el=document.getElementById('attempt-counter');
+  if(rl.lockedUntil>Date.now())el.textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} minute(s).`;
+  else if(rl.attempts>0)el.textContent=`${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
   else el.textContent='';
 }
 
-// â”€â”€ DATA STORES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// DATA STORES
 let usersDirectory   = JSON.parse(localStorage.getItem('kapcs_admin_users_v13')   || '{}');
 let bannedList       = JSON.parse(localStorage.getItem('kapcs_admin_bans_v13')     || '[]');
 let rolesMap         = JSON.parse(localStorage.getItem('kapcs_admin_roles_v13')    || '{}');
@@ -506,139 +515,120 @@ let chatMonLogs      = JSON.parse(localStorage.getItem('kapcs_admin_chatmon')   
 let userNotes        = JSON.parse(localStorage.getItem('kapcs_admin_notes')        || '{}');
 let onlineHistory    = JSON.parse(localStorage.getItem('kapcs_admin_online_hist')  || '[]');
 let vpnFlags         = JSON.parse(localStorage.getItem('kapcs_admin_vpnflags')     || '{}');
+let reportTracker    = JSON.parse(localStorage.getItem('kapcs_admin_report_tracker')|| '{}');
 
-let currentUserFilter = 'all', panelInitialized = false;
-let onlineChart = null, peakChart = null, noteTargetUser = null;
+let currentUserFilter='all', panelInitialized=false;
+let onlineChart=null, peakChart=null, noteTargetUser=null;
+let leafletMap=null, mapMarkers=[];
 
-// â”€â”€ INIT PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// INIT PANEL
 function initPanel() {
   if (panelInitialized) return;
-  panelInitialized = true;
-
-  // Subscribe + request presence
-  if (client.connected) {
-    doSubscribeAndRequest();
-  } else {
-    client.once('connect', doSubscribeAndRequest);
-  }
-
-  renderAllUsersTable(); updateStats(); renderRolesTable(); renderAuditLog();
-  renderCountryStats(); renderBroadcastHistory(); renderChatMonitor(); checkExpiredBans();
-  recordOnlineSnapshot(); setInterval(recordOnlineSnapshot, 5*60*1000);
-  setInterval(() => { renderAllUsersTable(); updateStats(); checkExpiredBans(); }, 4000);
-  setInterval(() => { renderCountryStats(); }, 10000);
-  // Periodic sync: push bans+roles to all clients every 5s
-  setInterval(() => {
-    bannedList.forEach(b => client.publish(TOPIC_BANS, JSON.stringify({action:'ban',targetDev:b.targetDev,targetName:b.targetName,reason:b.reason,expiresAt:b.expiresAt})));
-    client.publish(TOPIC_ROLES, JSON.stringify({allRoles:rolesMap}));
-    checkExpiredBans();
-  }, 5000);
-
-  document.getElementById('user-search').addEventListener('input', renderAllUsersTable);
-
-  document.getElementById('btn-manual-ban').addEventListener('click', () => {
-    const raw = document.getElementById('target-input').value.trim(); if (!raw) return showToast('Enter handle or Device ID.',true);
-    const days = parseInt(document.getElementById('target-days').value||'1',10);
-    const isDev = raw.startsWith('DEV-'); executeBan(isDev?raw:null, isDev?null:raw.replace('@','').toLowerCase(), 'Manual Admin Ban', days);
+  panelInitialized=true;
+  if (client.connected) { doSubscribeAndRequest(); } else { client.once('connect',doSubscribeAndRequest); }
+  renderAllUsersTable();updateStats();renderRolesTable();renderAuditLog();
+  renderCountryStats();renderBroadcastHistory();renderChatMonitor();checkExpiredBans();renderBanSuggestions();
+  recordOnlineSnapshot();setInterval(recordOnlineSnapshot,5*60*1000);
+  setInterval(()=>{renderAllUsersTable();updateStats();checkExpiredBans();renderBanSuggestions();},4000);
+  setInterval(()=>{renderCountryStats();},10000);
+  setInterval(()=>{bannedList.forEach(b=>client.publish(TOPIC_BANS,JSON.stringify({action:'ban',targetDev:b.targetDev,targetName:b.targetName,reason:b.reason,expiresAt:b.expiresAt})));client.publish(TOPIC_ROLES,JSON.stringify({allRoles:rolesMap}));checkExpiredBans();},5000);
+  document.getElementById('user-search').addEventListener('input',renderAllUsersTable);
+  document.getElementById('btn-manual-ban').addEventListener('click',()=>{
+    const raw=document.getElementById('target-input').value.trim();if(!raw)return showToast('Enter handle or Device ID.',true);
+    const days=parseInt(document.getElementById('target-days').value||'1',10);
+    const isDev=raw.startsWith('DEV-');executeBan(isDev?raw:null,isDev?null:raw.replace('@','').toLowerCase(),'Manual Admin Ban',days);
     document.getElementById('target-input').value='';
   });
-  document.getElementById('btn-manual-unban').addEventListener('click', () => {
-    const raw = document.getElementById('target-input').value.trim(); if (!raw) return showToast('Enter handle or Device ID.',true);
-    const isDev = raw.startsWith('DEV-'); executeUnban(isDev?raw:null, isDev?null:raw.replace('@','').toLowerCase());
+  document.getElementById('btn-manual-unban').addEventListener('click',()=>{
+    const raw=document.getElementById('target-input').value.trim();if(!raw)return showToast('Enter handle or Device ID.',true);
+    const isDev=raw.startsWith('DEV-');executeUnban(isDev?raw:null,isDev?null:raw.replace('@','').toLowerCase());
     document.getElementById('target-input').value='';
   });
-  document.getElementById('btn-assign-role').addEventListener('click', () => {
-    const u = document.getElementById('role-username').value.trim().toLowerCase().replace('@',''); if (!u) return showToast('Enter username.',true);
-    const r = document.getElementById('role-select').value;
-    if (r==='none') delete rolesMap[u]; else rolesMap[u]=r;
-    saveRoles(); renderAllUsersTable(); renderRolesTable(); document.getElementById('role-username').value=''; showToast(`âś… Role set for @${u}`);
+  document.getElementById('btn-assign-role').addEventListener('click',()=>{
+    const u=document.getElementById('role-username').value.trim().toLowerCase().replace('@','');if(!u)return showToast('Enter username.',true);
+    const r=document.getElementById('role-select').value;
+    if(r==='none')delete rolesMap[u];else rolesMap[u]=r;
+    saveRoles();renderAllUsersTable();renderRolesTable();document.getElementById('role-username').value='';showToast('Role set for @'+u);
   });
-  document.getElementById('btn-broadcast').addEventListener('click', () => {
-    const msg = document.getElementById('broadcast-msg').value.trim(); if (!msg) return showToast('Enter a message.',true);
-    const time = new Date().toLocaleTimeString();
-    client.publish(TOPIC_BROADCAST, JSON.stringify({action:'admin_broadcast',message:msg,time}));
-    broadcastHistory.unshift({message:msg,time}); if (broadcastHistory.length>20) broadcastHistory.pop();
-    localStorage.setItem('kapcs_admin_broadcasts', JSON.stringify(broadcastHistory));
-    renderBroadcastHistory(); document.getElementById('broadcast-msg').value=''; showToast('📢 Broadcast sent!');
+  document.getElementById('btn-broadcast').addEventListener('click',()=>{
+    const msg=document.getElementById('broadcast-msg').value.trim();if(!msg)return showToast('Enter a message.',true);
+    const time=new Date().toLocaleTimeString();
+    client.publish(TOPIC_BROADCAST,JSON.stringify({action:'admin_broadcast',message:msg,time}));
+    broadcastHistory.unshift({message:msg,time});if(broadcastHistory.length>20)broadcastHistory.pop();
+    localStorage.setItem('kapcs_admin_broadcasts',JSON.stringify(broadcastHistory));
+    renderBroadcastHistory();document.getElementById('broadcast-msg').value='';showToast('Broadcast sent!');
+  });
+  document.getElementById('btn-send-dm').addEventListener('click',()=>{
+    const target=document.getElementById('dm-target').value.trim().toLowerCase().replace('@','');
+    const msg=document.getElementById('dm-message').value.trim();
+    if(!target||!msg)return showToast('Enter target and message.',true);
+    client.publish(TOPIC_ADMIN_DM,JSON.stringify({target,message:msg,time:new Date().toLocaleTimeString()}));
+    document.getElementById('dm-target').value='';document.getElementById('dm-message').value='';
+    showToast('DM sent to @'+target);
   });
 }
 
 function doSubscribeAndRequest() {
-  client.subscribe([TOPIC_REPORTS, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_CHATMON, TOPIC_ADMIN_DM]);
-  // Small delay so subscribe ACK is processed before publish
-  setTimeout(() => client.publish(TOPIC_USERS, JSON.stringify({action:'request_presence'})), 500);
+  client.subscribe([TOPIC_REPORTS,TOPIC_BANS,TOPIC_ROLES,TOPIC_USERS,TOPIC_WARNS,TOPIC_CHATMON,TOPIC_ADMIN_DM]);
+  setTimeout(()=>client.publish(TOPIC_USERS,JSON.stringify({action:'request_presence'})),500);
 }
 
-// â”€â”€ MQTT MESSAGES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-client.on('message', (topic, message) => {
-  let data; try { data = JSON.parse(message.toString()); } catch { return; }
+// MQTT MESSAGES
+client.on('message',(topic,message)=>{
+  let data;try{data=JSON.parse(message.toString());}catch{return;}
 
-  if (topic === TOPIC_USERS && (data.action === 'presence_pulse' || data.action === 'register')) {
-    const u = data.username?.toLowerCase(); if (!u) return;
-    if (!usersDirectory[u]) {
-      usersDirectory[u] = { username:u, deviceId:data.deviceId||'DEV-UNKNOWN', likes:Number(data.likes||0), country:data.country||'GLOBAL', countryName:data.countryName||'Worldwide', warned:!!data.warned, lastSeen:Date.now(), liveState:data.status||'ONLINE', firstSeen:Date.now() };
-    } else {
-      if (data.deviceId) usersDirectory[u].deviceId=data.deviceId;
-      if (data.likes!==undefined) usersDirectory[u].likes=Number(data.likes);
-      if (data.country) { usersDirectory[u].country=data.country; usersDirectory[u].countryName=data.countryName||data.country; }
-      if (data.warned!==undefined) usersDirectory[u].warned=!!data.warned;
-      usersDirectory[u].lastSeen=Date.now(); usersDirectory[u].liveState=data.status||'ONLINE';
-    }
-    saveUsers(); renderAllUsersTable(); updateStats();
+  if (topic===TOPIC_USERS&&(data.action==='presence_pulse'||data.action==='register')) {
+    const u=data.username?.toLowerCase();if(!u)return;
+    if(!usersDirectory[u]){usersDirectory[u]={username:u,deviceId:data.deviceId||'DEV-UNKNOWN',likes:Number(data.likes||0),country:data.country||'GLOBAL',countryName:data.countryName||'Worldwide',warned:!!data.warned,lastSeen:Date.now(),liveState:data.status||'ONLINE',firstSeen:Date.now()};}
+    else{if(data.deviceId)usersDirectory[u].deviceId=data.deviceId;if(data.likes!==undefined)usersDirectory[u].likes=Number(data.likes);if(data.country){usersDirectory[u].country=data.country;usersDirectory[u].countryName=data.countryName||data.country;}if(data.warned!==undefined)usersDirectory[u].warned=!!data.warned;usersDirectory[u].lastSeen=Date.now();usersDirectory[u].liveState=data.status||'ONLINE';}
+    saveUsers();renderAllUsersTable();updateStats();
   }
-
-  if (topic === TOPIC_BANS && data.action === 'ban') {
-    const dev=data.targetDev||'', name=(data.targetName||'').replace('@','');
-    if (!bannedList.some(b=>(dev&&b.targetDev===dev)||(name&&b.targetName===name))) {
-      bannedList.push({targetDev:dev,targetName:name,reason:data.reason||'AI',expiresAt:data.expiresAt||null});
-      saveBans(); renderAllUsersTable();
-    }
+  if (topic===TOPIC_BANS&&data.action==='ban') {
+    const dev=data.targetDev||'',name=(data.targetName||'').replace('@','');
+    if(!bannedList.some(b=>(dev&&b.targetDev===dev)||(name&&b.targetName===name))){bannedList.push({targetDev:dev,targetName:name,reason:data.reason||'AI',expiresAt:data.expiresAt||null});saveBans();renderAllUsersTable();}
   }
-
-  if (topic === TOPIC_CHATMON) {
-    chatMonLogs.unshift({ from:data.from||'?', partner:data.partner||'?', text:data.text||'', direction:data.direction||'out', time:data.time||new Date().toLocaleTimeString(), ts:Date.now() });
-    if (chatMonLogs.length>200) chatMonLogs.pop();
-    saveChatMon(); renderChatMonitor();
+  if (topic===TOPIC_CHATMON) {
+    chatMonLogs.unshift({from:data.from||'?',partner:data.partner||'?',text:data.text||'',direction:data.direction||'out',time:data.time||new Date().toLocaleTimeString(),ts:Date.now()});
+    if(chatMonLogs.length>200)chatMonLogs.pop();saveChatMon();renderChatMonitor();
   }
-
-  if (topic === TOPIC_REPORTS) {
-    const tr = document.createElement('tr');
-    const n = (data.reportedUser||'').replace('@',''), d = data.reportedDevId||'';
-    tr.innerHTML = `<td><span class="pill pill-banned">${data.severity||'MEDIUM'}</span></td><td><b>${data.category||'Report'}</b><br><small style="color:var(--muted)">${data.reason||''}</small></td><td><code>@${n}</code><br><small style="color:#64748b">${d}</small></td><td style="color:var(--muted)">${data.time||'now'}</td><td style="display:flex;gap:4px;"><button class="btn-action btn-ban" onclick="executeBan('${d}','${n}','Report',3)">Ban 3d</button><button class="btn-action btn-unban" onclick="executeUnban('${d}','${n}')">Unban</button></td>`;
+  if (topic===TOPIC_REPORTS) {
+    const tr=document.createElement('tr');
+    const n=(data.reportedUser||'').replace('@',''),d=data.reportedDevId||'';
+    tr.innerHTML=`<td><span class="pill pill-banned">${data.severity||'MEDIUM'}</span></td><td><b>${data.category||'Report'}</b><br><small style="color:var(--muted)">${data.reason||''}</small></td><td><code>@${n}</code><br><small style="color:#64748b">${d}</small></td><td style="color:var(--muted)">${data.time||'now'}</td><td style="display:flex;gap:4px;"><button class="btn-action btn-ban" onclick="executeBan('${d}','${n}','Report',3)">Ban 3d</button><button class="btn-action btn-unban" onclick="executeUnban('${d}','${n}')">Unban</button></td>`;
     document.getElementById('tbody-reports').prepend(tr);
-    trackReport(cleanName, devId);
+    trackReport(n,d);
   }
+});
 
-// â”€â”€ USER TABLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// USER TABLE
 function renderAllUsersTable() {
-  const tbody = document.getElementById('users-tbody'); if (!tbody) return;
-  const q = (document.getElementById('user-search')?.value||'').toLowerCase();
-  let users = Object.values(usersDirectory);
-  const now = Date.now();
-  if (currentUserFilter==='online') users=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000));
-  if (currentUserFilter==='banned') users=users.filter(u=>bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId));
-  if (currentUserFilter==='warned') users=users.filter(u=>u.warned);
-  if (q) users=users.filter(u=>u.username.includes(q)||(u.deviceId||'').toLowerCase().includes(q)||(u.country||'').toLowerCase().includes(q)||(u.countryName||'').toLowerCase().includes(q));
-  document.getElementById('user-count-badge').textContent = `${users.length} / ${Object.keys(usersDirectory).length} shown`;
-  if (!users.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">No users match.</td></tr>'; return; }
-  tbody.innerHTML = users.map(u => {
-    const role=rolesMap[u.username]||'none', roleBadge=getBadgePreview(role);
+  const tbody=document.getElementById('users-tbody');if(!tbody)return;
+  const q=(document.getElementById('user-search')?.value||'').toLowerCase();
+  let users=Object.values(usersDirectory);const now=Date.now();
+  if(currentUserFilter==='online')users=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000));
+  if(currentUserFilter==='banned')users=users.filter(u=>bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId));
+  if(currentUserFilter==='warned')users=users.filter(u=>u.warned);
+  if(q)users=users.filter(u=>u.username.includes(q)||(u.deviceId||'').toLowerCase().includes(q)||(u.country||'').toLowerCase().includes(q)||(u.countryName||'').toLowerCase().includes(q));
+  document.getElementById('user-count-badge').textContent=`${users.length} / ${Object.keys(usersDirectory).length} shown`;
+  if(!users.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">No users match.</td></tr>';return;}
+  tbody.innerHTML=users.map(u=>{
+    const role=rolesMap[u.username]||'none',roleBadge=getBadgePreview(role);
     const isBanned=bannedList.some(b=>(b.targetName&&b.targetName.toLowerCase()===u.username)||(b.targetDev&&b.targetDev===u.deviceId));
     const isOnline=u.lastSeen&&(now-u.lastSeen<18000);
-    const vpn=vpnFlags[u.username], vpnBadge=vpn?(vpn.tor?'<span class="vpn-flag" title="TOR">🧅 TOR</span>':vpn.vpn?'<span class="vpn-flag" title="VPN">&#x1F6C7;ď¸Ź VPN</span>':vpn.proxy?'<span class="vpn-flag proxy-flag" title="Proxy">🔀 PRX</span>':''):'';
-    const note=userNotes[u.username], noteBadge=note?`<span class="note-badge" onclick="openNoteModal('${u.username}')" title="${note.replace(/'/g,'&apos;')}">📡</span>`:`<span style="cursor:pointer;color:var(--muted);font-size:11px;" onclick="openNoteModal('${u.username}')">+ note</span>`;
+    const vpn=vpnFlags[u.username],vpnBadge=vpn?(vpn.tor?'<span class="vpn-flag" title="TOR">TOR</span>':vpn.vpn?'<span class="vpn-flag" title="VPN">VPN</span>':vpn.proxy?'<span class="vpn-flag proxy-flag" title="Proxy">PRX</span>':''):'';
+    const note=userNotes[u.username],noteBadge=note?`<span class="note-badge" onclick="openNoteModal('${u.username}')" title="${note.replace(/'/g,'&apos;')}">&#x1F4DD;</span>`:`<span style="cursor:pointer;color:var(--muted);font-size:11px;" onclick="openNoteModal('${u.username}')">+ note</span>`;
     let sb='<span class="pill pill-offline">OFFLINE</span>';
-    if (isBanned) sb='<span class="pill pill-banned">BANNED</span>';
-    else if (isOnline) sb=`<span class="pill pill-online">&#x1F3A2; ${u.liveState||'ONLINE'}</span>`;
-    if (u.warned&&!isBanned) sb+=' <span class="pill pill-warned">WARNED</span>';
+    if(isBanned)sb='<span class="pill pill-banned">BANNED</span>';
+    else if(isOnline)sb=`<span class="pill pill-online">&#x1F7E2; ${u.liveState||'ONLINE'}</span>`;
+    if(u.warned&&!isBanned)sb+=' <span class="pill pill-warned">WARNED</span>';
     return `<tr>
       <td><strong><code>@${u.username}</code></strong>${vpnBadge}</td>
-      <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||''}</span></td>
-      <td><code style="font-size:11px;">${u.deviceId||''}</code></td>
-      <td><span style="color:#fda4af;font-weight:700;">âť¤ď¸Ź ${u.likes||0}</span> <button class="btn-action btn-clear-likes" style="padding:2px 6px;" onclick="clearUserLikes('${u.username}')">Clear</button></td>
-      <td>${roleBadge?`${roleBadge} <small style="text-transform:uppercase;color:#c084fc;font-weight:700;">${role}</small>`:'<span style="color:var(--muted)"></span>'}</td>
+      <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||'&mdash;'}</span></td>
+      <td><code style="font-size:11px;">${u.deviceId||'&mdash;'}</code></td>
+      <td><span style="color:#fda4af;font-weight:700;">&#x2764; ${u.likes||0}</span> <button class="btn-action btn-clear-likes" style="padding:2px 6px;" onclick="clearUserLikes('${u.username}')">Clear</button></td>
+      <td>${roleBadge?`${roleBadge} <small style="text-transform:uppercase;color:#c084fc;font-weight:700;">${role}</small>`:'<span style="color:var(--muted)">&mdash;</span>'}</td>
       <td>${sb}</td>
-      <td style="color:var(--muted);font-size:11px;">${u.lastSeen?timeSince(u.lastSeen):''}</td>
+      <td style="color:var(--muted);font-size:11px;">${u.lastSeen?timeSince(u.lastSeen):'&mdash;'}</td>
       <td>${noteBadge}</td>
       <td><div style="display:flex;gap:4px;">
         ${isBanned?`<button class="btn-action btn-unban" onclick="executeUnban('${u.deviceId}','${u.username}')">Unban</button>`:`<button class="btn-action btn-ban" onclick="executeBan('${u.deviceId}','${u.username}','Admin',3)">Ban 3d</button>`}
@@ -648,130 +638,172 @@ function renderAllUsersTable() {
   }).join('');
   updateStats();
 }
-function timeSince(ts) { const d=Date.now()-ts; if(d<60000)return Math.floor(d/1000)+'s ago'; if(d<3600000)return Math.floor(d/60000)+'m ago'; if(d<86400000)return Math.floor(d/3600000)+'h ago'; return Math.floor(d/86400000)+'d ago'; }
-function setUserFilter(type, el) { currentUserFilter=type; document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active')); el.classList.add('active'); renderAllUsersTable(); }
-function updateStats() {
-  const users=Object.values(usersDirectory), now=Date.now();
+function timeSince(ts){const d=Date.now()-ts;if(d<60000)return Math.floor(d/1000)+'s ago';if(d<3600000)return Math.floor(d/60000)+'m ago';if(d<86400000)return Math.floor(d/3600000)+'h ago';return Math.floor(d/86400000)+'d ago';}
+function setUserFilter(type,el){currentUserFilter=type;document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderAllUsersTable();}
+function updateStats(){
+  const users=Object.values(usersDirectory),now=Date.now();
   document.getElementById('stat-total-users').textContent=users.length;
   document.getElementById('stat-online-users').textContent=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).length;
   document.getElementById('stat-active-bans').textContent=bannedList.length;
   document.getElementById('stat-active-warns').textContent=users.filter(u=>u.warned).length;
 }
 
-// â”€â”€ BAN / UNBAN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-window.executeBan = function(devId, username, reason, days) {
-  const exp = days>0 ? Date.now()+days*86400000 : null;
+// BAN / UNBAN
+window.executeBan=function(devId,username,reason,days){
+  const exp=days>0?Date.now()+days*86400000:null;
   bannedList=bannedList.filter(b=>!((devId&&b.targetDev===devId)||(username&&b.targetName===username)));
   bannedList.push({targetDev:devId,targetName:username,reason,expiresAt:exp});
-  saveBans(); addAuditEntry('BAN',username,devId,reason,days,exp); renderAllUsersTable();
-  client.publish(TOPIC_BANS, JSON.stringify({action:'ban',targetDev:devId,targetName:username,reason,expiresAt:exp}));
-  showToast(`&#x1F6AB; @${username||devId} banned ${days>0?days+'d':'permanently'}.`);
+  saveBans();addAuditEntry('BAN',username,devId,reason,days,exp);renderAllUsersTable();
+  client.publish(TOPIC_BANS,JSON.stringify({action:'ban',targetDev:devId,targetName:username,reason,expiresAt:exp}));
+  showToast('Banned: @'+(username||devId)+' for '+days+'d');
 };
-window.executeUnban = function(devId, username) {
+window.executeUnban=function(devId,username){
   bannedList=bannedList.filter(b=>!(devId&&b.targetDev===devId)&&!(username&&b.targetName===username));
-  saveBans(); addAuditEntry('UNBAN',username,devId,'Unban',0,null); renderAllUsersTable();
-  client.publish(TOPIC_BANS, JSON.stringify({action:'unban',targetDev:devId||'',targetName:username||'',target:devId||username||''}));
-  showToast(`âś… @${username||devId} unbanned.`);
+  saveBans();addAuditEntry('UNBAN',username,devId,'Unban',0,null);renderAllUsersTable();
+  client.publish(TOPIC_BANS,JSON.stringify({action:'unban',targetDev:devId||'',targetName:username||'',target:devId||username||''}));
+  showToast('Unbanned: @'+(username||devId));
 };
-window.clearUserLikes = function(username) {
-  if (!confirm(`Reset likes for @${username}?`)) return;
-  if (usersDirectory[username]) { usersDirectory[username].likes=0; saveUsers(); renderAllUsersTable(); }
-  client.publish(TOPIC_USERS, JSON.stringify({action:'reset_likes',username})); showToast(`âť¤ď¸Ź Likes cleared for @${username}`);
+window.clearUserLikes=function(username){
+  if(!confirm('Reset likes for @'+username+'?'))return;
+  if(usersDirectory[username]){usersDirectory[username].likes=0;saveUsers();renderAllUsersTable();}
+  client.publish(TOPIC_USERS,JSON.stringify({action:'reset_likes',username}));showToast('Likes cleared for @'+username);
 };
-window.toggleUserWarn = function(username) {
-  if (!usersDirectory[username]) return;
-  const willWarn=!usersDirectory[username].warned; usersDirectory[username].warned=willWarn;
-  saveUsers(); renderAllUsersTable();
-  client.publish(TOPIC_WARNS, JSON.stringify({action:willWarn?'add':'remove',targetUser:username}));
-  showToast(willWarn?`âš ď¸Ź @${username} warned.`:`âś… Warning removed from @${username}`);
+window.toggleUserWarn=function(username){
+  if(!usersDirectory[username])return;
+  const willWarn=!usersDirectory[username].warned;usersDirectory[username].warned=willWarn;
+  saveUsers();renderAllUsersTable();
+  client.publish(TOPIC_WARNS,JSON.stringify({action:willWarn?'add':'remove',targetUser:username}));
+  showToast(willWarn?'Warned @'+username:'Warning removed from @'+username);
 };
 
-// â”€â”€ EXPIRED BAN AUTO-LIFT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function checkExpiredBans() {
-  const now=Date.now(), before=bannedList.length;
-  bannedList=bannedList.filter(b => { if (!b.expiresAt||Number(b.expiresAt)>now) return true; client.publish(TOPIC_BANS,JSON.stringify({action:'unban',targetDev:b.targetDev||'',targetName:b.targetName||''})); addAuditEntry('AUTO-UNBAN',b.targetName,b.targetDev,'Expired',0,null); return false; });
-  if (bannedList.length!==before) { saveBans(); renderAllUsersTable(); }
+// EXPIRED BAN AUTO-LIFT
+function checkExpiredBans(){
+  const now=Date.now(),before=bannedList.length;
+  bannedList=bannedList.filter(b=>{if(!b.expiresAt||Number(b.expiresAt)>now)return true;client.publish(TOPIC_BANS,JSON.stringify({action:'unban',targetDev:b.targetDev||'',targetName:b.targetName||''}));addAuditEntry('AUTO-UNBAN',b.targetName,b.targetDev,'Expired',0,null);return false;});
+  if(bannedList.length!==before){saveBans();renderAllUsersTable();}
 }
 
-// â”€â”€ AUDIT LOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function addAuditEntry(action, username, deviceId, reason, days, expiresAt) {
-  auditLog.unshift({ action, username:username||'', deviceId:deviceId||'', reason:reason||'', days, expiresAt:expiresAt?new Date(expiresAt).toLocaleString():(days===0?'':'Permanent'), time:new Date().toLocaleString(), by:'Admin' });
-  if (auditLog.length>500) auditLog.pop(); saveAuditLog(); renderAuditLog();
+// AUTO BAN SUGGESTIONS
+function trackReport(username,deviceId){
+  const key=username||deviceId||'unknown';
+  if(!reportTracker[key])reportTracker[key]=[];
+  reportTracker[key].push(Date.now());
+  const cutoff=Date.now()-30*60*1000;
+  reportTracker[key]=reportTracker[key].filter(t=>t>=cutoff);
+  localStorage.setItem('kapcs_admin_report_tracker',JSON.stringify(reportTracker));
+  renderBanSuggestions();
 }
-function saveAuditLog() { localStorage.setItem('kapcs_admin_audit_v13', JSON.stringify(auditLog)); }
-function renderAuditLog() {
-  const tbody=document.getElementById('tbody-audit'); if(!tbody) return;
+function renderBanSuggestions(){
+  const section=document.getElementById('ban-suggestions-section');
+  const wrap=document.getElementById('ban-suggestions-wrap');
+  if(!section||!wrap)return;
+  const now=Date.now(),cutoff=now-30*60*1000;
+  const suspects=Object.entries(reportTracker).filter(([,t])=>t.filter(x=>x>=cutoff).length>=3).sort((a,b)=>b[1].length-a[1].length);
+  if(!suspects.length){section.style.display='none';return;}
+  section.style.display='block';
+  wrap.innerHTML=suspects.map(([key,times])=>{
+    const recent=times.filter(t=>t>=cutoff).length;
+    const isBanned=bannedList.some(b=>b.targetName===key||b.targetDev===key);
+    return `<div class="ban-suggestion"><span class="pulse-dot"></span><div style="flex:1;"><div class="bs-name">@${key}</div><div class="bs-meta">${recent} reports in last 30 minutes</div></div>${isBanned?'<span class="pill pill-banned">BANNED</span>':`<button class="btn-action btn-ban" onclick="executeBan('','${key}','Auto: ${recent} reports',3)">Ban 3d</button>`}</div>`;
+  }).join('');
+}
+
+// AUDIT LOG
+function addAuditEntry(action,username,deviceId,reason,days,expiresAt){
+  auditLog.unshift({action,username:username||'&mdash;',deviceId:deviceId||'&mdash;',reason:reason||'&mdash;',days,expiresAt:expiresAt?new Date(expiresAt).toLocaleString():(days===0?'&mdash;':'Permanent'),time:new Date().toLocaleString(),by:'Admin'});
+  if(auditLog.length>500)auditLog.pop();saveAuditLog();renderAuditLog();
+}
+function saveAuditLog(){localStorage.setItem('kapcs_admin_audit_v13',JSON.stringify(auditLog));}
+function renderAuditLog(){
+  const tbody=document.getElementById('tbody-audit');if(!tbody)return;
   const q=(document.getElementById('audit-search')?.value||'').toLowerCase();
-  let entries=auditLog; if(q) entries=entries.filter(e=>e.username.includes(q)||e.deviceId.includes(q)||e.reason.toLowerCase().includes(q)||e.action.toLowerCase().includes(q));
+  let entries=auditLog;if(q)entries=entries.filter(e=>e.username.includes(q)||e.deviceId.includes(q)||e.reason.toLowerCase().includes(q)||e.action.toLowerCase().includes(q));
   document.getElementById('audit-count').textContent=`${entries.length} entries`;
   if(!entries.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No history.</td></tr>';return;}
-  tbody.innerHTML=entries.map(e=>`<tr><td><span class="pill ${e.action==='BAN'?'pill-banned':e.action==='UNBAN'||e.action==='AUTO-UNBAN'?'pill-online':'pill-warned'}">${e.action}</span></td><td><code>@${e.username}</code></td><td><code style="font-size:11px;">${e.deviceId}</code></td><td style="max-width:180px;white-space:normal;font-size:12px;">${e.reason}</td><td style="color:var(--muted)">${e.by}</td><td style="font-size:11px;">${e.expiresAt||''}</td><td style="color:var(--muted);font-size:11px;">${e.time}</td></tr>`).join('');
+  tbody.innerHTML=entries.map(e=>`<tr><td><span class="pill ${e.action==='BAN'?'pill-banned':e.action==='UNBAN'||e.action==='AUTO-UNBAN'?'pill-online':'pill-warned'}">${e.action}</span></td><td><code>@${e.username}</code></td><td><code style="font-size:11px;">${e.deviceId}</code></td><td style="max-width:180px;white-space:normal;font-size:12px;">${e.reason}</td><td style="color:var(--muted)">${e.by}</td><td style="font-size:11px;">${e.expiresAt||'&mdash;'}</td><td style="color:var(--muted);font-size:11px;">${e.time}</td></tr>`).join('');
 }
 
-// â”€â”€ CHAT MONITOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function saveChatMon() { localStorage.setItem('kapcs_admin_chatmon', JSON.stringify(chatMonLogs)); }
-function renderChatMonitor() {
-  const el=document.getElementById('chat-mon-list'); if(!el) return;
+// CHAT MONITOR
+function saveChatMon(){localStorage.setItem('kapcs_admin_chatmon',JSON.stringify(chatMonLogs));}
+function renderChatMonitor(){
+  const el=document.getElementById('chat-mon-list');if(!el)return;
   const q=(document.getElementById('chatmon-search')?.value||'').toLowerCase();
-  let logs=chatMonLogs; if(q) logs=logs.filter(l=>l.from.includes(q)||l.partner.includes(q)||l.text.toLowerCase().includes(q));
+  let logs=chatMonLogs;if(q)logs=logs.filter(l=>l.from.includes(q)||l.partner.includes(q)||l.text.toLowerCase().includes(q));
   if(!logs.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No messages yet.</div>';return;}
   const BAD=/nigger|faggot|nazi|hitler|kill|porn|nude/i;
-  el.innerHTML=logs.map(l=>{const f=BAD.test(l.text);return`<div class="chatmon-item${f?' flagged':''}"><div class="chatmon-meta"><span class="chatmon-users">${l.direction==='out'?'🔒¤':'📁'} @${l.from} â†” @${l.partner}</span><span class="chatmon-time">${l.time}</span></div><div>${escHtml(l.text)}</div>${f?`<div style="margin-top:5px;"><button class="btn-action btn-ban" onclick="executeBan('','${l.from}','Suspicious chat',3)">Ban @${l.from}</button></div>`:''}</div>`;}).join('');
+  el.innerHTML=logs.map(l=>{const f=BAD.test(l.text);return`<div class="chatmon-item${f?' flagged':''}"><div class="chatmon-meta"><span class="chatmon-users">${l.direction==='out'?'OUT':'IN'} @${l.from} &harr; @${l.partner}</span><span class="chatmon-time">${l.time}</span></div><div>${escHtml(l.text)}</div>${f?`<div style="margin-top:5px;"><button class="btn-action btn-ban" onclick="executeBan('','${l.from}','Suspicious chat',3)">Ban @${l.from}</button></div>`:''}</div>`;}).join('');
 }
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// â”€â”€ COUNTRY STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function renderCountryStats() {
-  const users=Object.values(usersDirectory), now=Date.now(), map={};
-  users.forEach(u=>{const cc=u.country||'GLOBAL',cn=u.countryName||cc; if(!map[cc])map[cc]={code:cc,name:cn,total:0,online:0}; map[cc].total++; if(u.lastSeen&&(now-u.lastSeen<18000))map[cc].online++;});
-  const entries=Object.values(map).sort((a,b)=>b.total-a.total), max=entries[0]?.total||1;
-  const grid=document.getElementById('country-grid'), empty=document.getElementById('country-empty');
+// COUNTRY STATS
+function renderCountryStats(){
+  const users=Object.values(usersDirectory),now=Date.now(),map={};
+  users.forEach(u=>{const cc=u.country||'GLOBAL',cn=u.countryName||cc;if(!map[cc])map[cc]={code:cc,name:cn,total:0,online:0};map[cc].total++;if(u.lastSeen&&(now-u.lastSeen<18000))map[cc].online++;});
+  const entries=Object.values(map).sort((a,b)=>b.total-a.total),max=entries[0]?.total||1;
+  const grid=document.getElementById('country-grid'),empty=document.getElementById('country-empty');
   document.getElementById('country-total').textContent=`${entries.length} countries, ${users.length} users`;
-  if(!entries.length){grid.innerHTML='';empty.style.display='block';return;} empty.style.display='none';
-  grid.innerHTML=entries.map(e=>`<div class="country-card"><div class="country-flag">${getFlagEmoji(e.code)}</div><div class="country-info"><div class="c-name">${e.name} <span style="color:var(--muted);font-size:10px;">${e.code}</span></div><div class="c-count">${e.total} user${e.total!==1?'s':''} Â· <span style="color:var(--success)">${e.online} online</span></div><div class="country-bar-wrap"><div class="country-bar" style="width:${Math.round(e.total/max*100)}%"></div></div></div></div>`).join('');
+  if(!entries.length){grid.innerHTML='';empty.style.display='block';return;}empty.style.display='none';
+  grid.innerHTML=entries.map(e=>`<div class="country-card"><div class="country-flag">${getFlagEmoji(e.code)}</div><div class="country-info"><div class="c-name">${e.name} <span style="color:var(--muted);font-size:10px;">${e.code}</span></div><div class="c-count">${e.total} user${e.total!==1?'s':''} &middot; <span style="color:var(--success)">${e.online} online</span></div><div class="country-bar-wrap"><div class="country-bar" style="width:${Math.round(e.total/max*100)}%"></div></div></div></div>`).join('');
 }
 
-// â”€â”€ ROLES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function renderRolesTable() {
-  const tbody=document.getElementById('tbody-roles'); if(!tbody) return;
+// LEAFLET MAP
+const COUNTRY_COORDS={HU:[47.16,19.5],US:[37.09,-95.71],GB:[55.38,-3.44],DE:[51.17,10.45],FR:[46.23,2.21],IT:[41.87,12.57],ES:[40.46,-3.75],RO:[45.94,24.97],SK:[48.67,19.7],PL:[51.92,19.15],AT:[47.52,14.55],RU:[61.52,105.32],TR:[38.96,35.24],UA:[48.38,31.17],NL:[52.13,5.29],BE:[50.5,4.47],CH:[46.82,8.23],SE:[60.13,18.64],NO:[60.47,8.47],DK:[56.26,9.5],FI:[61.92,25.75],PT:[39.4,-8.22],GR:[39.07,21.82],CZ:[49.82,15.47],BR:[-14.24,-51.93],MX:[23.63,-102.55],CA:[56.13,-106.35],AU:[-25.27,133.78],JP:[36.2,138.25],KR:[35.91,127.77],CN:[35.86,104.2],IN:[20.59,78.96]};
+function initLeafletMap(){
+  if(leafletMap||!document.getElementById('leaflet-map'))return;
+  leafletMap=L.map('leaflet-map',{zoomControl:true,attributionControl:false}).setView([30,15],2);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(leafletMap);
+}
+function renderLeafletMap(){
+  if(!leafletMap)initLeafletMap();if(!leafletMap)return;
+  mapMarkers.forEach(m=>m.remove());mapMarkers=[];
+  const users=Object.values(usersDirectory),now=Date.now(),countMap={};
+  users.forEach(u=>{const cc=(u.country||'GLOBAL').toUpperCase();if(!countMap[cc])countMap[cc]={total:0,online:0,names:[]};countMap[cc].total++;if(u.lastSeen&&(now-u.lastSeen<18000))countMap[cc].online++;countMap[cc].names.push('@'+u.username);});
+  document.getElementById('map-count').textContent=`${users.length} users, ${Object.keys(countMap).length} countries`;
+  Object.entries(countMap).forEach(([cc,data])=>{
+    const coords=COUNTRY_COORDS[cc];if(!coords)return;
+    const size=Math.min(40,16+data.total*4),color=data.online>0?'#10b981':'#6366f1';
+    const icon=L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:.85;border:2px solid white;display:grid;place-items:center;font-size:${size<22?9:11}px;font-weight:700;color:#fff;cursor:pointer;">${data.total}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]});
+    const popup=`<b style="color:#f8fafc">${getFlagEmoji(cc)} ${cc}</b><br><span style="color:#94a3b8">${data.total} users &middot; ${data.online} online</span><br><small style="color:#64748b">${data.names.slice(0,5).join(', ')}${data.names.length>5?'...':''}</small>`;
+    const marker=L.marker(coords,{icon}).addTo(leafletMap).bindPopup(popup);
+    mapMarkers.push(marker);
+  });
+}
+
+// ROLES
+function renderRolesTable(){
+  const tbody=document.getElementById('tbody-roles');if(!tbody)return;
   const entries=Object.entries(rolesMap);
   if(!entries.length){tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px;">None.</td></tr>';return;}
   tbody.innerHTML=entries.map(([u,r])=>`<tr><td><code>@${u}</code></td><td>${getBadgePreview(r)} <small style="text-transform:uppercase;color:#c084fc;font-weight:700;">${r}</small></td><td><button class="btn-action btn-ban" onclick="removeRole('${u}')">Remove</button></td></tr>`).join('');
 }
-window.removeRole=function(u){delete rolesMap[u];saveRoles();renderRolesTable();renderAllUsersTable();showToast(`Role removed from @${u}`);};
+window.removeRole=function(u){delete rolesMap[u];saveRoles();renderRolesTable();renderAllUsersTable();showToast('Role removed from @'+u);};
 
-// â”€â”€ BROADCAST HISTORY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function renderBroadcastHistory() {
-  const el=document.getElementById('broadcast-history'); if(!el) return;
+// BROADCAST HISTORY
+function renderBroadcastHistory(){
+  const el=document.getElementById('broadcast-history');if(!el)return;
   if(!broadcastHistory.length){el.innerHTML='<div style="font-size:11px;color:var(--muted);padding:4px 0;">No broadcasts yet.</div>';return;}
   el.innerHTML=broadcastHistory.map(b=>`<div class="broadcast-item"><span>${escHtml(b.message)}</span><span class="b-time">${b.time}</span></div>`).join('');
 }
 
-// â”€â”€ NOTES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-window.openNoteModal=function(username){ noteTargetUser=username; document.getElementById('note-modal-user').textContent='@'+username; document.getElementById('note-textarea').value=userNotes[username]||''; document.getElementById('note-modal-overlay').style.display='grid'; setTimeout(()=>document.getElementById('note-textarea').focus(),50); };
-function closeNoteModal(){ document.getElementById('note-modal-overlay').style.display='none'; noteTargetUser=null; }
-function saveNote(){ if(!noteTargetUser)return; const v=document.getElementById('note-textarea').value.trim(); if(v)userNotes[noteTargetUser]=v; else delete userNotes[noteTargetUser]; localStorage.setItem('kapcs_admin_notes',JSON.stringify(userNotes)); closeNoteModal(); renderAllUsersTable(); showToast('📡 Note saved.'); }
+// NOTES
+window.openNoteModal=function(username){noteTargetUser=username;document.getElementById('note-modal-user').textContent='@'+username;document.getElementById('note-textarea').value=userNotes[username]||'';document.getElementById('note-modal-overlay').style.display='grid';setTimeout(()=>document.getElementById('note-textarea').focus(),50);};
+function closeNoteModal(){document.getElementById('note-modal-overlay').style.display='none';noteTargetUser=null;}
+function saveNote(){if(!noteTargetUser)return;const v=document.getElementById('note-textarea').value.trim();if(v)userNotes[noteTargetUser]=v;else delete userNotes[noteTargetUser];localStorage.setItem('kapcs_admin_notes',JSON.stringify(userNotes));closeNoteModal();renderAllUsersTable();showToast('Note saved.');}
 
-// â”€â”€ VPN DETECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-async function checkVpnFlag(username, ip) {
+// VPN DETECTION
+async function checkVpnFlag(username,ip){
   if(!ip||vpnFlags[username])return;
-  try {
-    const r=await fetch(`https://ipapi.co/${ip}/json/`); if(!r.ok)return;
-    const d=await r.json(); const f={vpn:false,tor:false,proxy:false};
-    if(d.threat){f.vpn=!!d.threat.is_vpn;f.tor=!!d.threat.is_tor;f.proxy=!!d.threat.is_proxy;}
-    if(!f.vpn&&d.org&&/vpn|proxy|tor|anonymiz|hosting|datacenter|digitalocean|linode|vultr|ovh|hetzner/i.test(d.org))f.vpn=true;
-    if(f.vpn||f.tor||f.proxy){vpnFlags[username]=f;localStorage.setItem('kapcs_admin_vpnflags',JSON.stringify(vpnFlags));renderAllUsersTable();}
-  }catch(e){}
+  try{const r=await fetch(`https://ipapi.co/${ip}/json/`);if(!r.ok)return;const d=await r.json();const f={vpn:false,tor:false,proxy:false};if(d.threat){f.vpn=!!d.threat.is_vpn;f.tor=!!d.threat.is_tor;f.proxy=!!d.threat.is_proxy;}if(!f.vpn&&d.org&&/vpn|proxy|tor|anonymiz|hosting|datacenter|digitalocean|linode|vultr|ovh|hetzner/i.test(d.org))f.vpn=true;if(f.vpn||f.tor||f.proxy){vpnFlags[username]=f;localStorage.setItem('kapcs_admin_vpnflags',JSON.stringify(vpnFlags));renderAllUsersTable();}}catch(e){}
 }
 
-// â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function recordOnlineSnapshot() {
-  const users=Object.values(usersDirectory), now=Date.now(), count=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).length;
-  onlineHistory.push({ts:now,count}); onlineHistory=onlineHistory.filter(h=>h.ts>=now-24*3600000);
+// DASHBOARD
+function recordOnlineSnapshot(){
+  const users=Object.values(usersDirectory),now=Date.now(),count=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).length;
+  onlineHistory.push({ts:now,count});onlineHistory=onlineHistory.filter(h=>h.ts>=now-24*3600000);
   localStorage.setItem('kapcs_admin_online_hist',JSON.stringify(onlineHistory));
 }
-function renderDashboard() {
-  const now=Date.now(), cut=now-24*3600000, h24=onlineHistory.filter(h=>h.ts>=cut);
+function renderDashboard(){
+  const now=Date.now(),cut=now-24*3600000,h24=onlineHistory.filter(h=>h.ts>=cut);
   const peak=h24.length?Math.max(...h24.map(h=>h.count)):0;
   const bans24=auditLog.filter(e=>e.action==='BAN'&&new Date(e.time).getTime()>=cut).length;
   if(document.getElementById('dash-peak'))document.getElementById('dash-peak').textContent=peak;
@@ -779,64 +811,58 @@ function renderDashboard() {
   if(document.getElementById('dash-bans24'))document.getElementById('dash-bans24').textContent=bans24;
   if(document.getElementById('dash-vpn'))document.getElementById('dash-vpn').textContent=Object.keys(vpnFlags).length;
   const ctx1=document.getElementById('online-chart');
-  if(ctx1){if(onlineChart)onlineChart.destroy();
-    onlineChart=new Chart(ctx1,{type:'line',data:{labels:h24.map(h=>{const d=new Date(h.ts);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}),datasets:[{label:'Online',data:h24.map(h=>h.count),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.15)',tension:.4,fill:true,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:8,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true}}}});}
+  if(ctx1){if(onlineChart)onlineChart.destroy();onlineChart=new Chart(ctx1,{type:'line',data:{labels:h24.map(h=>{const d=new Date(h.ts);return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}),datasets:[{label:'Online',data:h24.map(h=>h.count),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.15)',tension:.4,fill:true,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:8,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true}}}});}
   const ctx2=document.getElementById('peak-chart');
   if(ctx2){if(peakChart)peakChart.destroy();const buckets=Array(24).fill(0),counts=Array(24).fill(0);onlineHistory.forEach(h=>{const hr=new Date(h.ts).getHours();buckets[hr]+=h.count;counts[hr]++;});const avg=buckets.map((s,i)=>counts[i]?Math.round(s/counts[i]):0);peakChart=new Chart(ctx2,{type:'bar',data:{labels:Array.from({length:24},(_,i)=>`${i}h`),datasets:[{data:avg,backgroundColor:'rgba(99,102,241,.5)',borderColor:'#6366f1',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'},beginAtZero:true}}}});}
 }
 
-// â”€â”€ CSV EXPORTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function exportCSV() {
-  const users=Object.values(usersDirectory), now=Date.now();
+// CSV EXPORTS
+function exportCSV(){
+  const users=Object.values(usersDirectory),now=Date.now();
   const rows=[['Username','Country','Device ID','Likes','Role','Status','Last Seen']];
-  users.forEach(u=>{const isBan=bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId),isOn=u.lastSeen&&(now-u.lastSeen<18000); rows.push([u.username,u.country||'',u.deviceId||'',u.likes||0,rolesMap[u.username]||'none',isBan?'BANNED':isOn?'ONLINE':'OFFLINE',u.lastSeen?new Date(u.lastSeen).toLocaleString():'']);});
-  downloadCSV(rows,'kapcs_users.csv'); showToast(`â¬‡ď¸Ź Exported ${users.length} users.`);
+  users.forEach(u=>{const isBan=bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId),isOn=u.lastSeen&&(now-u.lastSeen<18000);rows.push([u.username,u.country||'--',u.deviceId||'--',u.likes||0,rolesMap[u.username]||'none',isBan?'BANNED':isOn?'ONLINE':'OFFLINE',u.lastSeen?new Date(u.lastSeen).toLocaleString():'--']);});
+  downloadCSV(rows,'kapcs_users.csv');showToast('Exported '+users.length+' users.');
 }
-function exportAuditCSV() {
+function exportAuditCSV(){
   const rows=[['Action','Username','Device','Reason','By','Expires','Time']];
-  auditLog.forEach(e=>rows.push([e.action,e.username,e.deviceId,e.reason,e.by,e.expiresAt||'',e.time]));
-  downloadCSV(rows,'kapcs_audit.csv'); showToast(`â¬‡ď¸Ź Exported ${auditLog.length} entries.`);
+  auditLog.forEach(e=>rows.push([e.action,e.username,e.deviceId,e.reason,e.by,e.expiresAt||'--',e.time]));
+  downloadCSV(rows,'kapcs_audit.csv');showToast('Exported '+auditLog.length+' entries.');
 }
-function downloadCSV(rows, filename) {
+function downloadCSV(rows,filename){
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})); a.download=filename; a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'}));a.download=filename;a.click();
 }
 
-// â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function switchTab(name, btn) {
+// TABS
+function switchTab(name,btn){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active'); btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');btn.classList.add('active');
   if(name==='country-stats')renderCountryStats();
   if(name==='ban-history')renderAuditLog();
   if(name==='roles')renderRolesTable();
   if(name==='chat-monitor')renderChatMonitor();
   if(name==='dashboard')renderDashboard();
-  if(name==='map'){renderLeafletMap();}
+  if(name==='map')renderLeafletMap();
 }
 
-// â”€â”€ PERSIST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function saveUsers()   { localStorage.setItem('kapcs_admin_users_v13',JSON.stringify(usersDirectory)); }
-function saveBans()    { localStorage.setItem('kapcs_admin_bans_v13',JSON.stringify(bannedList)); updateStats(); }
-function saveRoles()   { localStorage.setItem('kapcs_admin_roles_v13',JSON.stringify(rolesMap)); client.publish(TOPIC_ROLES,JSON.stringify({allRoles:rolesMap})); }
-// â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function getFlagEmoji(code) { if(!code||code==='GLOBAL'||code.length!==2)return '🏅'; return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt())); }
-function getBadgePreview(role) {
-  if(role==='verified') return`<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// PERSIST
+function saveUsers(){localStorage.setItem('kapcs_admin_users_v13',JSON.stringify(usersDirectory));}
+function saveBans(){localStorage.setItem('kapcs_admin_bans_v13',JSON.stringify(bannedList));updateStats();}
+function saveRoles(){localStorage.setItem('kapcs_admin_roles_v13',JSON.stringify(rolesMap));client.publish(TOPIC_ROLES,JSON.stringify({allRoles:rolesMap}));}
+
+// HELPERS
+function getFlagEmoji(code){if(!code||code==='GLOBAL'||code.length!==2)return '\uD83C\uDF10';return code.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt()));}
+function getBadgePreview(role){
+  if(role==='verified')return`<svg class="badge-icon" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#2F80ED"/><path d="M11.5 17.5L16 22L24.5 13.5" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   if(role==='moderator')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><path d="M50 5L85 18C85 62 50 88 50 95C50 88 15 62 15 18Z" fill="#151e2e"/><path d="M50 12L78 22C78 57 50 78 50 84C50 78 22 57 22 22Z" fill="#0066FF"/><circle cx="50" cy="38" r="12" fill="white"/><path d="M34 68C34 52 42 50 47 51L50 56L53 51C58 50 66 52 66 68Z" fill="white"/></svg>`;
-  if(role==='developer')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg2" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#dg2)"/><path d="M38 38L24 50L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38L76 50L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`;
-  if(role==='vip')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="vg2" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset=".5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#vg2)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="url(#vg2)"/><text x="50" y="58" font-family="Outfit,Arial" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text></svg>`;
+  if(role==='developer')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="dg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#b47cfc"/><stop offset="1" stop-color="#556bf7"/></linearGradient></defs><rect width="100" height="100" rx="26" fill="url(#dg)"/><path d="M38 38L24 50L38 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 38L76 50L62 62" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M54 30L46 70" stroke="white" stroke-width="8" stroke-linecap="round"/></svg>`;
+  if(role==='vip')return`<svg class="badge-icon" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="vg" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#ffe875"/><stop offset=".5" stop-color="#e5a923"/><stop offset="1" stop-color="#9a6500"/></linearGradient></defs><circle cx="50" cy="50" r="47" fill="url(#vg)" stroke="#ffd700" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="url(#vg)"/><text x="50" y="58" font-family="Outfit,Arial" font-weight="900" font-size="24" fill="#6d4200" text-anchor="middle">VIP</text></svg>`;
   return '';
 }
-function showToast(msg, isDanger=false) {
-  const el=document.getElementById('admin-toast'); el.textContent=msg; el.className=isDanger?'danger':''; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>{el.style.display='none';},3000);
+function showToast(msg,isDanger=false){
+  const el=document.getElementById('admin-toast');el.textContent=msg;el.className=isDanger?'danger':'';el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.display='none';},3000);
 }
 </script>
 </body>
 </html>
-
-
-
-
-
-
