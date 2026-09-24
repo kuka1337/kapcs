@@ -472,6 +472,32 @@
     #session-timer-display{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#6ee7b7;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:7;font-family:"JetBrains Mono",monospace;display:none;}
 
     #ai-canvas,#forensic-canvas{display:none;}
+
+    /* ── PRIVÁT SZOBA MODAL ── */
+    #room-modal{position:fixed;inset:0;background:rgba(6,9,16,.96);backdrop-filter:blur(20px);z-index:99990;display:none;place-content:center;text-align:center;padding:16px;}
+    .room-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.6);}
+    .room-box h2{font-family:"Outfit",sans-serif;font-size:20px;margin-bottom:6px;}
+    .room-box p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.4;}
+    .room-code-display{font-family:"JetBrains Mono",monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:var(--primary);background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:14px;margin-bottom:16px;cursor:pointer;user-select:all;}
+    .room-tabs{display:flex;gap:6px;margin-bottom:16px;}
+    .room-tab{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer;}
+    .room-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+    .room-pane{display:none;}
+    .room-pane.active{display:block;}
+    .room-input{width:100%;padding:12px;background:rgba(0,0,0,.1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;text-align:center;font-weight:700;font-family:"JetBrains Mono",monospace;letter-spacing:4px;outline:none;margin-bottom:12px;}
+    .room-input:focus{border-color:var(--primary);}
+    .room-btn{width:100%;padding:12px;background:var(--primary);border:0;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;}
+    .room-skip{font-size:11px;color:var(--muted);text-decoration:underline;cursor:pointer;background:none;border:none;}
+    .room-status{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px;}
+    .room-status.ok{color:var(--success);}
+    .room-status.err{color:var(--danger);}
+
+    /* ── AUDIO VIZUALIZÁTOR ── */
+    #audio-viz{position:absolute;bottom:0;left:0;right:0;height:28px;pointer-events:none;z-index:6;display:none;}
+    #audio-viz canvas{width:100%;height:100%;}
+
+    /* ── TOXIC FILTER WARNING ── */
+    #toxic-warning{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(239,68,68,.95);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9998;display:none;box-shadow:0 4px 16px rgba(239,68,68,.4);animation:slideDown .3s ease;}
   </style>
 </head>
 <body>
@@ -527,6 +553,7 @@
   </div>
   <div class="header-right" id="header-right">
     <button class="btn-theme" id="btn-theme-toggle" title="Toggle theme">🌙</button>
+    <button class="btn-theme" id="btn-room" title="Private Room" onclick="openRoomModal()">🔑</button>
     <button class="btn-report" id="btn-report">⚠️ Report</button>
   </div>
 </header>
@@ -554,8 +581,9 @@
         <div id="btn-pip" title="Picture in Picture" onclick="togglePiP()">⧉</div>
         <div id="session-timer-display"></div>
         <div id="ping-badge">— ms</div>
+        <div id="audio-viz"><canvas id="audio-viz-canvas"></canvas></div>
       </div>
-      <div class="video-box" id="local-box">
+      <div class="video-box" id="local-box" onclick="handleLocalBoxTap()">
         <video id="local-video" autoplay playsinline muted></video>
         <div id="local-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--muted);">
           <span style="font-size:28px;">📷</span>
@@ -642,6 +670,32 @@
   <button onclick="sendReaction('👏')">👏</button>
 </div>
 
+<!-- PRIVATE ROOM MODAL -->
+<div id="room-modal">
+  <div class="room-box">
+    <h2>🔑 Private Room</h2>
+    <p>Create a room and share the code, or join with a code from your friend.</p>
+    <div class="room-tabs">
+      <button class="room-tab active" onclick="switchRoomTab('create',this)">Create Room</button>
+      <button class="room-tab" onclick="switchRoomTab('join',this)">Join Room</button>
+    </div>
+    <div class="room-pane active" id="room-pane-create">
+      <div class="room-code-display" id="room-code-display" title="Click to copy" onclick="copyRoomCode()">------</div>
+      <button class="room-btn" id="btn-gen-room">Generate New Code</button>
+      <div class="room-status" id="room-create-status">Generate a code and share it with your friend.</div>
+    </div>
+    <div class="room-pane" id="room-pane-join">
+      <input type="text" class="room-input" id="room-code-input" placeholder="XXXXXX" maxlength="6" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+      <button class="room-btn" id="btn-join-room">Join Room</button>
+      <div class="room-status" id="room-join-status">Enter the 6-character code from your friend.</div>
+    </div>
+    <button class="room-skip" onclick="closeRoomModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- TOXIC WARNING -->
+<div id="toxic-warning">⚠️ Message blocked — too toxic. Please be kind.</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  KAPCS — index.html  |  clean unified build
@@ -657,6 +711,7 @@ const TOPIC_WARNS     = 'kapcs_v13_warns';
 const TOPIC_BROADCAST = 'kapcs_v13_broadcast';
 const TOPIC_CHATMON   = 'kapcs_v13_chatmon';
 const TOPIC_ADMIN_DM  = 'kapcs_v13_admin_dm';
+const TOPIC_ROOM      = 'kapcs_v13_room';
 
 const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
@@ -984,7 +1039,7 @@ function initPeerWithHandle(username) {
 
 // ── MQTT ──────────────────────────────────────────────────────
 mqttClient.on('connect', () => {
-  mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_BROADCAST, TOPIC_ADMIN_DM]);
+  mqttClient.subscribe([TOPIC_QUEUE, TOPIC_BANS, TOPIC_ROLES, TOPIC_USERS, TOPIC_WARNS, TOPIC_BROADCAST, TOPIC_ADMIN_DM, TOPIC_ROOM]);
   if (!isCurrentlyBanned) setStatus('ready','Ready');
 });
 
@@ -1031,6 +1086,22 @@ mqttClient.on('message', async (topic, message) => {
     if ((myF === 'ALL' || myF === pC) && (pF === 'ALL' || pF === myCountryCode)) {
       if (myPeerId < data.senderId) connectToPartner(data.senderId, data.username, data.deviceId, data.likes || 0, data.country);
     }
+  }
+
+  // PRIVÁT SZOBA
+  if (topic === TOPIC_ROOM && data.roomCode && data.action === 'invite' && data.targetId === myPeerId) {
+    // Valaki meghív egy privát szobába
+    if (confirm(`@${data.from} invites you to private room ${data.roomCode}. Accept?`)) {
+      connectToPartner(data.fromId, data.from, data.fromDevId, 0, data.country);
+      closeRoomModal();
+    }
+  }
+  if (topic === TOPIC_ROOM && data.roomCode && data.action === 'join_request' && myRoomCode === data.roomCode) {
+    // Valaki csatlakozni akar a szobánkhoz
+    document.getElementById('room-create-status').textContent = `@${data.from} is joining...`;
+    document.getElementById('room-create-status').className = 'room-status ok';
+    connectToPartner(data.fromId, data.from, data.fromDevId, 0, data.country);
+    closeRoomModal();
   }
 });
 
@@ -1097,6 +1168,7 @@ function onRemoteStream(stream) {
   playSound('connect');
   sessionStartTime = Date.now(); startSessionTimer(); notifyNewPartner(partnerUsername);
   startPingMonitor();
+  startAudioViz(stream);
   sessionMatchCount++; localStorage.setItem('kapcs_session_matches', sessionMatchCount); document.getElementById('stat-matches').textContent = sessionMatchCount;
   broadcastProfileToAdmin();
 }
@@ -1159,6 +1231,7 @@ function disconnectPartner() {
   btnLike.disabled = true; document.getElementById('partner-label').textContent = 'Partner';
   document.getElementById('remote-caption-box').style.display = 'none';
   showTypingIndicator(false); stopPingMonitor(); closePartnerCard(); sessionStartTime = null; stopSessionTimer();
+  stopAudioViz();
   // E2E kulcsok törlése
   e2eKey = null; partnerPublicKey = null;
   playSound('disconnect');
@@ -1252,6 +1325,8 @@ chatInputElem.addEventListener('input', () => {
 document.getElementById('chat-form').addEventListener('submit', async e => {
   e.preventDefault(); e.stopPropagation();
   const val = chatInputElem.value.trim(); if (!val) return;
+  // Toxic filter ellenőrzés
+  if (checkToxicity(val)) { showToxicWarning(); chatInputElem.value = ''; return; }
   isTyping = false; clearTimeout(typingTimeout); sendTypingSignal('stop');
   const myRole = getUserRole(myUsername), mid = ++msgIdCounter;
   addMsg(val, 'out', `@${myUsername}`, myRole, myLikes, myCountryCode, mid);
@@ -1289,6 +1364,157 @@ function setStatus(type, label) {
   document.getElementById('status-dot').className = 'status-dot' + (type==='live'?' live':type==='search'?' search':'');
   document.getElementById('status-text').textContent = label;
 }
+
+// ── PRIVÁT SZOBA ──────────────────────────────────────────────
+let myRoomCode = null;
+
+function openRoomModal() {
+  document.getElementById('room-modal').style.display = 'grid';
+  generateRoomCode();
+}
+function closeRoomModal() {
+  document.getElementById('room-modal').style.display = 'none';
+  myRoomCode = null;
+}
+function switchRoomTab(tab, el) {
+  document.querySelectorAll('.room-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.room-pane').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('room-pane-' + tab).classList.add('active');
+}
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  myRoomCode = Array.from({length:6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  document.getElementById('room-code-display').textContent = myRoomCode;
+  document.getElementById('room-create-status').textContent = 'Share this code with your friend.';
+  document.getElementById('room-create-status').className = 'room-status';
+  // MQTT-n hirdetjük a szobát
+  mqttClient.publish(TOPIC_ROOM, JSON.stringify({
+    action: 'host', roomCode: myRoomCode,
+    fromId: myPeerId, from: myUsername,
+    fromDevId: permanentDeviceId, country: myCountryCode
+  }));
+}
+function copyRoomCode() {
+  if (!myRoomCode) return;
+  navigator.clipboard?.writeText(myRoomCode).then(() => {
+    document.getElementById('room-create-status').textContent = 'Code copied to clipboard!';
+    document.getElementById('room-create-status').className = 'room-status ok';
+  });
+}
+document.getElementById('btn-gen-room')?.addEventListener('click', generateRoomCode);
+document.getElementById('btn-join-room')?.addEventListener('click', () => {
+  const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (code.length !== 6) {
+    document.getElementById('room-join-status').textContent = 'Please enter a 6-character code.';
+    document.getElementById('room-join-status').className = 'room-status err';
+    return;
+  }
+  document.getElementById('room-join-status').textContent = 'Looking for room...';
+  document.getElementById('room-join-status').className = 'room-status';
+  mqttClient.publish(TOPIC_ROOM, JSON.stringify({
+    action: 'join_request', roomCode: code,
+    fromId: myPeerId, from: myUsername,
+    fromDevId: permanentDeviceId, country: myCountryCode
+  }));
+  setTimeout(() => {
+    const el = document.getElementById('room-join-status');
+    if (el && el.className === 'room-status') {
+      el.textContent = 'Room not found or host is offline.';
+      el.className = 'room-status err';
+    }
+  }, 8000);
+});
+
+// ── AUDIO VIZUALIZÁTOR ────────────────────────────────────────
+let audioAnalyser = null, audioAnimFrame = null;
+const audioVizEl = document.getElementById('audio-viz');
+const audioVizCanvas = document.getElementById('audio-viz-canvas');
+const audioVizCtx = audioVizCanvas ? audioVizCanvas.getContext('2d') : null;
+
+function startAudioViz(stream) {
+  if (!stream || !audioVizCtx) return;
+  try {
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = actx.createMediaStreamSource(stream);
+    audioAnalyser = actx.createAnalyser();
+    audioAnalyser.fftSize = 64;
+    src.connect(audioAnalyser);
+    audioVizEl.style.display = 'block';
+    drawAudioViz();
+  } catch(e) {}
+}
+function stopAudioViz() {
+  audioVizEl.style.display = 'none';
+  if (audioAnimFrame) { cancelAnimationFrame(audioAnimFrame); audioAnimFrame = null; }
+  audioAnalyser = null;
+}
+function drawAudioViz() {
+  if (!audioAnalyser || !audioVizCtx) return;
+  const w = audioVizCanvas.offsetWidth || 300;
+  const h = 28;
+  if (audioVizCanvas.width !== w) audioVizCanvas.width = w;
+  audioVizCanvas.height = h;
+  const data = new Uint8Array(audioAnalyser.frequencyBinCount);
+  audioAnalyser.getByteFrequencyData(data);
+  audioVizCtx.clearRect(0, 0, w, h);
+  const barW = w / data.length - 1;
+  data.forEach((val, i) => {
+    const pct = val / 255;
+    const bh = Math.max(2, pct * h);
+    const alpha = 0.4 + pct * 0.6;
+    audioVizCtx.fillStyle = `rgba(99,102,241,${alpha})`;
+    audioVizCtx.fillRect(i * (barW + 1), h - bh, barW, bh);
+  });
+  audioAnimFrame = requestAnimationFrame(drawAudioViz);
+}
+
+// ── TOXIC FILTER (kliens oldali szó szűrő) ────────────────────
+// Perspective API kulcs kell a valódi API-hoz — ez egy gyors kliens oldali szűrő
+const TOXIC_PATTERNS = [
+  /\bkill\s+your(self)?\b/i, /\bf+u+c+k\s+(you|off|u)\b/i,
+  /\bdie\s+(already|bitch|cunt)\b/i, /\bn[i1]+gg[ae]r?\b/i,
+  /\bf[a4]gg?[o0]t\b/i, /\bc+u+n+t\b/i, /\bwh[o0]r+e\b/i
+];
+
+function checkToxicity(text) {
+  return TOXIC_PATTERNS.some(p => p.test(text));
+}
+function showToxicWarning() {
+  const el = document.getElementById('toxic-warning');
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ── MOBIL LOCAL BOX SWAP (koppintásra nagyítás) ───────────────
+let localBoxExpanded = false;
+function handleLocalBoxTap() {
+  if (window.innerWidth > 799) return; // csak mobilon
+  localBoxExpanded = !localBoxExpanded;
+  const localBox = document.getElementById('local-box');
+  const remoteBox = document.getElementById('remote-box');
+  if (localBoxExpanded) {
+    // Local videó megnő, remote kicsivé válik
+    localBox.style.cssText = 'position:absolute!important;inset:0!important;width:100%!important;height:100%!important;border-radius:0!important;border:none!important;z-index:22!important;';
+    remoteBox.style.cssText = 'position:absolute!important;right:10px!important;bottom:80px!important;width:90px!important;height:120px!important;border-radius:10px!important;border:2px solid rgba(255,255,255,.3)!important;z-index:21!important;';
+  } else {
+    // Visszaállás
+    localBox.style.cssText = '';
+    remoteBox.style.cssText = '';
+  }
+}
+// Dupla tap remote-ra = fullscreen toggle
+let lastTapTime = 0;
+document.getElementById('remote-box')?.addEventListener('touchend', e => {
+  if (window.innerWidth > 799) return;
+  const now = Date.now();
+  if (now - lastTapTime < 300) {
+    // Dupla tap - PiP toggle vagy fullscreen
+    togglePiP();
+  }
+  lastTapTime = now;
+});
 
 // ── E2E TITKOSÍTOTT CHAT ──────────────────────────────────────
 // ECDH P-256 kulcscsere + AES-GCM titkosítás

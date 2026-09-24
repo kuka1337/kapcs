@@ -170,6 +170,45 @@
     #mqtt-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;}
     #mqtt-status.connected{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;}
     #mqtt-status::before{content:'&#x25CF;';font-size:8px;}
+
+    /* USER ADATLAP MODAL */
+    .um-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:none;place-items:center;padding:16px;}
+    .um-modal{background:#0f1824;border:1px solid var(--border);border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
+    .um-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;}
+    .um-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#a855f7);display:grid;place-items:center;font-family:"Outfit",sans-serif;font-size:18px;font-weight:800;flex-shrink:0;}
+    .um-name{font-family:"Outfit",sans-serif;font-size:18px;font-weight:800;}
+    .um-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+    .um-close{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;}
+    .um-body{padding:18px 22px;}
+    .um-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+    .um-stat{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:11px;text-align:center;}
+    .um-stat .v{font-family:"Outfit",sans-serif;font-size:22px;font-weight:800;margin-bottom:2px;}
+    .um-stat .l{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;}
+    .um-section{margin-bottom:14px;}
+    .um-section h4{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+    .um-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;}
+    .um-row:last-child{border-bottom:none;}
+    .um-row .lbl{color:var(--muted);}
+    .um-row .val{font-weight:700;}
+    .um-actions{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--border);flex-wrap:wrap;}
+
+    /* SESSION LOG */
+    .session-log-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px;}
+    .session-log-item .sl-header{display:flex;justify-content:space-between;margin-bottom:4px;}
+    .session-log-item .sl-users{font-weight:700;color:#a5b4fc;}
+    .session-log-item .sl-time{color:var(--muted);font-size:11px;}
+    .session-log-item .sl-duration{color:var(--success);font-size:11px;}
+
+    /* MODERATOR CHAT */
+    .modchat-wrap{display:flex;flex-direction:column;height:360px;}
+    .modchat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:10px;}
+    .modchat-msg{padding:6px 10px;border-radius:7px;font-size:12px;max-width:85%;}
+    .modchat-msg.in{align-self:flex-start;background:rgba(255,255,255,.06);}
+    .modchat-msg.out{align-self:flex-end;background:rgba(99,102,241,.3);}
+    .modchat-input{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);}
+    .modchat-input input{flex:1;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;}
+    .modchat-input button{background:var(--primary);border:0;color:#fff;padding:0 14px;border-radius:6px;font-weight:700;cursor:pointer;}
+    .session-select{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;outline:none;margin-bottom:10px;width:100%;}
   </style>
 </head>
 <body>
@@ -244,6 +283,8 @@
       <button class="tab-btn" onclick="switchTab('dashboard',this)">&#x1F4CA; Dashboard</button>
       <button class="tab-btn" onclick="switchTab('map',this)">&#x1F5FA;&#xFE0F; Map</button>
       <button class="tab-btn" onclick="switchTab('roles',this)">&#x1F3C5; Roles</button>
+      <button class="tab-btn" onclick="switchTab('session-log',this)">&#x1F4F9; Sessions</button>
+      <button class="tab-btn" onclick="switchTab('mod-chat',this)">&#x1F4AC; Mod Chat</button>
     </div>
 
     <!-- TAB: USERS -->
@@ -384,8 +425,86 @@
       </div>
     </div>
 
+    <!-- TAB: SESSION LOG -->
+    <div class="tab-panel" id="tab-session-log">
+      <div class="table-header" style="border:1px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);margin-bottom:0;">
+        <h2>&#x1F4F9; Session Replay Log</h2>
+        <div style="display:flex;gap:8px;">
+          <span id="session-log-count" style="font-size:12px;color:var(--muted);align-self:center;"></span>
+          <button class="btn-action btn-warn" onclick="if(confirm('Clear session log?')){sessionLog=[];saveSessionLog();renderSessionLog();}">Clear</button>
+          <button class="btn-csv" onclick="exportSessionCSV()">&#x2B07;&#xFE0F; CSV</button>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px;padding:14px;max-height:600px;overflow-y:auto;" id="session-log-list">
+        <div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No sessions recorded yet.</div>
+      </div>
+    </div>
+
+    <!-- TAB: MODERATOR CHAT -->
+    <div class="tab-panel" id="tab-mod-chat">
+      <div class="control-card" style="margin-bottom:16px;">
+        <h3>&#x1F4AC; Join Active Session Chat</h3>
+        <select class="session-select" id="mod-chat-session-select">
+          <option value="">-- Select active session --</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);">Select a currently active session to monitor and send messages.</div>
+      </div>
+      <div class="table-header" style="border:1px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);margin-bottom:0;">
+        <h2 id="modchat-session-title">Moderator Chat Monitor</h2>
+        <span id="modchat-status" style="font-size:11px;color:var(--muted);">Not connected</span>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px;">
+        <div class="modchat-wrap">
+          <div class="modchat-messages" id="modchat-messages">
+            <div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">Select a session above to monitor.</div>
+          </div>
+          <div class="modchat-input">
+            <input type="text" id="modchat-input" placeholder="Send message as Admin..." maxlength="200">
+            <button id="btn-modchat-send">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /panel -->
 </div><!-- /box -->
+
+<!-- USER ADATLAP MODAL -->
+<div class="um-overlay" id="um-overlay" onclick="if(event.target===this)closeUserModal()">
+  <div class="um-modal">
+    <div class="um-header">
+      <div class="um-avatar" id="um-avatar">?</div>
+      <div>
+        <div class="um-name" id="um-name">@username</div>
+        <div class="um-meta" id="um-meta"></div>
+      </div>
+      <button class="um-close" onclick="closeUserModal()">&#x2715;</button>
+    </div>
+    <div class="um-body">
+      <div class="um-stats">
+        <div class="um-stat"><div class="v" id="um-likes" style="color:#f43f5e">0</div><div class="l">&#x2764; Likes</div></div>
+        <div class="um-stat"><div class="v" id="um-bans" style="color:var(--danger)">0</div><div class="l">&#x1F528; Bans</div></div>
+        <div class="um-stat"><div class="v" id="um-warns" style="color:var(--warning)">0</div><div class="l">&#x26A0; Warns</div></div>
+      </div>
+      <div class="um-section">
+        <h4>Account Info</h4>
+        <div class="um-row"><span class="lbl">Device ID</span><span class="val"><code id="um-devid" style="font-size:11px">&#x2014;</code></span></div>
+        <div class="um-row"><span class="lbl">Country</span><span class="val" id="um-country">&#x2014;</span></div>
+        <div class="um-row"><span class="lbl">Role</span><span class="val" id="um-role">Standard</span></div>
+        <div class="um-row"><span class="lbl">Status</span><span class="val" id="um-status">&#x2014;</span></div>
+        <div class="um-row"><span class="lbl">Last Seen</span><span class="val" id="um-lastseen">&#x2014;</span></div>
+        <div class="um-row"><span class="lbl">VPN/TOR</span><span class="val" id="um-vpn">&#x2014;</span></div>
+        <div class="um-row"><span class="lbl">Admin Note</span><span class="val" id="um-note" style="cursor:pointer;color:var(--primary);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&#x2014;</span></div>
+      </div>
+      <input type="hidden" id="um-current-user">
+      <div class="um-section">
+        <h4>&#x1F4CB; Recent Ban History</h4>
+        <div id="um-ban-history" style="font-size:12px;color:var(--muted);">&#x2014;</div>
+      </div>
+    </div>
+    <div class="um-actions" id="um-actions"></div>
+  </div>
+</div>
 
 <!-- NOTE MODAL -->
 <div class="note-modal-overlay" id="note-modal-overlay" onclick="if(event.target===this)closeNoteModal()">
@@ -622,7 +741,7 @@ function renderAllUsersTable() {
     else if(isOnline)sb=`<span class="pill pill-online">&#x1F7E2; ${u.liveState||'ONLINE'}</span>`;
     if(u.warned&&!isBanned)sb+=' <span class="pill pill-warned">WARNED</span>';
     return `<tr>
-      <td><strong><code>@${u.username}</code></strong>${vpnBadge}</td>
+      <td><strong><code style="cursor:pointer;" onclick="openUserModal('${u.username}')">@${u.username}</code></strong>${vpnBadge}</td>
       <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||'&mdash;'}</span></td>
       <td><code style="font-size:11px;">${u.deviceId||'&mdash;'}</code></td>
       <td><span style="color:#fda4af;font-weight:700;">&#x2764; ${u.likes||0}</span> <button class="btn-action btn-clear-likes" style="padding:2px 6px;" onclick="clearUserLikes('${u.username}')">Clear</button></td>
@@ -844,6 +963,8 @@ function switchTab(name,btn){
   if(name==='chat-monitor')renderChatMonitor();
   if(name==='dashboard')renderDashboard();
   if(name==='map')renderLeafletMap();
+  if(name==='session-log')renderSessionLog();
+  if(name==='mod-chat')renderModChat();
 }
 
 // PERSIST
@@ -866,3 +987,113 @@ function showToast(msg,isDanger=false){
 </script>
 </body>
 </html>
+
+// SESSION LOG
+let sessionLog = JSON.parse(localStorage.getItem('kapcs_admin_session_log') || '[]');
+function saveSessionLog() { localStorage.setItem('kapcs_admin_session_log', JSON.stringify(sessionLog)); }
+function addSessionEntry(userA, userB, startTs, endTs) {
+  const duration = Math.round((endTs - startTs) / 1000);
+  if (duration < 3) return;
+  sessionLog.unshift({ userA, userB, startTime: new Date(startTs).toLocaleString(), endTime: new Date(endTs).toLocaleString(), duration, ts: startTs });
+  if (sessionLog.length > 500) sessionLog.pop();
+  saveSessionLog(); renderSessionLog();
+}
+function renderSessionLog() {
+  const el = document.getElementById('session-log-list'); if (!el) return;
+  const cnt = document.getElementById('session-log-count'); if (cnt) cnt.textContent = sessionLog.length + ' sessions';
+  if (!sessionLog.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">No sessions yet.</div>'; return; }
+  el.innerHTML = sessionLog.map(s => {
+    const dur = s.duration >= 60 ? Math.floor(s.duration/60) + 'm ' + (s.duration%60) + 's' : s.duration + 's';
+    return `<div class="session-log-item"><div class="sl-header"><span class="sl-users">@${s.userA} &harr; @${s.userB}</span><span class="sl-time">${s.startTime}</span></div><div style="display:flex;gap:12px;"><span class="sl-duration">&#x23F1; ${dur}</span><span style="color:var(--muted);font-size:11px;">Ended: ${s.endTime}</span></div></div>`;
+  }).join('');
+}
+function exportSessionCSV() {
+  const rows = [['User A','User B','Start','End','Duration (s)']];
+  sessionLog.forEach(s => rows.push([s.userA, s.userB, s.startTime, s.endTime, s.duration]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv'})); a.download = 'kapcs_sessions.csv'; a.click();
+  showToast('Exported ' + sessionLog.length + ' sessions.');
+}
+const activeSessionsMap = {};
+function trackSession(userA, userB, status) {
+  if (!userA || !userB || userA === userB) return;
+  const key = [userA, userB].sort().join('|');
+  if (status === 'IN_CALL') { if (!activeSessionsMap[key]) activeSessionsMap[key] = { userA, userB, startTs: Date.now() }; }
+  else { if (activeSessionsMap[key]) { addSessionEntry(userA, userB, activeSessionsMap[key].startTs, Date.now()); delete activeSessionsMap[key]; } }
+}
+
+// MODERATOR CHAT
+const TOPIC_MOD_CHAT = 'kapcs_v13_modchat';
+let modChatSession = null;
+client.subscribe(TOPIC_MOD_CHAT);
+client.on('message', (topic, message) => {
+  if (topic !== TOPIC_MOD_CHAT && topic !== TOPIC_CHATMON) return;
+  try {
+    const d = JSON.parse(message.toString());
+    // Session tracking
+    if (topic === TOPIC_USERS && d.username && d.status === 'IN_CALL' && d.partner) trackSession(d.username, d.partner, 'IN_CALL');
+    if (!modChatSession) return;
+    if (d.from !== modChatSession && d.partner !== modChatSession) return;
+    const box = document.getElementById('modchat-messages'); if (!box) return;
+    const isAdmin = d.from === 'ADMIN';
+    const div = document.createElement('div'); div.className = 'modchat-msg ' + (isAdmin ? 'out' : 'in');
+    div.innerHTML = `<b style="font-size:10px;display:block;margin-bottom:2px;color:${isAdmin?'#a5b4fc':'var(--muted)'}">@${d.from} ${d.time||''}</b>${escHtml(d.text||'')}`;
+    box.appendChild(div); box.scrollTop = box.scrollHeight;
+  } catch(e) {}
+});
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-modchat-send')?.addEventListener('click', () => {
+    if (!modChatSession) return showToast('Select a session first.', true);
+    const inp = document.getElementById('modchat-input');
+    const msg = inp.value.trim(); if (!msg) return;
+    client.publish(TOPIC_CHATMON, JSON.stringify({ from:'ADMIN', partner:modChatSession, text:msg, direction:'admin', time:new Date().toLocaleTimeString() }));
+    client.publish(TOPIC_MOD_CHAT, JSON.stringify({ action:'admin_message', target:modChatSession, from:'ADMIN', text:msg, time:new Date().toLocaleTimeString() }));
+    const box = document.getElementById('modchat-messages');
+    const div = document.createElement('div'); div.className = 'modchat-msg out';
+    div.innerHTML = `<b style="font-size:10px;display:block;margin-bottom:2px;color:#a5b4fc">ADMIN ${new Date().toLocaleTimeString()}</b>${escHtml(msg)}`;
+    box.appendChild(div); box.scrollTop = box.scrollHeight; inp.value = '';
+  });
+  document.getElementById('modchat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-modchat-send')?.click(); });
+});
+function renderModChat() {
+  const sel = document.getElementById('mod-chat-session-select'); if (!sel) return;
+  const now = Date.now();
+  const online = Object.values(usersDirectory).filter(u => u.lastSeen && (now-u.lastSeen<18000) && u.liveState==='IN_CALL');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Select active session --</option>';
+  online.forEach(u => { const opt = document.createElement('option'); opt.value = u.username; opt.textContent = '@'+u.username+' (IN_CALL)'; sel.appendChild(opt); });
+  if (prev) sel.value = prev;
+  sel.onchange = () => { modChatSession = sel.value || null; const el=document.getElementById('modchat-status'); const ti=document.getElementById('modchat-session-title'); if(modChatSession){el.textContent='Monitoring @'+modChatSession;el.style.color='var(--success)';ti.textContent='Chat: @'+modChatSession;}else{el.textContent='Not connected';el.style.color='var(--muted)';ti.textContent='Moderator Chat Monitor';} };
+}
+
+// USER ADATLAP MODAL
+window.openUserModal = function(username) {
+  const u = usersDirectory[username?.toLowerCase()]; if (!u) { showToast('User not in directory.', true); return; }
+  const now = Date.now();
+  document.getElementById('um-avatar').textContent = username.slice(0,2).toUpperCase();
+  document.getElementById('um-name').textContent = '@' + username;
+  document.getElementById('um-current-user').value = username;
+  const isOnline = u.lastSeen && (now-u.lastSeen<18000), isBanned = bannedList.some(b=>b.targetName===username||b.targetDev===u.deviceId);
+  document.getElementById('um-meta').innerHTML = `<span style="color:${isOnline?'var(--success)':'var(--muted)'}">&#x25CF; ${isOnline?(u.liveState||'Online'):'Offline'}</span> &nbsp;&middot;&nbsp; ${getFlagEmoji(u.country)} ${u.countryName||u.country||'&mdash;'}`;
+  document.getElementById('um-likes').textContent = u.likes||0;
+  const banCount = auditLog.filter(e=>(e.username===username||e.deviceId===u.deviceId)&&e.action==='BAN').length;
+  const warnCount = auditLog.filter(e=>e.username===username&&e.action==='WARN').length + (u.warned?1:0);
+  document.getElementById('um-bans').textContent = banCount;
+  document.getElementById('um-warns').textContent = warnCount;
+  document.getElementById('um-devid').textContent = u.deviceId||'&mdash;';
+  document.getElementById('um-country').textContent = getFlagEmoji(u.country)+' '+(u.countryName||u.country||'&mdash;');
+  document.getElementById('um-role').textContent = rolesMap[username]||'Standard';
+  document.getElementById('um-status').innerHTML = isBanned?'<span style="color:var(--danger)">BANNED</span>':isOnline?`<span style="color:var(--success)">${u.liveState||'ONLINE'}</span>`:'<span style="color:var(--muted)">OFFLINE</span>';
+  document.getElementById('um-lastseen').textContent = u.lastSeen?timeSince(u.lastSeen):'&mdash;';
+  const vpn=vpnFlags[username]; document.getElementById('um-vpn').textContent = vpn?(vpn.tor?'TOR':vpn.vpn?'VPN':vpn.proxy?'Proxy':'&mdash;'):'&mdash;';
+  const note=userNotes[username]; const noteEl=document.getElementById('um-note');
+  noteEl.textContent = note?note.slice(0,40)+(note.length>40?'\u2026':''):'+ Add note';
+  noteEl.onclick = () => { closeUserModal(); setTimeout(()=>openNoteModal(username),100); };
+  const userBans=auditLog.filter(e=>(e.username===username||e.deviceId===u.deviceId)&&e.action==='BAN').slice(0,4);
+  document.getElementById('um-ban-history').innerHTML = userBans.length?userBans.map(b=>`<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px;">&#x1F528; ${b.reason||'&mdash;'} <span style="color:var(--muted)">(${b.time})</span></div>`).join(''):'<span style="color:var(--muted)">No ban history.</span>';
+  document.getElementById('um-actions').innerHTML = (isBanned?`<button class="btn-action btn-unban" onclick="executeUnban('${u.deviceId}','${username}');closeUserModal()">Unban</button>`:`<button class="btn-action btn-ban" onclick="executeBan('${u.deviceId}','${username}','Admin Action',3);closeUserModal()">Ban 3d</button>`)
+    +`<button class="btn-action btn-warn" onclick="toggleUserWarn('${username}');closeUserModal()">${u.warned?'Unwarn':'Warn'}</button>`
+    +`<button class="btn-action btn-unban" style="background:rgba(99,102,241,.2);border-color:#6366f1;color:#a5b4fc;" onclick="openNoteModal('${username}')">&#x1F4DD; Note</button>`;
+  document.getElementById('um-overlay').style.display = 'grid';
+};
+function closeUserModal() { document.getElementById('um-overlay').style.display = 'none'; }
