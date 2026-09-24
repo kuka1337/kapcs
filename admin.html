@@ -984,9 +984,6 @@ function getBadgePreview(role){
 function showToast(msg,isDanger=false){
   const el=document.getElementById('admin-toast');el.textContent=msg;el.className=isDanger?'danger':'';el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.display='none';},3000);
 }
-</script>
-</body>
-</html>
 
 // SESSION LOG
 let sessionLog = JSON.parse(localStorage.getItem('kapcs_admin_session_log') || '[]');
@@ -1098,3 +1095,6 @@ window.openUserModal = function(username) {
   document.getElementById('um-overlay').style.display = 'grid';
 };
 function closeUserModal() { document.getElementById('um-overlay').style.display = 'none'; }
+</script>
+</body>
+</html>
