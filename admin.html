@@ -1037,7 +1037,7 @@ client.on('message', (topic, message) => {
     const box = document.getElementById('modchat-messages'); if (!box) return;
     const isAdmin = d.from === 'ADMIN';
     const div = document.createElement('div'); div.className = 'modchat-msg ' + (isAdmin ? 'out' : 'in');
-    div.innerHTML = `<b style="font-size:10px;display:block;margin-bottom:2px;color:${isAdmin?'#a5b4fc':'var(--muted)'}">@${d.from} ${d.time||''}</b>${escHtml(d.text||'')}`;
+    div.innerHTML = `<b style="font-size:10px;display:block;margin-bottom:2px;color:` + (isAdmin?'#a5b4fc':'var(--muted)') + `">@${d.from} ${d.time||''}</b>${escHtml(d.text||'')}`;
     box.appendChild(div); box.scrollTop = box.scrollHeight;
   } catch(e) {}
 });
@@ -1074,7 +1074,8 @@ window.openUserModal = function(username) {
   document.getElementById('um-name').textContent = '@' + username;
   document.getElementById('um-current-user').value = username;
   const isOnline = u.lastSeen && (now-u.lastSeen<18000), isBanned = bannedList.some(b=>b.targetName===username||b.targetDev===u.deviceId);
-  document.getElementById('um-meta').innerHTML = `<span style="color:${isOnline?'var(--success)':'var(--muted)'}">&#x25CF; ${isOnline?(u.liveState||'Online'):'Offline'}</span> &nbsp;&middot;&nbsp; ${getFlagEmoji(u.country)} ${u.countryName||u.country||'&mdash;'}`;
+  const onlineColor = isOnline ? 'var(--success)' : 'var(--muted)';
+  document.getElementById('um-meta').innerHTML = `<span style="color:` + onlineColor + `">&#x25CF; ${isOnline?(u.liveState||'Online'):'Offline'}</span> &nbsp;&middot;&nbsp; ${getFlagEmoji(u.country)} ${u.countryName||u.country||'&mdash;'}`;
   document.getElementById('um-likes').textContent = u.likes||0;
   const banCount = auditLog.filter(e=>(e.username===username||e.deviceId===u.deviceId)&&e.action==='BAN').length;
   const warnCount = auditLog.filter(e=>e.username===username&&e.action==='WARN').length + (u.warned?1:0);
