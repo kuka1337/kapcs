@@ -1,7 +1,8 @@
 {
   "rewrites": [
     { "source": "/admin", "destination": "/api/admin-gate" },
-    { "source": "/admin.html", "destination": "/api/admin-gate" }
+    { "source": "/admin.html", "destination": "/api/admin-gate" },
+    { "source": "/goretok", "destination": "/goretok/index.html" }
   ],
   "headers": [
     {
