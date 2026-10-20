@@ -52,7 +52,7 @@ ometv/
         ├── register.js login.js session.js me.js like.js   (Edge)
         ├── posts.js                                         (Edge — GET list + POST create)
         ├── tags.js                                          (Edge — GET hashtag usage counts)
-        ├── blob-upload-url.js                               (Edge — Vercel Blob client token)
+        ├── blob-upload-url.js                               (Node — Vercel Blob server upload via put())
         ├── admin/stats.js  admin/role.js                    (Edge — existing admin HMAC gate)
         └── _lib/           crypto / validate / kv / http helpers
 ```
@@ -83,15 +83,20 @@ No local fallback — in production these must be present (fail loudly if missin
 
 ## 1b. Add the Vercel Blob store (for file upload)
 
-1. Vercel Dashboard → Project → **Storage** → **Create** → **Blob** → **Connect**
-   it to this project. Vercel then auto-injects the Blob token:
+1. Vercel Dashboard → Project → **Storage** → **Create** → **Blob**. Choose
+   **Public** access (a public video site serves clips by direct URL — a
+   private store rejects `access:'public'` uploads and the access mode cannot
+   be changed after creation). **Connect** it to this project and enable the
+   read-write token env var. Vercel then injects the Blob token:
 
 | Name | Injected by | Notes |
 |------|-------------|-------|
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob link | read/write token used by `@vercel/blob` to mint client-upload tokens |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob link | read/write token `@vercel/blob`'s `put()` uses to upload |
 
-File upload (pick/drop a video) **requires** a linked Blob store. Posting by a
-direct **video URL works without** a Blob store. Never hardcode the token —
+File upload (pick/drop a video) **requires** a linked **public** Blob store.
+The server-upload route (`put()` on the Node runtime) caps at **~4.4 MB** per
+file (Vercel's serverless request-body limit); **bigger clips use the video-URL
+field**, which works without a Blob store. Never hardcode the token —
 `@vercel/blob` reads it from the environment.
 
 ## 2. Add the GoreTok auth secret
@@ -117,7 +122,7 @@ verify the existing admin gate token. No new admin secret is needed.
 | GET | `/api/goretok/posts` | Edge | public (feed) |
 | POST | `/api/goretok/posts` | Edge | Bearer session token |
 | GET | `/api/goretok/tags` | Edge | public (hashtag usage counts) |
-| POST | `/api/goretok/blob-upload-url` | Edge | Bearer session token (via `clientPayload`) |
+| POST | `/api/goretok/blob-upload-url` | Node | Bearer session token (raw file body, server upload via put()) |
 | POST | `/api/goretok/like` | Edge | Bearer session token |
 | GET | `/api/goretok/admin/stats` | Edge | Admin gate HMAC token |
 | POST | `/api/goretok/admin/role` | Edge | Admin gate HMAC token |

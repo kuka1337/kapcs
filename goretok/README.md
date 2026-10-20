@@ -63,8 +63,9 @@ goretok/
 
 Accounts, the shared post store, likes, hashtags, and admin stats/roles run on
 **Vercel Functions** under `../api/goretok/*`, backed by **Vercel KV**
-(Upstash Redis via `@vercel/kv`). Video **file upload** uses **Vercel Blob** via
-`@vercel/blob` (client-side upload). No framework, no build step.
+(Upstash Redis via `@vercel/kv`). Video **file upload** uses a **public Vercel
+Blob** store via `@vercel/blob`'s `put()` (server upload, Node runtime).
+No framework, no build step.
 
 - **Auth** — `POST /api/goretok/register` and `/login` create/verify an account
   (username + password). Passwords are stored **only** as a PBKDF2 hash + per-user
@@ -75,14 +76,16 @@ Accounts, the shared post store, likes, hashtags, and admin stats/roles run on
   paginated). With zero posts the feed shows a **"no posts yet"** empty state —
   there are no demo clips.
 - **Posting** — `POST /api/goretok/posts` adds a post from either a **picked/dropped
-  video file** (uploaded client-side to **Vercel Blob**, then posted by its public
-  URL) **or** a **direct video URL**, plus a title and free-text **hashtags**. The
+  video file** (uploaded to **Vercel Blob** via the upload route, then posted by its
+  public URL) **or** a **direct video URL**, plus a title and free-text **hashtags**. The
   old fixed category field is **removed** (hashtags replace it). The clip's
   **duration** is read in the browser from the file/URL metadata (a hidden
   `<video>` element — **not AI**) and stored as `durationSec`, shown as `m:ss`.
-- **File upload** — `POST /api/goretok/blob-upload-url` (session-gated) mints a
-  short-lived Vercel Blob client token restricted to `video/*` and 100 MB; the
-  browser then uploads straight to Blob. File upload needs a **linked Blob store**;
+- **File upload** — `POST /api/goretok/blob-upload-url` (session-gated, Node
+  runtime) accepts the raw video bytes, restricts to `video/*` and ~4.4 MB, and
+  `put()`s the file to the **public** Blob store, returning its public URL.
+  Bigger clips should use the video-URL field. File upload needs a **linked
+  public Blob store**;
   **URL posting works without one.**
 - **Hashtags** — there are **no seeded/default tags** — only ones users type. On
   create, each normalized tag increments a usage counter and joins a known-tags
