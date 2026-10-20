@@ -13,7 +13,7 @@ export const config = { runtime: 'edge' };
 import { json, secHeaders } from './_lib/http.js';
 import { verifySessionToken, bearerFrom } from './_lib/crypto.js';
 import {
-  validateTitle, validateCategory, validateTags, validateVideoUrl, makePostId
+  validateTitle, validateTags, validateDuration, validateVideoUrl, makePostId
 } from './_lib/validate.js';
 import { getKv } from './_lib/kv.js';
 
@@ -59,10 +59,10 @@ async function createPost(req) {
 
   const t = validateTitle(body.title);
   if (!t.ok) return json({ error: t.error }, 400);
-  const c = validateCategory(body.category);
-  if (!c.ok) return json({ error: c.error }, 400);
   const tags = validateTags(body.tags);
   if (!tags.ok) return json({ error: tags.error }, 400);
+  const d = validateDuration(body.durationSec);
+  if (!d.ok) return json({ error: d.error }, 400);
   const v = validateVideoUrl(body.videoUrl);
   if (!v.ok) return json({ error: v.error }, 400);
 
@@ -74,8 +74,8 @@ async function createPost(req) {
     author: handle,
     title: t.value,
     tags: tags.value,
-    category: c.value,
     videoUrl: v.value,
+    durationSec: d.value,
     createdAt,
     likeCount: 0,
     commentCount: 0
@@ -87,6 +87,11 @@ async function createPost(req) {
     await kv.lpush('gt:posts:index', id);
     await kv.incr('gt:posts:count');
     await kv.lpush(`gt:user:${handle}:posts`, id);
+    // Per-hashtag usage counters + a known-tags index (no seeded tags).
+    for (const tag of tags.value) {
+      await kv.incr(`gt:tag:${tag}:count`);
+      await kv.sadd('gt:tags', tag);
+    }
     return json({ post }, 201);
   } catch (err) {
     console.error('create post failed:', err && err.name);

@@ -39,22 +39,75 @@ export function validateTitle(raw) {
   return { ok: true, value };
 }
 
+export const MAX_TAGS = 10;
+const MAX_TAG_LEN = 24;
+
+// DEPRECATED: categories are no longer used for new posts (replaced by free-text
+// hashtags). Kept exported for backward reference; createPost no longer calls it.
 export function validateCategory(raw) {
   if (CATEGORIES.includes(raw)) return { ok: true, value: raw };
   return { ok: false, error: 'Category must be one of: ' + CATEGORIES.join(', ') + '.' };
 }
 
-export function validateTags(raw) {
-  if (raw == null) return { ok: true, value: [] };
-  if (!Array.isArray(raw)) return { ok: false, error: 'Tags must be an array.' };
+/**
+ * Normalize a single hashtag: lowercase, strip a leading '#', keep only
+ * [a-z0-9_] (drop other chars rather than reject), and cap length.
+ * Returns '' when nothing usable remains.
+ */
+function normalizeTag(raw) {
+  if (typeof raw !== 'string') return '';
+  let t = raw.trim().toLowerCase();
+  if (t.startsWith('#')) t = t.slice(1);
+  t = t.replace(/[^a-z0-9_]/g, '');
+  if (t.length > MAX_TAG_LEN) t = t.slice(0, MAX_TAG_LEN);
+  return t;
+}
+
+/**
+ * Parse free-text or an array of tags into normalized, deduped hashtags.
+ * Accepts a string ("#fx, zombie #fx prosthetic") or an array of strings.
+ * Shared by the server and (optionally) the client so both agree on the rules.
+ */
+export function parseTags(raw) {
+  let parts;
+  if (raw == null) parts = [];
+  else if (Array.isArray(raw)) parts = raw;
+  else if (typeof raw === 'string') parts = raw.split(/[\s,]+/);
+  else parts = [];
+
   const out = [];
-  for (const t of raw) {
-    if (typeof t !== 'string') continue;
-    const tag = t.trim().toLowerCase().replace(/^#/, '');
-    if (TAG_RE.test(tag)) out.push(tag);
-    if (out.length >= 8) break;
+  const seen = new Set();
+  for (const p of parts) {
+    const tag = normalizeTag(p);
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= MAX_TAGS) break;
   }
-  return { ok: true, value: out };
+  return out;
+}
+
+export function validateTags(raw) {
+  if (raw != null && !Array.isArray(raw) && typeof raw !== 'string') {
+    return { ok: false, error: 'Tags must be an array or string.' };
+  }
+  return { ok: true, value: parseTags(raw) };
+}
+
+const MAX_DURATION_SEC = 6 * 60 * 60; // 6 hours — a sane ceiling
+
+/**
+ * Validate a client-reported video duration (seconds).
+ * null/undefined -> { ok:true, value:null }. Otherwise coerce to a finite,
+ * non-negative integer clamped to MAX_DURATION_SEC. Never throws.
+ */
+export function validateDuration(raw) {
+  if (raw == null) return { ok: true, value: null };
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return { ok: true, value: null };
+  let v = Math.round(n);
+  if (v > MAX_DURATION_SEC) v = MAX_DURATION_SEC;
+  return { ok: true, value: v };
 }
 
 export function validateVideoUrl(raw) {

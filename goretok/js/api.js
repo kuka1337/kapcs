@@ -100,6 +100,40 @@ window.GoreTokAPI = (function () {
     return parse(res);
   }
 
+  // ── Hashtags ──────────────────────────────────────────────────────────
+  async function listTags() {
+    const res = await fetch(BASE + "/tags");
+    return parse(res);
+  }
+
+  // ── File upload (Vercel Blob, client-side) ──────────────────────────────
+  // Uploads a video file straight to Vercel Blob via a short-lived, auth-gated
+  // token minted by /blob-upload-url, and resolves the public blob URL.
+  // The front end has no bundler, so @vercel/blob/client is loaded from an ESM
+  // CDN. onProgress(pct) receives 0..100.
+  async function uploadVideoFile(file, onProgress) {
+    let upload;
+    try {
+      ({ upload } = await import("https://esm.sh/@vercel/blob@2/client"));
+    } catch (e) {
+      throw new Error("Could not load the uploader. Check your connection.");
+    }
+    try {
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: BASE + "/blob-upload-url",
+        clientPayload: JSON.stringify({ token: getToken() }),
+        contentType: file.type || undefined,
+        onUploadProgress: function (e) {
+          if (onProgress && e && typeof e.percentage === "number") onProgress(e.percentage);
+        },
+      });
+      return blob.url;
+    } catch (e) {
+      throw new Error((e && e.message) || "Upload failed.");
+    }
+  }
+
   // ── Likes ─────────────────────────────────────────────────────────────
   async function like(postId, liked) {
     const res = await fetch(BASE + "/like", {
@@ -115,5 +149,6 @@ window.GoreTokAPI = (function () {
     isLoggedIn: function () { return !!getToken(); },
     register, login, session, me, logout,
     listPosts, createPost, like,
+    listTags, uploadVideoFile,
   };
 })();

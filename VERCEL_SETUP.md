@@ -50,7 +50,9 @@ ometv/
     ├── admin-gate.js   ← Edge Function — admin hitelesítés
     └── goretok/        ← GoreTok backend (serverless + Vercel KV)
         ├── register.js login.js session.js me.js like.js   (Edge)
-        ├── posts.js                                         (Node — GET list + POST create)
+        ├── posts.js                                         (Edge — GET list + POST create)
+        ├── tags.js                                          (Edge — GET hashtag usage counts)
+        ├── blob-upload-url.js                               (Edge — Vercel Blob client token)
         ├── admin/stats.js  admin/role.js                    (Edge — existing admin HMAC gate)
         └── _lib/           crypto / validate / kv / http helpers
 ```
@@ -79,6 +81,19 @@ console handles reports/bans/warnings exactly as before.
 
 No local fallback — in production these must be present (fail loudly if missing).
 
+## 1b. Add the Vercel Blob store (for file upload)
+
+1. Vercel Dashboard → Project → **Storage** → **Create** → **Blob** → **Connect**
+   it to this project. Vercel then auto-injects the Blob token:
+
+| Name | Injected by | Notes |
+|------|-------------|-------|
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob link | read/write token used by `@vercel/blob` to mint client-upload tokens |
+
+File upload (pick/drop a video) **requires** a linked Blob store. Posting by a
+direct **video URL works without** a Blob store. Never hardcode the token —
+`@vercel/blob` reads it from the environment.
+
 ## 2. Add the GoreTok auth secret
 
 | Name | Value | Environment |
@@ -99,11 +114,17 @@ verify the existing admin gate token. No new admin secret is needed.
 | POST | `/api/goretok/login` | Edge | — (rate-limited) |
 | GET | `/api/goretok/session` | Edge | Bearer session token |
 | GET | `/api/goretok/me` | Edge | Bearer session token |
-| GET | `/api/goretok/posts` | Node | public (feed) |
-| POST | `/api/goretok/posts` | Node | Bearer session token |
+| GET | `/api/goretok/posts` | Edge | public (feed) |
+| POST | `/api/goretok/posts` | Edge | Bearer session token |
+| GET | `/api/goretok/tags` | Edge | public (hashtag usage counts) |
+| POST | `/api/goretok/blob-upload-url` | Edge | Bearer session token (via `clientPayload`) |
 | POST | `/api/goretok/like` | Edge | Bearer session token |
 | GET | `/api/goretok/admin/stats` | Edge | Admin gate HMAC token |
 | POST | `/api/goretok/admin/role` | Edge | Admin gate HMAC token |
 
-With an empty KV the feed shows a tasteful empty state (no demo clips).
-Posting is **URL-based for now**; direct file upload (Vercel Blob) is a later step.
+With an empty KV the feed shows a tasteful empty state (no demo clips), and
+`/api/goretok/tags` returns `[]` (no seeded hashtags). A post can be created from
+a **picked/dropped video file** (uploaded to **Vercel Blob**, needs a linked Blob
+store) **or** a **direct video URL** (works without a Blob store). The new routes
+live under the existing `/api/goretok/(.*)` header rule in `vercel.json`, so **no
+rewrite/header changes are needed** there.

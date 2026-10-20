@@ -172,7 +172,9 @@ body {
 }
 .caption .user { font-weight: 800; font-size: 14px; }
 .caption .text { font-size: 12.5px; color: #d8d8e6; margin-top: 4px; line-height: 1.45; }
-.caption .tag { color: var(--accent); }
+.caption .tag { color: var(--accent); cursor: pointer; }
+.caption .tag:hover { text-decoration: underline; }
+.tag-count { color: var(--muted); font-size: 11.5px; }
 
 /* badge top-left of each slide */
 .kind-badge {
@@ -241,6 +243,40 @@ body {
   color: #ff8aa0; padding: 6px 14px; border-radius: 20px;
   background: rgba(255,45,85,.1); border: 1px solid rgba(255,45,85,.3);
 }
+.vp-loading { font-size: 13px; color: var(--muted); }
+
+/* ---- Discover: hashtag browser ---- */
+.discover-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--panel); border: 1px solid var(--line);
+  color: var(--text); font-size: 13px; font-weight: 600;
+  padding: 8px 12px; border-radius: 20px; cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.tag-chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,45,85,.08); }
+.tag-chip .tag-count { color: var(--muted); font-weight: 500; }
+.discover-empty {
+  font-size: 13px; color: var(--muted); line-height: 1.6;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 18px 16px; text-align: center;
+}
+
+/* ---- Active hashtag filter bar over the feed ---- */
+.feed-filter-bar {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 4; display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--accent);
+  border-radius: 20px; padding: 6px 8px 6px 14px;
+  box-shadow: 0 6px 24px rgba(255,45,85,.3);
+}
+.feed-filter-bar[hidden] { display: none; }
+.feed-filter-bar .ff-label { font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.feed-filter-bar .ff-clear {
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+  font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 14px; cursor: pointer;
+}
+.feed-filter-bar .ff-clear:hover { color: var(--text); border-color: var(--muted); }
 
 /* ===================== AGE GATE ===================== */
 .age-gate {
@@ -431,6 +467,41 @@ body {
 .form-msg { font-size: 12.5px; min-height: 16px; font-weight: 600; }
 .form-msg.ok { color: var(--ok); }
 .form-msg.err { color: var(--accent); }
+
+/* ---- File drop zone ---- */
+.upload-drop {
+  border: 1.5px dashed var(--line);
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 18px 14px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12.5px;
+  transition: border-color .15s, background .15s, color .15s;
+  outline: none;
+}
+.upload-drop:hover, .upload-drop:focus-visible { border-color: var(--accent); color: var(--text); }
+.upload-drop.dragover { border-color: var(--accent); background: rgba(255,45,85,.1); color: var(--text); }
+.upload-drop-link { color: var(--accent); font-weight: 700; }
+.upload-file-name {
+  display: block; margin-top: 4px;
+  color: var(--text); font-size: 12.5px; font-weight: 600;
+  word-break: break-all;
+}
+.upload-duration { font-size: 11.5px; color: var(--ok); font-weight: 600; }
+
+/* ---- Upload progress bar ---- */
+.upload-progress {
+  width: 100%; height: 8px; border-radius: 6px;
+  background: var(--panel); border: 1px solid var(--line);
+  overflow: hidden;
+}
+.upload-progress .bar {
+  width: 0%; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .2s ease;
+}
 
 /* ===================== ROLE BADGE ===================== */
 .role-badge {

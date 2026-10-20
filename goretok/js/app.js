@@ -28,7 +28,7 @@
   const pager = document.getElementById("pager");
 
   const AGE_KEY = "goretok_age_ok";
-  const CATEGORIES = ["Fiction", "FX", "Gaming", "Horror"];
+  const MAX_TAGS = 10;
 
   /* -------------------- Session state -------------------- */
   // Current logged-in user (from /me). null while a guest / logged out.
@@ -38,6 +38,10 @@
   let likedSet = new Set();
   let nextCursor = 0;
   let loadingMore = false;
+  // Cache of hashtag usage counts ({ tag: count }), refreshed from /tags.
+  let tagCounts = {};
+  // Active client-side hashtag filter (null when the full feed is shown).
+  let activeTag = null;
 
   /* ============================================================
      AUTH
@@ -160,7 +164,10 @@
     posts = [];
     nextCursor = 0;
     hideEmptyState();
+    activeTag = null;
+    removeFilterBar();
     try {
+      await refreshTagCounts();
       const data = await API.listPosts(20, 0);
       posts = data.posts || [];
       nextCursor = data.nextCursor;
@@ -206,10 +213,6 @@
     video.setAttribute("webkit-playsinline", "true");
     media.appendChild(video);
 
-    const badge = document.createElement("div");
-    badge.className = "kind-badge";
-    badge.textContent = p.category;
-
     const play = document.createElement("div");
     play.className = "play";
 
@@ -218,14 +221,36 @@
     video.addEventListener("play", () => slide.classList.add("playing"));
     video.addEventListener("pause", () => slide.classList.remove("playing"));
 
+    // Duration badge (mm:ss) — omitted entirely when unknown. Old posts that
+    // still carry a `category` field simply don't get a badge.
+    let badge = null;
+    const durSec = Number(p.durationSec);
+    if (Number.isFinite(durSec) && durSec > 0) {
+      badge = document.createElement("div");
+      badge.className = "kind-badge";
+      badge.textContent = formatDuration(durSec);
+    }
+
     const caption = document.createElement("div");
     caption.className = "caption";
     const tagsHtml = (p.tags || [])
-      .map((t) => `<span class="tag">#${escapeHtml(t)}</span>`)
+      .map((t) => {
+        const c = tagCounts[t];
+        const cnt = (typeof c === "number")
+          ? ` <span class="tag-count">· ${escapeHtml(countLabel(c))}</span>`
+          : "";
+        return `<span class="tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>${cnt}`;
+      })
       .join(" ");
     caption.innerHTML =
       `<div class="user">@${escapeHtml(p.author)}</div>` +
       `<div class="text">${escapeHtml(p.title)} ${tagsHtml}</div>`;
+    caption.querySelectorAll(".tag[data-tag]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        filterFeedByTag(el.dataset.tag);
+      });
+    });
 
     const liked = likedSet.has(p.id);
     const rail = document.createElement("div");
@@ -246,7 +271,8 @@
       reportSlide(p, e.currentTarget);
     });
 
-    slide.append(media, badge, play, caption, rail);
+    slide.append(media, play, caption, rail);
+    if (badge) slide.appendChild(badge);
     return slide;
   }
 
@@ -254,6 +280,20 @@
     n = Number(n) || 0;
     if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
     return String(n);
+  }
+
+  // Seconds -> m:ss (e.g. 67 -> "1:07", 42 -> "0:42").
+  function formatDuration(sec) {
+    const s = Math.max(0, Math.round(Number(sec) || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + ":" + String(r).padStart(2, "0");
+  }
+
+  // "1 video" (singular) vs "N videos".
+  function countLabel(n) {
+    n = Number(n) || 0;
+    return n === 1 ? "1 video" : n + " videos";
   }
 
   /* -------------------- Empty state -------------------- */
@@ -317,6 +357,7 @@
 
   // Infinite scroll: fetch the next page as the user nears the end.
   async function maybeLoadMore() {
+    if (activeTag) return; // filtered view is a client-side subset; don't append
     if (loadingMore || nextCursor == null) return;
     const total = feed.querySelectorAll(".slide").length;
     if (total === 0) return;
@@ -560,11 +601,11 @@
 
     if (view === "upload") renderUpload(placeholder);
     else if (view === "profile") renderProfile(placeholder);
+    else if (view === "discover") renderDiscover(placeholder);
     else renderSimpleView(placeholder, view);
   }
 
   const SIMPLE_VIEWS = {
-    discover:   { icon: "⌕", title: "Discover", text: "Browse trending FX, horror and gaming clips by tag. Search lands here in a later step." },
     moderation: { icon: "⚑", title: "Moderation", text: "Manual review queue. Every clip is subject to review — real violence or real harm is removed." },
   };
 
@@ -579,9 +620,109 @@
       `</div>`;
   }
 
-  /* -------------------- Upload view (URL-based) -------------------- */
+  /* -------------------- Hashtags: counts cache + Discover -------------------- */
+  // Refresh the tag -> count cache from /tags. Best-effort; silent on error.
+  async function refreshTagCounts() {
+    try {
+      const tags = await API.listTags();
+      const map = {};
+      (tags || []).forEach((t) => { if (t && t.tag != null) map[t.tag] = t.count; });
+      tagCounts = map;
+    } catch (_) { /* keep the last cache */ }
+  }
+
+  function renderDiscover(placeholder) {
+    placeholder = placeholder || document.getElementById("viewPlaceholder");
+    if (!placeholder) return;
+    placeholder.innerHTML =
+      `<div class="vp-card wide">` +
+        `<div class="vp-icon">⌕</div>` +
+        `<h2>Discover hashtags</h2>` +
+        `<div id="discoverBody"><p class="vp-loading">Loading hashtags…</p></div>` +
+      `</div>`;
+    const body = document.getElementById("discoverBody");
+    API.listTags().then((tags) => {
+      tags = tags || [];
+      // Refresh the caption count cache while we're here.
+      const map = {};
+      tags.forEach((t) => { if (t && t.tag != null) map[t.tag] = t.count; });
+      tagCounts = map;
+      if (tags.length === 0) {
+        body.innerHTML =
+          `<div class="discover-empty">No hashtags yet — they appear once people post with them.</div>`;
+        return;
+      }
+      const chips = tags.map((t) =>
+        `<button class="tag-chip" data-tag="${escapeHtml(t.tag)}">` +
+          `#${escapeHtml(t.tag)} <span class="tag-count">· ${escapeHtml(countLabel(t.count))}</span>` +
+        `</button>`
+      ).join("");
+      body.innerHTML = `<div class="discover-tags">${chips}</div>`;
+      body.querySelectorAll(".tag-chip[data-tag]").forEach((el) => {
+        el.addEventListener("click", () => filterFeedByTag(el.dataset.tag));
+      });
+    }).catch(() => {
+      if (body) body.innerHTML =
+        `<div class="discover-empty">Could not load hashtags. Try again shortly.</div>`;
+    });
+  }
+
+  // Client-side filter the already-fetched feed to posts carrying `tag`.
+  function filterFeedByTag(tag) {
+    activeTag = tag;
+    const filtered = posts.filter((p) => (p.tags || []).indexOf(tag) !== -1);
+    navigateTo("foryou");
+    hideEmptyState();
+    feed.innerHTML = "";
+    if (filtered.length === 0) {
+      showEmptyState(`No clips tagged #${tag} yet.`);
+    } else {
+      renderPosts(filtered, true);
+      feed.scrollTo({ top: 0 });
+    }
+    showFilterBar(tag);
+  }
+
+  function clearTagFilter() {
+    activeTag = null;
+    removeFilterBar();
+    feed.innerHTML = "";
+    if (posts.length === 0) {
+      showEmptyState();
+    } else {
+      hideEmptyState();
+      renderPosts(posts, true);
+      feed.scrollTo({ top: 0 });
+    }
+  }
+
+  function showFilterBar(tag) {
+    let bar = document.getElementById("feedFilterBar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "feedFilterBar";
+      bar.className = "feed-filter-bar";
+      feed.parentElement.appendChild(bar);
+    }
+    bar.hidden = false;
+    bar.innerHTML =
+      `<span class="ff-label">Showing #${escapeHtml(tag)}</span>` +
+      `<button class="ff-clear" id="ffClear">Clear</button>`;
+    const clr = document.getElementById("ffClear");
+    if (clr) clr.addEventListener("click", clearTagFilter);
+  }
+
+  function removeFilterBar() {
+    const bar = document.getElementById("feedFilterBar");
+    if (bar) bar.hidden = true;
+  }
+
+  /* -------------------- Upload view (file + URL) -------------------- */
+  // The video file the user picked/dropped (null when posting by URL).
+  let pickedFile = null;
+
   function renderUpload(placeholder) {
-    const options = CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join("");
+    pickedFile = null;
     placeholder.innerHTML =
       `<div class="vp-card wide">` +
         `<div class="vp-icon">▲</div>` +
@@ -589,19 +730,131 @@
         `<form class="upload-form" id="uploadForm">` +
           `<label for="upTitle">Title</label>` +
           `<input type="text" id="upTitle" maxlength="120" placeholder="e.g. Latex wound SFX timelapse" required />` +
-          `<label for="upCategory">Category</label>` +
-          `<select id="upCategory">${options}</select>` +
-          `<label for="upTags">Tags</label>` +
-          `<input type="text" id="upTags" placeholder="fx horror makeup (space or comma)" />` +
-          `<label for="upUrl">Video URL</label>` +
-          `<input type="url" id="upUrl" maxlength="2048" placeholder="https://…/clip.mp4" required />` +
+          `<label>Video file</label>` +
+          `<div class="upload-drop" id="upDrop" tabindex="0" role="button" aria-label="Choose or drop a video file">` +
+            `<span class="upload-drop-hint">Drag &amp; drop a video here, or <span class="upload-drop-link">browse</span></span>` +
+            `<span class="upload-file-name" id="upFileName" hidden></span>` +
+          `</div>` +
+          `<input type="file" id="upFile" accept="video/*" hidden />` +
+          `<label for="upUrl">…or paste a video URL</label>` +
+          `<input type="url" id="upUrl" maxlength="2048" placeholder="https://…/clip.mp4" />` +
+          `<label for="upTags">Hashtags</label>` +
+          `<input type="text" id="upTags" placeholder="#fx #zombie prosthetic (space or comma)" />` +
+          `<div class="upload-duration" id="upDuration" hidden></div>` +
+          `<div class="upload-progress" id="upProgress" hidden><div class="bar"></div></div>` +
           `<button type="submit" class="btn btn-yes" id="upSubmit" style="min-width:0;width:100%;">Post clip</button>` +
           `<div class="form-msg" id="upMsg"></div>` +
-          `<p class="upload-note">Direct file upload (Vercel Blob) is coming in a later step. For now, paste a direct video URL.</p>` +
+          `<p class="upload-note">Pick or drop a video file (uploaded via Vercel Blob — needs a linked Blob store), or paste a direct video URL. Either one works.</p>` +
         `</form>` +
       `</div>`;
     const form = document.getElementById("uploadForm");
     if (form) form.addEventListener("submit", handleUpload);
+    wireDropzone();
+  }
+
+  function wireDropzone() {
+    const drop = document.getElementById("upDrop");
+    const fileInput = document.getElementById("upFile");
+    if (!drop || !fileInput) return;
+
+    drop.addEventListener("click", () => fileInput.click());
+    drop.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+    });
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files && fileInput.files[0]) setPickedFile(fileInput.files[0]);
+    });
+    ["dragenter", "dragover"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("dragover"); })
+    );
+    ["dragleave", "drop"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("dragover"); })
+    );
+    drop.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files[0]) setPickedFile(dt.files[0]);
+    });
+  }
+
+  function setPickedFile(file) {
+    if (file && file.type && file.type.indexOf("video/") !== 0) {
+      const msg = document.getElementById("upMsg");
+      if (msg) { msg.className = "form-msg err"; msg.textContent = "Please choose a video file."; }
+      return;
+    }
+    pickedFile = file || null;
+    const nameEl = document.getElementById("upFileName");
+    const hint = document.querySelector("#upDrop .upload-drop-hint");
+    if (pickedFile) {
+      if (nameEl) { nameEl.hidden = false; nameEl.textContent = pickedFile.name; }
+      if (hint) hint.style.display = "none";
+      // Reading duration is browser metadata only — NOT AI/ML.
+      showDuration(null);
+      probeDuration(pickedFile).then(showDuration);
+    } else {
+      if (nameEl) nameEl.hidden = true;
+      if (hint) hint.style.display = "";
+      showDuration(null);
+    }
+  }
+
+  function showDuration(sec) {
+    const el = document.getElementById("upDuration");
+    if (!el) return;
+    if (Number.isFinite(sec) && sec > 0) {
+      el.hidden = false;
+      el.textContent = "Duration: " + formatDuration(sec);
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+
+  function updateProgressUI(pct) {
+    const wrap = document.getElementById("upProgress");
+    if (!wrap) return;
+    if (pct == null) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    const bar = wrap.querySelector(".bar");
+    if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  }
+
+  // Read a video's duration in the browser via a detached <video> + the
+  // loadedmetadata event. Resolves a rounded second count, or null when it
+  // can't be read (error, timeout, or a non-finite duration). NO AI/ML.
+  function probeDuration(src) {
+    return new Promise((resolve) => {
+      let done = false;
+      let objUrl = null;
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      function finish(val) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (_) {} }
+        v.removeAttribute("src");
+        resolve(val);
+      }
+      const timer = setTimeout(() => finish(null), 8000);
+      v.addEventListener("loadedmetadata", () => {
+        const d = v.duration;
+        finish(Number.isFinite(d) && d > 0 ? Math.round(d) : null);
+      });
+      v.addEventListener("error", () => finish(null));
+      try {
+        if (typeof src === "string") {
+          v.crossOrigin = "anonymous";
+          v.src = src;
+        } else {
+          objUrl = URL.createObjectURL(src);
+          v.src = objUrl;
+        }
+      } catch (_) {
+        finish(null);
+      }
+    });
   }
 
   async function handleUpload(e) {
@@ -616,22 +869,50 @@
       return;
     }
     const title = document.getElementById("upTitle").value.trim();
-    const category = document.getElementById("upCategory").value;
     const tagsRaw = document.getElementById("upTags").value;
-    const videoUrl = document.getElementById("upUrl").value.trim();
-    const tags = tagsRaw.split(/[\s,]+/).map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean);
+    const urlVal = document.getElementById("upUrl").value.trim();
+
+    // Normalize hashtags client-side (mirrors the server rules): lowercase,
+    // strip leading '#', keep a-z0-9_, dedupe, cap at MAX_TAGS.
+    const seen = new Set();
+    const tags = [];
+    tagsRaw.split(/[\s,]+/).forEach((raw) => {
+      const t = raw.trim().toLowerCase().replace(/^#/, "").replace(/[^a-z0-9_]/g, "").slice(0, 24);
+      if (t && !seen.has(t)) { seen.add(t); tags.push(t); }
+    });
+    if (tags.length > MAX_TAGS) tags.length = MAX_TAGS;
+
+    if (!pickedFile && !urlVal) {
+      msg.className = "form-msg err";
+      msg.textContent = "Choose a video file or paste a video URL.";
+      return;
+    }
 
     submit.disabled = true;
     const label = submit.textContent;
-    submit.textContent = "Posting…";
+    submit.textContent = pickedFile ? "Uploading…" : "Posting…";
     try {
-      const data = await API.createPost({ title, category, tags, videoUrl });
+      let videoUrl;
+      let durationSec = null;
+      if (pickedFile) {
+        durationSec = await probeDuration(pickedFile);
+        updateProgressUI(0);
+        videoUrl = await API.uploadVideoFile(pickedFile, (pct) => updateProgressUI(pct));
+        updateProgressUI(null);
+      } else {
+        videoUrl = urlVal;
+        durationSec = await probeDuration(urlVal); // best-effort; may be null (CORS)
+      }
+
+      submit.textContent = "Posting…";
+      const data = await API.createPost({ title, tags, videoUrl, durationSec });
       const post = data.post;
       // Prepend to the in-memory feed and switch to For You.
       posts.unshift(post);
+      activeTag = null;
+      removeFilterBar();
       navigateTo("foryou");
       hideEmptyState();
-      // Rebuild the feed with the new post on top.
       feed.innerHTML = "";
       renderPosts(posts, true);
       feed.scrollTo({ top: 0 });
@@ -639,7 +920,10 @@
       if (currentUser) {
         currentUser.posts = [post.id].concat(currentUser.posts || []);
       }
+      // Refresh hashtag counts so captions/Discover reflect the new post.
+      refreshTagCounts();
     } catch (err) {
+      updateProgressUI(null);
       msg.className = "form-msg err";
       msg.textContent = err.message || "Could not post.";
     } finally {
@@ -675,7 +959,12 @@
     posts.forEach((p) => { byId[p.id] = p; });
     return ids.map((id) => {
       const p = byId[id];
-      const label = p ? `${escapeHtml(p.title)} · ${escapeHtml(p.category)}` : escapeHtml(id);
+      let label = escapeHtml(id);
+      if (p) {
+        const dur = Number(p.durationSec);
+        label = escapeHtml(p.title) +
+          (Number.isFinite(dur) && dur > 0 ? ` · ${escapeHtml(formatDuration(dur))}` : "");
+      }
       return `<li title="${escapeHtml(id)}">${label}</li>`;
     }).join("");
   }
