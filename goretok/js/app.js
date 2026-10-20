@@ -1024,9 +1024,17 @@
     });
   }
 
+  function wireBottomNav() {
+    const items = document.querySelectorAll(".bottom-nav-item");
+    items.forEach((btn) => {
+      btn.addEventListener("click", () => navigateTo(btn.dataset.view));
+    });
+  }
+
   function navigateTo(view) {
     const items = document.querySelectorAll(".nav-item");
     items.forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    document.querySelectorAll(".bottom-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     showView(view);
   }
 
@@ -1697,6 +1705,7 @@
     wireAuth();
     setAuthMode("login");
     wireNav();
+    wireBottomNav();
     initModeration();
     updateAccountStatus();
 

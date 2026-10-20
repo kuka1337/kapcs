@@ -32,7 +32,6 @@ const ALLOWED_IMAGE_TYPES = [
   'image/webp',
   'image/gif'
 ];
-const MAX_SIZE_BYTES = 4.4 * 1024 * 1024; // keep under Vercel's ~4.5 MB server-upload cap
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // ~2 MB cap for avatar/images
 
 const SEC = {
@@ -138,19 +137,23 @@ export default async function handler(req, res) {
       return reply(res, 400, { error: 'Only video (mp4, webm, mov, ogg, mkv) or image (png, jpeg, webp, gif) files are allowed.' });
     }
 
-    const cap = isImage ? MAX_IMAGE_BYTES : MAX_SIZE_BYTES;
-    let buf;
-    try {
-      buf = await readBody(req, cap);
-    } catch (e) {
-      if (e && e.message === 'TOO_LARGE') {
-        return reply(res, 413, isImage
-          ? { error: 'Image too large (max ~2 MB).' }
-          : { error: 'File too large for direct upload (max ~4.4 MB). Use a video URL for bigger clips.' });
+    let blobBody;
+    if (isImage) {
+      // Buffer images — they're small (≤2 MB) and this path is unchanged.
+      try {
+        blobBody = await readBody(req, MAX_IMAGE_BYTES);
+      } catch (e) {
+        if (e && e.message === 'TOO_LARGE') {
+          return reply(res, 413, { error: 'Image too large (max ~2 MB).' });
+        }
+        throw e;
       }
-      throw e;
+      if (!blobBody || blobBody.length === 0) return reply(res, 400, { error: 'Empty file.' });
+    } else {
+      // Stream video directly to Vercel Blob — no buffering in the Lambda,
+      // so the ~4.5 MB serverless request body cap no longer applies.
+      blobBody = req;
     }
-    if (!buf || buf.length === 0) return reply(res, 400, { error: 'Empty file.' });
 
     let pathname;
     if (isImage) {
@@ -162,7 +165,7 @@ export default async function handler(req, res) {
       pathname = `goretok/${verified.handle}/${Date.now()}-${name}`;
     }
 
-    const blob = await put(pathname, buf, {
+    const blob = await put(pathname, blobBody, {
       access: 'public',
       contentType,
       addRandomSuffix: true,
