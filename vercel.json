@@ -1,18 +1,22 @@
 {
-  "rewrites": [
-    { "source": "/admin", "destination": "/api/admin-gate" },
-    { "source": "/admin.html", "destination": "/api/admin-gate" },
-    { "source": "/goretok", "destination": "/goretok/index.html" },
+  "redirects": [
     {
       "source": "/",
       "has": [{ "type": "host", "value": "goretok.life" }],
-      "destination": "/goretok/index.html"
+      "destination": "/goretok",
+      "permanent": false
     },
     {
       "source": "/",
       "has": [{ "type": "host", "value": "www.goretok.life" }],
-      "destination": "/goretok/index.html"
+      "destination": "/goretok",
+      "permanent": false
     }
+  ],
+  "rewrites": [
+    { "source": "/admin", "destination": "/api/admin-gate" },
+    { "source": "/admin.html", "destination": "/api/admin-gate" },
+    { "source": "/goretok", "destination": "/goretok/index.html" }
   ],
   "headers": [
     {
