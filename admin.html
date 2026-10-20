@@ -438,6 +438,21 @@
         </div>
         <div id="goretok-roles-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
       </div>
+
+      <!-- Permanent account deletion (via /api/goretok/admin/role action:deleteUser) -->
+      <div class="control-card" style="max-width:500px;margin-bottom:20px;">
+        <h3>&#x1F480; Delete GoreTok account</h3>
+        <div class="inline-form">
+          <input type="text" id="gt-delete-handle" placeholder="@handle" style="flex:1;min-width:140px;">
+          <button class="btn-action btn-unban" id="btn-gt-delete" style="background:var(--danger);border-color:var(--danger);color:#fff;">Delete</button>
+        </div>
+        <p style="font-size:11px;color:var(--danger);margin:10px 0 0;line-height:1.5;">
+          <strong>IRREVERSIBLE.</strong> Permanently wipes the account, all of its
+          videos (including the stored files), likes, follows and private messages
+          from the platform. Founder accounts are protected. You will be asked to
+          retype the handle to confirm.
+        </p>
+      </div>
       <div class="table-container">
         <div class="table-header"><h2>Assigned Roles</h2></div>
         <div class="table-scroll"><table><thead><tr><th>USERNAME</th><th>ROLE</th><th>ACTIONS</th></tr></thead><tbody id="tbody-roles"></tbody></table></div>
@@ -693,6 +708,8 @@ function initPanel() {
     // Persist to GoreTok KV (authoritative for GoreTok accounts). 'none' -> default 'user'.
     assignGoretokRole(u, r==='none' ? 'none' : r);
   });
+  const btnGtDelete=document.getElementById('btn-gt-delete');
+  if(btnGtDelete)btnGtDelete.addEventListener('click',deleteGoretokAccount);
   document.getElementById('btn-broadcast').addEventListener('click',()=>{
     const msg=document.getElementById('broadcast-msg').value.trim();if(!msg)return showToast('Enter a message.',true);
     const time=new Date().toLocaleTimeString();
@@ -834,6 +851,30 @@ async function assignGoretokRole(handle,role){
     else if(res.status===404){/* not a GoreTok account — KAPCS-only role is fine */}
     else{showToast('GoreTok role not saved: '+(d.error||res.status),true);}
   }catch(e){showToast('GoreTok role endpoint unreachable.',true);}
+}
+async function deleteGoretokAccount(){
+  const input=document.getElementById('gt-delete-handle');
+  const h=(input?input.value:'').trim().toLowerCase().replace(/^@/,'');
+  if(!h)return showToast('Enter a handle to delete.',true);
+  // Type-to-confirm: operator must retype the exact handle. IRREVERSIBLE.
+  const typed=window.prompt('IRREVERSIBLE: this permanently wipes @'+h+' and all of their videos, likes, follows and messages.\n\nType the handle to confirm: '+h);
+  if(typed===null)return; // cancelled
+  if(typed.trim().toLowerCase().replace(/^@/,'')!==h)return showToast('Handle did not match — deletion cancelled.',true);
+  try{
+    const res=await fetch('/api/goretok/admin/role',{
+      method:'POST',
+      headers:Object.assign({'Content-Type':'application/json'},goretokAuthHeaders()),
+      body:JSON.stringify({action:'deleteUser',handle:h})
+    });
+    const d=await res.json().catch(()=>({}));
+    if(res.ok){
+      if(input)input.value='';
+      showToast('Account deleted: @'+h+' — '+d.postsDeleted+' posts, '+d.blobsDeleted+' files');
+      renderGoretokStats();
+    }else{
+      showToast(d.error||('Delete failed: '+res.status),true);
+    }
+  }catch(e){showToast('GoreTok delete endpoint unreachable.',true);}
 }
 
 // BAN / UNBAN

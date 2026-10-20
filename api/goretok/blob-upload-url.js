@@ -17,7 +17,7 @@
 export const config = { runtime: 'nodejs' };
 
 import { put, del } from '@vercel/blob';
-import { verifySessionToken } from './_lib/crypto.js';
+import { verifySessionToken, verifyAdminToken } from './_lib/crypto.js';
 
 const ALLOWED_CONTENT_TYPES = [
   'video/mp4',
@@ -115,10 +115,21 @@ export default async function handler(req, res) {
       return reply(res, 503, { error: 'File upload is not configured yet (no Blob store linked). Use a video URL for now.' });
     }
 
-    const verified = await verifySessionToken(bearer(req));
-    if (!verified) return reply(res, 401, { error: 'Unauthorized.' });
+    const tok = bearer(req);
 
-    if (req.method === 'DELETE') return await handleDelete(req, res, verified);
+    // DELETE may be authorized by either a valid GoreTok session token (a user
+    // deleting their own post's blob, via posts.js) OR a valid KAPCS admin HMAC
+    // token (admin account deletion, forwarded from admin/role.js). Uploads
+    // (POST) remain session-only — admin auth never grants upload.
+    if (req.method === 'DELETE') {
+      const adminOk = await verifyAdminToken(tok);
+      const verified = adminOk || await verifySessionToken(tok);
+      if (!verified) return reply(res, 401, { error: 'Unauthorized.' });
+      return await handleDelete(req, res, verified);
+    }
+
+    const verified = await verifySessionToken(tok);
+    if (!verified) return reply(res, 401, { error: 'Unauthorized.' });
 
     const contentType = (req.headers['content-type'] || '').split(';')[0].trim();
     const isVideo = ALLOWED_CONTENT_TYPES.includes(contentType);
