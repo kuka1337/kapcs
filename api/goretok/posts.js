@@ -1,9 +1,14 @@
 /**
- * /api/goretok/posts — Node
+ * /api/goretok/posts — Edge
  *   GET  : list posts (public), newest first, paginated.
  *   POST : create a post (auth required) from a video URL.
+ *
+ * Runs on the Edge runtime (like every other goretok route) because the
+ * handler returns a Web `Response` and uses `req.json()` / Web APIs. Under the
+ * classic Node serverless runtime returning a `Response` does not terminate the
+ * request, so the function would hang until it times out.
  */
-export const config = { runtime: 'nodejs' };
+export const config = { runtime: 'edge' };
 
 import { json, secHeaders } from './_lib/http.js';
 import { verifySessionToken, bearerFrom } from './_lib/crypto.js';
