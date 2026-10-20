@@ -106,46 +106,39 @@ window.GoreTokAPI = (function () {
     return parse(res);
   }
 
-  // ── File upload (Vercel Blob, client-side) ──────────────────────────────
-  // Two steps: (1) ask our auth-gated /blob-upload-url route to mint a scoped,
-  // short-lived Blob client token (it verifies the session + restricts to
-  // video/* and a size cap); (2) stream the file straight to Blob with that
-  // token. No bundler here, so @vercel/blob/client is loaded from an ESM CDN.
-  // onProgress(pct) receives 0..100. Resolves the public blob URL.
-  async function uploadVideoFile(file, onProgress) {
-    // 1) Mint a scoped client token from our server.
-    const tokRes = await fetch(BASE + "/blob-upload-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: getToken(),
-        pathname: file.name,
-        contentType: file.type || "video/mp4",
-      }),
-    });
-    const tok = await parse(tokRes); // throws with the server error message on !ok
-    if (!tok || !tok.clientToken) throw new Error("Could not start the upload.");
+  // ── File upload (Vercel Blob, server upload) ────────────────────────────
+  // POST the raw file bytes to our auth-gated /blob-upload-url route, which
+  // verifies the session and `put()`s the file to Vercel Blob, returning the
+  // public URL. Server upload caps at ~4.4 MB (the UI points bigger clips at
+  // the video-URL field). Uses XHR so we get real upload progress (0..100).
+  function uploadVideoFile(file, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const t = getToken();
+      if (!t) { reject(new Error("Please log in first.")); return; }
 
-    // 2) Load the client SDK and stream the file using the minted token.
-    let upload;
-    try {
-      ({ upload } = await import("https://esm.sh/@vercel/blob@2/client"));
-    } catch (e) {
-      throw new Error("Could not load the uploader. Check your connection.");
-    }
-    try {
-      const blob = await upload(tok.pathname || file.name, file, {
-        access: "public",
-        token: tok.clientToken,
-        contentType: file.type || undefined,
-        onUploadProgress: function (e) {
-          if (onProgress && e && typeof e.percentage === "number") onProgress(e.percentage);
-        },
-      });
-      return blob.url;
-    } catch (e) {
-      throw new Error((e && e.message) || "Upload failed.");
-    }
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", BASE + "/blob-upload-url", true);
+      xhr.setRequestHeader("Authorization", "Bearer " + t);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.setRequestHeader("X-Filename", file.name || "clip.mp4");
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        };
+      }
+      xhr.onload = function () {
+        let data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.url) {
+          resolve(data.url);
+        } else {
+          reject(new Error((data && data.error) || ("Upload failed (" + xhr.status + ")")));
+        }
+      };
+      xhr.onerror = function () { reject(new Error("Network error during upload.")); };
+      xhr.send(file);
+    });
   }
 
   // ── Likes ─────────────────────────────────────────────────────────────

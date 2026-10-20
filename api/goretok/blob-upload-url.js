@@ -1,23 +1,22 @@
 /**
- * /api/goretok/blob-upload-url — Edge
- *   POST { pathname, contentType, token } -> { clientToken }
+ * /api/goretok/blob-upload-url — Node (server upload via @vercel/blob `put`)
+ *   POST (raw video bytes in the body)
+ *   headers: Authorization: Bearer <session token>, Content-Type: video/*,
+ *            X-Filename: <original name>
+ *   -> { url }
  *
- * Mints a short-lived, scoped Vercel Blob client token so the browser can
- * stream a file straight to Blob (client upload: files may exceed the 4.5 MB
- * server-upload cap). This uses generateClientTokenFromReadWriteToken directly
- * — a plain JSON request/response — instead of handleUpload(), which reads the
- * raw request stream and would hang on anything but an exact upload() exchange.
+ * Server upload is the simplest reliable path: the browser POSTs the file to
+ * this route, we verify the session, then `put()` streams it to Vercel Blob and
+ * returns the public URL. Note Vercel's ~4.5 MB request-body cap for server
+ * uploads — larger clips should use the video-URL field instead (the UI says
+ * so). This avoids @vercel/blob/client, which does not run on the Edge runtime.
  *
- * AUTH: the GoreTok session token is in the JSON body and re-verified here with
- * the same HMAC scheme every other write route uses. The issued token is
- * restricted to video/* content types and a 100 MB max, enforced server-side.
- *
- * BLOB_READ_WRITE_TOKEN is read from the environment — never hardcoded/logged.
+ * BLOB_READ_WRITE_TOKEN is read from the environment by the SDK — never
+ * hardcoded or logged.
  */
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'nodejs' };
 
-import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
-import { json, secHeaders } from './_lib/http.js';
+import { put } from '@vercel/blob';
 import { verifySessionToken } from './_lib/crypto.js';
 
 const ALLOWED_CONTENT_TYPES = [
@@ -27,55 +26,88 @@ const ALLOWED_CONTENT_TYPES = [
   'video/ogg',
   'video/x-matroska'
 ];
-const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
-const TOKEN_VALID_MS = 60 * 60 * 1000;     // client has 1 hour to finish
+const MAX_SIZE_BYTES = 4.4 * 1024 * 1024; // keep under Vercel's ~4.5 MB server-upload cap
 
-function safePathname(raw, handle) {
-  // Keep a safe, namespaced path; the SDK validates the final name too.
-  let base = typeof raw === 'string' ? raw.split('/').pop() : '';
+const SEC = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Type': 'application/json; charset=utf-8'
+};
+
+function reply(res, status, obj) {
+  res.statusCode = status;
+  for (const [k, v] of Object.entries(SEC)) res.setHeader(k, v);
+  res.end(JSON.stringify(obj));
+}
+
+function bearer(req) {
+  const h = req.headers['authorization'] || '';
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  return m ? m[1] : null;
+}
+
+function readBody(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    req.on('data', (c) => {
+      total += c.length;
+      if (total > maxBytes) { reject(new Error('TOO_LARGE')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function safeName(raw) {
+  let base = typeof raw === 'string' ? raw.split(/[\\/]/).pop() : '';
   base = (base || 'clip').replace(/[^a-zA-Z0-9._-]/g, '').slice(-80) || 'clip';
   if (!/\.[a-z0-9]+$/i.test(base)) base += '.mp4';
-  return `goretok/${handle}/${Date.now()}-${base}`;
+  return base;
 }
 
-async function handlePost(req) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return json({ error: 'File upload is not configured yet (no Blob store linked). Use a video URL for now.' }, 503);
-  }
-
-  let body = {};
-  try { body = await req.json(); } catch {}
-
-  const verified = body.token ? await verifySessionToken(body.token) : null;
-  if (!verified) return json({ error: 'Unauthorized.' }, 401);
-
-  const contentType = typeof body.contentType === 'string' ? body.contentType : '';
-  if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-    return json({ error: 'Only video files are allowed (mp4, webm, mov, ogg, mkv).' }, 400);
-  }
-
-  const pathname = safePathname(body.pathname, verified.handle);
-
-  const clientToken = await generateClientTokenFromReadWriteToken({
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-    pathname,
-    allowedContentTypes: ALLOWED_CONTENT_TYPES,
-    maximumSizeInBytes: MAX_SIZE_BYTES,
-    addRandomSuffix: true,
-    validUntil: Date.now() + TOKEN_VALID_MS,
-    tokenPayload: JSON.stringify({ handle: verified.handle })
-  });
-
-  return json({ clientToken, pathname }, 200);
-}
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') {
-      return new Response('Method Not Allowed', { status: 405, headers: secHeaders });
+    if (req.method !== 'POST') return reply(res, 405, { error: 'Method Not Allowed' });
+
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return reply(res, 503, { error: 'File upload is not configured yet (no Blob store linked). Use a video URL for now.' });
     }
-    return await handlePost(req);
+
+    const verified = await verifySessionToken(bearer(req));
+    if (!verified) return reply(res, 401, { error: 'Unauthorized.' });
+
+    const contentType = (req.headers['content-type'] || '').split(';')[0].trim();
+    if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
+      return reply(res, 400, { error: 'Only video files are allowed (mp4, webm, mov, ogg, mkv).' });
+    }
+
+    let buf;
+    try {
+      buf = await readBody(req, MAX_SIZE_BYTES);
+    } catch (e) {
+      if (e && e.message === 'TOO_LARGE') {
+        return reply(res, 413, { error: 'File too large for direct upload (max ~4.4 MB). Use a video URL for bigger clips.' });
+      }
+      throw e;
+    }
+    if (!buf || buf.length === 0) return reply(res, 400, { error: 'Empty file.' });
+
+    const name = safeName(req.headers['x-filename']);
+    const pathname = `goretok/${verified.handle}/${Date.now()}-${name}`;
+
+    const blob = await put(pathname, buf, {
+      access: 'public',
+      contentType,
+      addRandomSuffix: true,
+      token: process.env.BLOB_READ_WRITE_TOKEN
+    });
+
+    return reply(res, 200, { url: blob.url });
   } catch (err) {
-    return json({ error: (err && err.message) || 'Upload token request failed.' }, 400);
+    return reply(res, 400, { error: (err && err.message) || 'Upload failed.' });
   }
 }
