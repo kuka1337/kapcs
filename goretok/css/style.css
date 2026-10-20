@@ -726,6 +726,59 @@ body {
 .dm-compose input:focus { border-color: var(--accent); }
 .dm-send { min-width: 0; padding: 10px 16px; }
 
+/* ===================== VOLUME CONTROL + TAP-FOR-SOUND ===================== */
+/* Sits top-right of the slide so it clears the .rail (right/bottom) and the
+   .caption (left/bottom). Collapsed to just the toggle until hovered. */
+.vol-control {
+  position: absolute; top: 14px; right: 14px; z-index: 4;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 22px;
+  background: rgba(30,30,46,.85); border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(4px);
+}
+.vol-toggle {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: transparent; border: 0; color: #fff;
+  font-size: 18px; cursor: pointer; line-height: 1;
+  display: grid; place-items: center; flex: 0 0 auto;
+}
+.vol-toggle:hover { background: rgba(255,255,255,.08); }
+.vol-range {
+  -webkit-appearance: none; appearance: none;
+  width: 0; opacity: 0;
+  height: 4px; border-radius: 3px;
+  background: var(--line); outline: none; cursor: pointer;
+  transition: width .18s ease, opacity .18s ease;
+}
+/* Reveal the slider on hover/focus, and whenever this slide has sound on. */
+.vol-control:hover .vol-range,
+.vol-range:focus,
+.slide.sound-on .vol-range { width: 90px; opacity: 1; }
+.vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff; cursor: pointer;
+}
+.vol-range::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff; cursor: pointer;
+}
+
+/* "Tap for sound" hint — shown only on the active, currently-muted slide. */
+.sound-hint {
+  position: absolute; top: 58px; right: 14px; z-index: 4;
+  display: none;
+  padding: 7px 12px; border-radius: 16px;
+  background: rgba(255,45,85,.9); color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 12px rgba(255,45,85,.4);
+}
+.sound-hint:hover { background: var(--accent); }
+/* Visible only while the slide is playing and sound is still off. */
+.slide.playing:not(.sound-on) .sound-hint { display: block; }
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 920px) {
   .app { grid-template-columns: 1fr; }

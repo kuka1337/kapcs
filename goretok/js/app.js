@@ -29,6 +29,43 @@
 
   const AGE_KEY = "goretok_age_ok";
   const MAX_TAGS = 10;
+  const VOLUME_KEY = "goretok_volume";
+
+  /* -------------------- Volume preference (per-slide sound) -------------------- */
+  // Persisted {volume:0..1, muted:boolean}. Default muted because browsers
+  // block autoplay with sound; the user unmutes with a gesture.
+  function getVolumePref() {
+    let vol = 1, muted = true;
+    try {
+      const raw = localStorage.getItem(VOLUME_KEY);
+      if (raw) {
+        const o = JSON.parse(raw);
+        if (o && typeof o === "object") {
+          if (Number.isFinite(Number(o.volume))) vol = Math.max(0, Math.min(1, Number(o.volume)));
+          if (typeof o.muted === "boolean") muted = o.muted;
+        }
+      }
+    } catch (_) { /* fall back to defaults */ }
+    return { volume: vol, muted: muted };
+  }
+
+  function setVolumePref(pref) {
+    const vol = Math.max(0, Math.min(1, Number(pref.volume)));
+    const out = { volume: Number.isFinite(vol) ? vol : 1, muted: !!pref.muted };
+    try { localStorage.setItem(VOLUME_KEY, JSON.stringify(out)); } catch (_) {}
+    return out;
+  }
+
+  // Mute every feed video except `keep` (pass null to mute all). Also syncs
+  // each slide's "unmuted" CSS flag used by the tap-for-sound hint.
+  function muteOtherVideos(keep) {
+    feed.querySelectorAll("video.slide-video").forEach((v) => {
+      if (v === keep) return;
+      v.muted = true;
+      const s = v.closest(".slide");
+      if (s) s.classList.remove("sound-on");
+    });
+  }
 
   /* -------------------- Session state -------------------- */
   // Current logged-in user (from /me). null while a guest / logged out.
@@ -236,6 +273,89 @@
     video.addEventListener("play", () => slide.classList.add("playing"));
     video.addEventListener("pause", () => slide.classList.remove("playing"));
 
+    /* ---- Volume control overlay (per-slide mute + volume slider) ---- */
+    const pref = getVolumePref();
+    // Keep the video muted for first paint; the stored volume level still
+    // applies so unmuting later plays at the preferred loudness.
+    video.volume = pref.volume;
+    video.muted = true;
+
+    const vol = document.createElement("div");
+    vol.className = "vol-control";
+    const volBtn = document.createElement("button");
+    volBtn.type = "button";
+    volBtn.className = "vol-toggle";
+    volBtn.title = "Mute / unmute";
+    const volRange = document.createElement("input");
+    volRange.type = "range";
+    volRange.className = "vol-range";
+    volRange.min = "0";
+    volRange.max = "1";
+    volRange.step = "0.05";
+    volRange.value = String(pref.volume);
+    vol.append(volBtn, volRange);
+
+    function reflectVolUi() {
+      const on = !video.muted;
+      slide.classList.toggle("sound-on", on);
+      volBtn.textContent = (video.muted || video.volume === 0) ? "🔇" : "🔊";
+      volRange.value = String(video.volume);
+    }
+    reflectVolUi();
+
+    volBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const unmute = video.muted;
+      if (unmute) {
+        // Unmuting this slide mutes all others.
+        muteOtherVideos(video);
+        video.muted = false;
+        if (video.volume === 0) { video.volume = 0.5; volRange.value = "0.5"; }
+        video.play().catch(() => {});
+      } else {
+        video.muted = true;
+      }
+      setVolumePref({ volume: video.volume, muted: video.muted });
+      reflectVolUi();
+    });
+
+    // Scrubbing the slider must never toggle play/pause or bubble to media.
+    ["click", "pointerdown", "pointerup", "touchstart", "touchend", "mousedown", "mouseup"]
+      .forEach((ev) => volRange.addEventListener(ev, (e) => e.stopPropagation()));
+    volRange.addEventListener("input", (e) => {
+      e.stopPropagation();
+      const v = Math.max(0, Math.min(1, Number(volRange.value)));
+      video.volume = v;
+      if (v > 0) {
+        // Raising the volume implies the user wants sound here only.
+        muteOtherVideos(video);
+        video.muted = false;
+        video.play().catch(() => {});
+      } else {
+        video.muted = true;
+      }
+      setVolumePref({ volume: v, muted: video.muted });
+      reflectVolUi();
+    });
+
+    // Tap-for-sound hint — a dedicated element so it never collides with the
+    // tap-to-play/pause handler on the media body.
+    const soundHint = document.createElement("button");
+    soundHint.type = "button";
+    soundHint.className = "sound-hint";
+    soundHint.textContent = "🔊 Tap for sound";
+    soundHint.addEventListener("click", (e) => {
+      e.stopPropagation();
+      muteOtherVideos(video);
+      video.muted = false;
+      if (video.volume === 0) { video.volume = 0.5; volRange.value = "0.5"; }
+      video.play().catch(() => {});
+      setVolumePref({ volume: video.volume, muted: false });
+      reflectVolUi();
+    });
+
+    video.addEventListener("volumechange", reflectVolUi);
+
     // Duration badge (mm:ss) — omitted entirely when unknown. Old posts that
     // still carry a `category` field simply don't get a badge.
     let badge = null;
@@ -339,7 +459,7 @@
       deletePost(p);
     });
 
-    slide.append(media, play, caption, rail);
+    slide.append(media, play, caption, rail, vol, soundHint);
     if (badge) slide.appendChild(badge);
     return slide;
   }
@@ -712,6 +832,17 @@
             if (!video) return;
             if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
               feed.querySelectorAll("video.slide-video").forEach((v) => { if (v !== video) v.pause(); });
+              // Apply the persisted volume to the newly active slide and keep
+              // every other slide muted. If the user has unmuted (preference),
+              // the active video plays with sound; otherwise it stays muted.
+              const pref = getVolumePref();
+              video.volume = pref.volume;
+              if (pref.muted) {
+                video.muted = true;
+              } else {
+                muteOtherVideos(video);
+                video.muted = false;
+              }
               video.play().catch(() => {});
               countView(entry.target.dataset.postId, entry.target);
             } else {
