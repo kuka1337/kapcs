@@ -107,11 +107,26 @@ window.GoreTokAPI = (function () {
   }
 
   // ── File upload (Vercel Blob, client-side) ──────────────────────────────
-  // Uploads a video file straight to Vercel Blob via a short-lived, auth-gated
-  // token minted by /blob-upload-url, and resolves the public blob URL.
-  // The front end has no bundler, so @vercel/blob/client is loaded from an ESM
-  // CDN. onProgress(pct) receives 0..100.
+  // Two steps: (1) ask our auth-gated /blob-upload-url route to mint a scoped,
+  // short-lived Blob client token (it verifies the session + restricts to
+  // video/* and a size cap); (2) stream the file straight to Blob with that
+  // token. No bundler here, so @vercel/blob/client is loaded from an ESM CDN.
+  // onProgress(pct) receives 0..100. Resolves the public blob URL.
   async function uploadVideoFile(file, onProgress) {
+    // 1) Mint a scoped client token from our server.
+    const tokRes = await fetch(BASE + "/blob-upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: getToken(),
+        pathname: file.name,
+        contentType: file.type || "video/mp4",
+      }),
+    });
+    const tok = await parse(tokRes); // throws with the server error message on !ok
+    if (!tok || !tok.clientToken) throw new Error("Could not start the upload.");
+
+    // 2) Load the client SDK and stream the file using the minted token.
     let upload;
     try {
       ({ upload } = await import("https://esm.sh/@vercel/blob@2/client"));
@@ -119,10 +134,9 @@ window.GoreTokAPI = (function () {
       throw new Error("Could not load the uploader. Check your connection.");
     }
     try {
-      const blob = await upload(file.name, file, {
+      const blob = await upload(tok.pathname || file.name, file, {
         access: "public",
-        handleUploadUrl: BASE + "/blob-upload-url",
-        clientPayload: JSON.stringify({ token: getToken() }),
+        token: tok.clientToken,
         contentType: file.type || undefined,
         onUploadProgress: function (e) {
           if (onProgress && e && typeof e.percentage === "number") onProgress(e.percentage);
