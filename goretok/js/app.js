@@ -152,8 +152,23 @@
     if (window.GoreTokMod && typeof window.GoreTokMod.setHandle === "function") {
       window.GoreTokMod.setHandle(currentUser.handle);
     }
+    // Private DM bridge (SEPARATE goretok_v1_* namespace) follows login too.
+    if (window.GoreTokDM && typeof window.GoreTokDM.setHandle === "function") {
+      window.GoreTokDM.setHandle(currentUser.handle);
+    }
+    // Seed the current user's own profile into the cache so captions can
+    // render their avatar/role without an extra round-trip.
+    profileCache[String(currentUser.handle).toLowerCase()] = {
+      handle: currentUser.handle,
+      role: currentUser.role,
+      avatarUrl: currentUser.avatarUrl || null,
+      followers: currentUser.followers || 0,
+      following: currentUser.following || 0,
+      isFollowing: false,
+    };
     updateAccountStatus();
     await loadFeed();
+    maybeJumpToHashPost();
   }
 
   /* ============================================================
@@ -242,9 +257,28 @@
         return `<span class="tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>${cnt}`;
       })
       .join(" ");
+    const avatarUrl = p.authorAvatar || p.avatar || p.avatarUrl || null;
+    const metaBits = [];
+    const rel = relativeTime(p.createdAt);
+    if (rel) metaBits.push(`<span class="caption-time">${escapeHtml(rel)}</span>`);
+    const viewsHtml = `<span class="caption-views" data-views>${escapeHtml(formatCount(p.viewCount || 0))} views</span>`;
+    const isOwn = currentUser && currentUser.handle === p.author;
+    const followHtml = (currentUser && !isOwn)
+      ? `<button class="follow-btn" data-follow-author="${escapeHtml(p.author)}">Follow</button>`
+      : "";
+    const messageHtml = (currentUser && !isOwn)
+      ? `<button class="message-btn" data-message-author="${escapeHtml(p.author)}">Message</button>`
+      : "";
     caption.innerHTML =
-      `<div class="user">@${escapeHtml(p.author)}</div>` +
-      `<div class="text">${escapeHtml(p.title)} ${tagsHtml}</div>`;
+      `<div class="caption-author">` +
+        avatarHtml(p.author, avatarUrl, "caption-avatar") +
+        `<div class="user">@${escapeHtml(p.author)}</div>` +
+        roleBadge(p.authorRole || p.role || "user") +
+        followHtml +
+        messageHtml +
+      `</div>` +
+      `<div class="text">${escapeHtml(p.title)} ${tagsHtml}</div>` +
+      `<div class="caption-meta">${metaBits.join(" · ")}${metaBits.length ? " · " : ""}${viewsHtml}</div>`;
     caption.querySelectorAll(".tag[data-tag]").forEach((el) => {
       el.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -252,23 +286,57 @@
       });
     });
 
+    // Lazily hydrate the author avatar + role (+ follow state) from the
+    // profile cache; falls back to the initial-circle already rendered.
+    hydrateCaptionAuthor(caption, p);
+
+    const fBtn = caption.querySelector(".follow-btn[data-follow-author]");
+    if (fBtn) fBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleFollow(p.author, fBtn);
+    });
+
+    const mBtn = caption.querySelector(".message-btn[data-message-author]");
+    if (mBtn) mBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openDmWith(p.author);
+    });
+
     const liked = likedSet.has(p.id);
+    const canDelete = currentUser &&
+      (currentUser.handle === p.author ||
+       ["moderator", "admin", "founder"].indexOf((currentUser.role || "").toLowerCase()) !== -1);
     const rail = document.createElement("div");
     rail.className = "rail";
     rail.innerHTML =
       `<button class="like${liked ? " liked" : ""}" title="Like">♥</button>` +
       `<span class="count like-count">${formatCount(p.likeCount || 0)}</span>` +
       `<button class="comment" title="Comments">💬</button>` +
+      `<span class="count comment-count">${formatCount(p.commentCount || 0)}</span>` +
       `<button class="share" title="Share">↗</button>` +
-      `<button class="report" title="Report this clip">⚑</button>`;
+      `<button class="report" title="Report this clip">⚑</button>` +
+      (canDelete ? `<button class="delete" title="Delete this clip">🗑</button>` : "");
 
     rail.querySelector(".like").addEventListener("click", (e) => {
       e.stopPropagation();
       toggleLike(p, e.currentTarget);
     });
+    rail.querySelector(".comment").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openComments(p, slide);
+    });
+    rail.querySelector(".share").addEventListener("click", (e) => {
+      e.stopPropagation();
+      sharePost(p);
+    });
     rail.querySelector(".report").addEventListener("click", (e) => {
       e.stopPropagation();
       reportSlide(p, e.currentTarget);
+    });
+    const delBtn = rail.querySelector(".delete");
+    if (delBtn) delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deletePost(p);
     });
 
     slide.append(media, play, caption, rail);
@@ -400,6 +468,229 @@
     }
   }
 
+  /* -------------------- Author avatar / role hydration -------------------- */
+  function hydrateCaptionAuthor(caption, p) {
+    if (p.authorAvatar || p.avatar || p.avatarUrl) return; // already have one
+    fetchProfile(p.author).then((prof) => {
+      if (!prof) return;
+      const avWrap = caption.querySelector(".caption-avatar");
+      if (avWrap && prof.avatarUrl) {
+        avWrap.classList.remove("initial-circle");
+        avWrap.innerHTML = `<img src="${escapeHtml(prof.avatarUrl)}" alt="" />`;
+      }
+      const badgeOld = caption.querySelector(".role-badge");
+      if (badgeOld && prof.role) {
+        badgeOld.outerHTML = roleBadge(prof.role);
+      }
+      const fBtn = caption.querySelector(".follow-btn[data-follow-author]");
+      if (fBtn && prof.isFollowing) setFollowBtnState(fBtn, true);
+    });
+  }
+
+  /* -------------------- Follow / Following -------------------- */
+  function setFollowBtnState(btn, following) {
+    btn.classList.toggle("following", following);
+    btn.textContent = following ? "Following" : "Follow";
+    btn.dataset.following = following ? "1" : "0";
+  }
+
+  async function toggleFollow(target, btn) {
+    if (!API.isLoggedIn()) {
+      showToast("Log in required", "Please log in to follow people.");
+      return;
+    }
+    const want = btn.dataset.following !== "1";
+    btn.disabled = true;
+    try {
+      const res = await API.follow(target, want);
+      setFollowBtnState(btn, !!res.following);
+      const key = String(target).toLowerCase();
+      if (profileCache[key]) {
+        profileCache[key].isFollowing = !!res.following;
+        if (typeof res.followers === "number") profileCache[key].followers = res.followers;
+      }
+    } catch (err) {
+      showToast("Could not update follow", err.message || "Try again shortly.");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* -------------------- Share (deep link) -------------------- */
+  function postLink(postId) {
+    return "https://kapcs.vercel.app/goretok#post=" + encodeURIComponent(postId);
+  }
+
+  async function sharePost(p) {
+    const link = postLink(p.id);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "GoreTok", text: p.title || "Check out this clip", url: link });
+        return;
+      } catch (_) { /* user cancelled or unsupported — fall through to copy */ }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast("Link copied", link);
+    } catch (_) {
+      showToast("Copy this link", link);
+    }
+  }
+
+  /* -------------------- Delete a clip -------------------- */
+  async function deletePost(p) {
+    if (!window.confirm("Delete this clip?")) return;
+    try {
+      await API.deletevideo(p.id);
+      showToast("Deleted", "The clip was removed.");
+      // Drop from local caches then reload the feed.
+      posts = posts.filter((x) => x.id !== p.id);
+      if (currentUser && Array.isArray(currentUser.posts)) {
+        currentUser.posts = currentUser.posts.filter((id) => id !== p.id);
+      }
+      await loadFeed();
+    } catch (err) {
+      showToast("Could not delete", err.message || "Try again shortly.");
+    }
+  }
+
+  /* -------------------- Comments sheet -------------------- */
+  function commentSheetEl() {
+    let el = document.getElementById("commentSheet");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "commentSheet";
+      el.className = "comment-sheet";
+      el.hidden = true;
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function closeComments() {
+    const el = document.getElementById("commentSheet");
+    if (el) { el.hidden = true; el.classList.remove("show"); el.innerHTML = ""; }
+  }
+
+  function commentRowHtml(c) {
+    return `<div class="comment-row">` +
+      avatarHtml(c.author, c.avatarUrl, "comment-avatar") +
+      `<div class="comment-body">` +
+        `<div class="comment-head">` +
+          `<span class="comment-author">@${escapeHtml(c.author)}</span>` +
+          `<span class="comment-time">${escapeHtml(relativeTime(c.createdAt))}</span>` +
+        `</div>` +
+        `<div class="comment-text">${escapeHtml(c.text)}</div>` +
+      `</div>` +
+    `</div>`;
+  }
+
+  function openComments(p, slide) {
+    const el = commentSheetEl();
+    el.hidden = false;
+    el.classList.add("show");
+    el.innerHTML =
+      `<div class="comment-panel">` +
+        `<div class="comment-sheet-head">` +
+          `<h3>Comments</h3>` +
+          `<button class="comment-close" id="commentClose" title="Close">✕</button>` +
+        `</div>` +
+        `<div class="comment-list" id="commentList"><p class="vp-loading">Loading comments…</p></div>` +
+        (API.isLoggedIn()
+          ? `<form class="comment-compose" id="commentForm">` +
+              `<input type="text" id="commentInput" maxlength="500" placeholder="Add a comment…" autocomplete="off" />` +
+              `<button type="submit" class="btn btn-yes comment-send" id="commentSend">Post</button>` +
+            `</form>`
+          : `<div class="comment-login">Log in to add a comment.</div>`) +
+      `</div>`;
+
+    const close = document.getElementById("commentClose");
+    if (close) close.addEventListener("click", closeComments);
+    el.addEventListener("click", (e) => { if (e.target === el) closeComments(); });
+
+    const list = document.getElementById("commentList");
+    API.listComments(p.id).then((res) => {
+      const comments = (res && res.comments) || [];
+      if (comments.length === 0) {
+        list.innerHTML = `<div class="comment-empty">No comments yet. Be the first.</div>`;
+      } else {
+        list.innerHTML = comments.map(commentRowHtml).join("");
+      }
+    }).catch(() => {
+      list.innerHTML = `<div class="comment-empty">Could not load comments.</div>`;
+    });
+
+    const form = document.getElementById("commentForm");
+    if (form) form.addEventListener("submit", (e) => onAddComment(e, p, slide));
+  }
+
+  async function onAddComment(e, p, slide) {
+    e.preventDefault();
+    const input = document.getElementById("commentInput");
+    const btn = document.getElementById("commentSend");
+    if (!input) return;
+    const text = input.value.trim();
+    if (text.length < 1 || text.length > 500) return;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await API.addComment(p.id, text);
+      const c = res && res.comment;
+      if (c) {
+        const list = document.getElementById("commentList");
+        if (list) {
+          const empty = list.querySelector(".comment-empty");
+          if (empty) list.innerHTML = "";
+          list.insertAdjacentHTML("afterbegin", commentRowHtml(c));
+        }
+        input.value = "";
+        // Bump the rail comment count on the slide.
+        p.commentCount = (Number(p.commentCount) || 0) + 1;
+        if (slide) {
+          const cc = slide.querySelector(".comment-count");
+          if (cc) cc.textContent = formatCount(p.commentCount);
+        }
+      }
+    } catch (err) {
+      showToast("Could not comment", err.message || "Try again shortly.");
+    } finally {
+      if (btn) btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  /* -------------------- Open a DM thread with a user -------------------- */
+  function openDmWith(handle) {
+    if (!API.isLoggedIn()) {
+      showToast("Log in required", "Please log in to send messages.");
+      return;
+    }
+    navigateTo("messages");
+    // Let showView mount the Messages panel, then open the thread.
+    setTimeout(() => {
+      if (window.GoreTokDM && typeof window.GoreTokDM.openThread === "function") {
+        window.GoreTokDM.openThread(handle);
+      }
+    }, 30);
+  }
+
+  /* -------------------- View counting (once per post per session) ------ */
+  const viewedSet = new Set();
+  function countView(postId, slide) {
+    if (!postId || viewedSet.has(postId)) return;
+    viewedSet.add(postId);
+    API.incrementView(postId).then((res) => {
+      const views = res && res.views;
+      if (typeof views === "number") {
+        const post = posts.find((x) => x.id === postId);
+        if (post) post.viewCount = views;
+        if (slide) {
+          const v = slide.querySelector(".caption-views");
+          if (v) v.textContent = formatCount(views) + " views";
+        }
+      }
+    }).catch(() => { /* non-critical */ });
+  }
+
   /* -------------------- Playback -------------------- */
   function togglePlay(video, slide) {
     if (video.paused) {
@@ -422,6 +713,7 @@
             if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
               feed.querySelectorAll("video.slide-video").forEach((v) => { if (v !== video) v.pause(); });
               video.play().catch(() => {});
+              countView(entry.target.dataset.postId, entry.target);
             } else {
               video.pause();
             }
@@ -440,6 +732,40 @@
     const count = feed.querySelectorAll(".slide").length;
     const clamped = Math.max(0, Math.min(count - 1, index));
     feed.scrollTo({ top: clamped * feed.clientHeight, behavior: "smooth" });
+  }
+
+  // Parse #post=<id> from the URL and, once the feed is loaded, jump to that
+  // slide. If it isn't in the first page, keep loading more pages until found
+  // (or we run out). Clears the hash after jumping.
+  function parseHashPostId() {
+    const m = /(?:^|[#&])post=([^&]+)/.exec(location.hash || "");
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  async function maybeJumpToHashPost() {
+    const id = parseHashPostId();
+    if (!id) return;
+    let guard = 0;
+    while (guard++ < 20) {
+      const idx = posts.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        navigateTo("foryou");
+        // Wait a tick so slides are laid out before scrolling.
+        setTimeout(() => goTo(idx), 60);
+        break;
+      }
+      if (nextCursor == null) break; // exhausted the feed
+      try {
+        const data = await API.listPosts(20, nextCursor);
+        nextCursor = data.nextCursor;
+        const more = data.posts || [];
+        if (!more.length) break;
+        posts = posts.concat(more);
+        renderPosts(more, false);
+      } catch (_) { break; }
+    }
+    // Clear the hash so a refresh doesn't keep re-jumping.
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
   }
 
   function onKey(e) {
@@ -602,6 +928,13 @@
     if (view === "upload") renderUpload(placeholder);
     else if (view === "profile") renderProfile(placeholder);
     else if (view === "discover") renderDiscover(placeholder);
+    else if (view === "messages") {
+      if (window.GoreTokDM && typeof window.GoreTokDM.renderMessages === "function") {
+        window.GoreTokDM.renderMessages(placeholder);
+      } else {
+        renderSimpleView(placeholder, view);
+      }
+    }
     else renderSimpleView(placeholder, view);
   }
 
@@ -951,7 +1284,7 @@
     return `<div class="profile-status clear">✓ No active warnings or bans</div>`;
   }
 
-  function postListHtml(ids) {
+  function postListHtml(ids, ownable) {
     if (!ids || ids.length === 0) {
       return `<li class="empty">Nothing yet</li>`;
     }
@@ -965,7 +1298,10 @@
         label = escapeHtml(p.title) +
           (Number.isFinite(dur) && dur > 0 ? ` · ${escapeHtml(formatDuration(dur))}` : "");
       }
-      return `<li title="${escapeHtml(id)}">${label}</li>`;
+      const del = ownable
+        ? `<button class="profile-del" data-del-id="${escapeHtml(id)}" title="Delete this clip">🗑</button>`
+        : "";
+      return `<li title="${escapeHtml(id)}"><span class="pl-label">${label}</span>${del}</li>`;
     }).join("");
   }
 
@@ -984,20 +1320,107 @@
       `<div class="vp-card wide">` +
         `<div class="profile-view">` +
           `<div class="profile-head">` +
+            `<div class="profile-avatar-wrap">` +
+              avatarHtml(u.handle, u.avatarUrl, "profile-avatar") +
+            `</div>` +
             `<div class="profile-handle">@${escapeHtml(u.handle)}</div>` +
             roleBadge(u.role) +
+            `<div class="profile-counts">` +
+              `<span class="pc"><b id="pcFollowers">${formatCount(u.followers || 0)}</b> followers</span>` +
+              `<span class="pc"><b id="pcFollowing">${formatCount(u.following || 0)}</b> following</span>` +
+            `</div>` +
             `<div class="profile-meta">${u.likes || 0} likes given · joined ${escapeHtml(created)}</div>` +
+            `<div class="profile-avatar-edit">` +
+              `<button class="btn btn-no" id="btnAvatarFile" style="min-width:0">Upload avatar</button>` +
+              `<input type="file" id="avatarFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden />` +
+              `<form class="avatar-url-form" id="avatarUrlForm">` +
+                `<input type="url" id="avatarUrlInput" maxlength="2048" placeholder="…or paste an image URL" />` +
+                `<button type="submit" class="btn btn-no" style="min-width:0">Set</button>` +
+              `</form>` +
+              `<div class="form-msg" id="avatarMsg"></div>` +
+            `</div>` +
             moderationStatusHtml() +
           `</div>` +
           `<div class="profile-section-title">Your posts (${(u.posts || []).length})</div>` +
-          `<ul class="profile-list">${postListHtml(u.posts)}</ul>` +
+          `<ul class="profile-list" id="ownPostList">${postListHtml(u.posts, true)}</ul>` +
           `<div class="profile-section-title">Liked posts (${(u.likedPosts || []).length})</div>` +
-          `<ul class="profile-list">${postListHtml(u.likedPosts)}</ul>` +
+          `<ul class="profile-list">${postListHtml(u.likedPosts, false)}</ul>` +
           `<button class="btn btn-no profile-logout" id="btnLogout">Log out</button>` +
         `</div>` +
       `</div>`;
     const out = document.getElementById("btnLogout");
     if (out) out.addEventListener("click", doLogout);
+
+    // Avatar: file upload.
+    const avBtn = document.getElementById("btnAvatarFile");
+    const avFile = document.getElementById("avatarFile");
+    if (avBtn && avFile) {
+      avBtn.addEventListener("click", () => avFile.click());
+      avFile.addEventListener("change", () => {
+        if (avFile.files && avFile.files[0]) uploadAvatarFile(avFile.files[0]);
+      });
+    }
+    // Avatar: paste URL.
+    const avForm = document.getElementById("avatarUrlForm");
+    if (avForm) avForm.addEventListener("submit", onSetAvatarUrl);
+
+    // Delete buttons on own posts.
+    placeholder.querySelectorAll(".profile-del[data-del-id]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.delId;
+        const p = posts.find((x) => x.id === id) || { id };
+        deletePost(p);
+      });
+    });
+  }
+
+  function setAvatarMsg(cls, text) {
+    const el = document.getElementById("avatarMsg");
+    if (el) { el.className = "form-msg" + (cls ? " " + cls : ""); el.textContent = text || ""; }
+  }
+
+  async function applyAvatar(url) {
+    const res = await API.setProfile({ avatarUrl: url });
+    const finalUrl = (res && res.avatarUrl) || url;
+    if (currentUser) currentUser.avatarUrl = finalUrl;
+    const key = String(currentUser.handle).toLowerCase();
+    if (profileCache[key]) profileCache[key].avatarUrl = finalUrl;
+    // Refresh the profile header avatar.
+    const wrap = document.querySelector(".profile-avatar");
+    if (wrap) {
+      wrap.classList.remove("initial-circle");
+      wrap.innerHTML = `<img src="${escapeHtml(finalUrl)}" alt="" />`;
+    }
+    setAvatarMsg("ok", "Avatar updated.");
+  }
+
+  async function uploadAvatarFile(file) {
+    if (file && file.type && file.type.indexOf("image/") !== 0) {
+      setAvatarMsg("err", "Please choose an image file.");
+      return;
+    }
+    setAvatarMsg("", "Uploading…");
+    try {
+      const url = await API.uploadImageFile(file);
+      await applyAvatar(url);
+    } catch (err) {
+      setAvatarMsg("err", err.message || "Could not upload avatar.");
+    }
+  }
+
+  async function onSetAvatarUrl(e) {
+    e.preventDefault();
+    const input = document.getElementById("avatarUrlInput");
+    if (!input) return;
+    const url = input.value.trim();
+    if (!url) { setAvatarMsg("err", "Paste an image URL first."); return; }
+    setAvatarMsg("", "Saving…");
+    try {
+      await applyAvatar(url);
+      input.value = "";
+    } catch (err) {
+      setAvatarMsg("err", err.message || "Could not set avatar.");
+    }
   }
 
   async function doLogout() {
@@ -1064,6 +1487,59 @@
     return String(str).replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[c]));
+  }
+
+  // "3h ago" style relative timestamp from an epoch-ms value.
+  function relativeTime(ts) {
+    const t = Number(ts);
+    if (!Number.isFinite(t) || t <= 0) return "";
+    const diff = Math.max(0, Date.now() - t);
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return m + "m ago";
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + "h ago";
+    const d = Math.floor(h / 24);
+    if (d < 7) return d + "d ago";
+    const w = Math.floor(d / 7);
+    if (w < 5) return w + "w ago";
+    return new Date(t).toLocaleDateString();
+  }
+
+  // First letter of a handle, for the initial-circle avatar fallback.
+  function avatarInitial(handle) {
+    const h = String(handle || "?").replace(/^@/, "");
+    return (h.charAt(0) || "?").toUpperCase();
+  }
+
+  // Avatar markup: an <img> when a url is known, else an initial circle.
+  function avatarHtml(handle, url, extraClass) {
+    const cls = "avatar" + (extraClass ? " " + extraClass : "");
+    if (url) {
+      return `<span class="${cls}"><img src="${escapeHtml(url)}" alt="" /></span>`;
+    }
+    return `<span class="${cls} initial-circle">${escapeHtml(avatarInitial(handle))}</span>`;
+  }
+
+  /* -------------------- Author profile cache (avatars / follow) -------- */
+  // handle(lowercased) -> { avatarUrl, role, followers, following, isFollowing }
+  const profileCache = {};
+  const profileInflight = {};
+
+  function fetchProfile(handle) {
+    const key = String(handle || "").toLowerCase();
+    if (!key) return Promise.resolve(null);
+    if (profileCache[key]) return Promise.resolve(profileCache[key]);
+    if (profileInflight[key]) return profileInflight[key];
+    profileInflight[key] = API.getProfile(handle).then((p) => {
+      profileCache[key] = p || {};
+      delete profileInflight[key];
+      return profileCache[key];
+    }).catch(() => {
+      delete profileInflight[key];
+      return null;
+    });
+    return profileInflight[key];
   }
 
   function resetToGate() {

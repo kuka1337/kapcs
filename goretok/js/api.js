@@ -151,11 +151,92 @@ window.GoreTokAPI = (function () {
     return parse(res);
   }
 
+  // ── Delete a post (author or moderator+) ────────────────────────────────
+  async function deletevideo(postId) {
+    const res = await fetch(BASE + "/posts", {
+      method: "DELETE",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ postId }),
+    });
+    return parse(res);
+  }
+
+  // ── Social (single Edge route /social, action-switch) ────────────────────
+  async function social(payload) {
+    const res = await fetch(BASE + "/social", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+    });
+    return parse(res);
+  }
+
+  function setProfile(opts) {
+    return social({ action: "profile", avatarUrl: (opts && opts.avatarUrl) || "" });
+  }
+  function getProfile(handle) {
+    return social({ action: "profile.get", handle });
+  }
+  function addComment(postId, text) {
+    return social({ action: "comment.add", postId, text });
+  }
+  function listComments(postId, cursor) {
+    return social({ action: "comment.list", postId, cursor });
+  }
+  function follow(target, follow) {
+    return social({ action: "follow", target, follow });
+  }
+  function sendDm(to, text) {
+    return social({ action: "dm.send", to, text });
+  }
+  function listDm(withHandle) {
+    return social({ action: "dm.list", with: withHandle });
+  }
+  function listThreads() {
+    return social({ action: "dm.list", threads: true });
+  }
+  function incrementView(postId) {
+    return social({ action: "view", postId });
+  }
+
+  // ── Image upload (avatar) — mirrors uploadVideoFile, Node blob route ─────
+  function uploadImageFile(file, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const t = getToken();
+      if (!t) { reject(new Error("Please log in first.")); return; }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", BASE + "/blob-upload-url", true);
+      xhr.setRequestHeader("Authorization", "Bearer " + t);
+      xhr.setRequestHeader("Content-Type", file.type || "image/png");
+      xhr.setRequestHeader("X-Filename", file.name || "avatar.png");
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        };
+      }
+      xhr.onload = function () {
+        let data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300 && data && data.url) {
+          resolve(data.url);
+        } else {
+          reject(new Error((data && data.error) || ("Upload failed (" + xhr.status + ")")));
+        }
+      };
+      xhr.onerror = function () { reject(new Error("Network error during upload.")); };
+      xhr.send(file);
+    });
+  }
+
   return {
     getToken, clearToken,
     isLoggedIn: function () { return !!getToken(); },
     register, login, session, me, logout,
-    listPosts, createPost, like,
-    listTags, uploadVideoFile,
+    listPosts, createPost, like, deletevideo,
+    listTags, uploadVideoFile, uploadImageFile,
+    setProfile, getProfile, addComment, listComments, follow,
+    sendDm, listDm, listThreads, incrementView,
   };
 })();
