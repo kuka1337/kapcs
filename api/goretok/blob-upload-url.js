@@ -35,6 +35,12 @@ const ALLOWED_CONTENT_TYPES = [
 const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
 async function createUploadToken(req) {
+  // Fail fast if the Blob store isn't linked yet, instead of hanging on an
+  // internal call until the request times out.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return json({ error: 'File upload is not configured yet (no Blob store linked). Use a video URL for now.' }, 503);
+  }
+
   let body = {};
   try { body = await req.json(); } catch {}
 
