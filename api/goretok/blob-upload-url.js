@@ -14,7 +14,12 @@
  * BLOB_READ_WRITE_TOKEN is read from the environment by the SDK — never
  * hardcoded or logged.
  */
-export const config = { runtime: 'edge' };
+// Node runtime: @vercel/blob's handleUpload pulls in Node built-ins (undici,
+// node:stream, ...) that the Edge runtime rejects. Keeping only this one route
+// on Node (the modern Node runtime still accepts a Web `Request`->`Response`
+// handler) avoids "referencing unsupported modules" build failures, while every
+// other goretok route stays on Edge.
+export const config = { runtime: 'nodejs' };
 
 import { handleUpload } from '@vercel/blob/client';
 import { json, secHeaders } from './_lib/http.js';
