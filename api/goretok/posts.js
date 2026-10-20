@@ -13,7 +13,8 @@ export const config = { runtime: 'edge' };
 import { json, secHeaders } from './_lib/http.js';
 import { verifySessionToken, bearerFrom } from './_lib/crypto.js';
 import {
-  validateTitle, validateTags, validateDuration, validateVideoUrl, makePostId
+  validateTitle, validateTags, validateDuration, validateVideoUrl, makePostId,
+  validatePostId
 } from './_lib/validate.js';
 import { getKv } from './_lib/kv.js';
 
@@ -99,10 +100,76 @@ async function createPost(req) {
   }
 }
 
+const DELETE_ROLES = ['moderator', 'admin', 'founder'];
+
+async function deletePost(req) {
+  const token = bearerFrom(req);
+  const verified = token ? await verifySessionToken(token) : null;
+  if (!verified) return json({ error: 'Unauthorized.' }, 401);
+
+  let body = {};
+  try { body = await req.json(); } catch {}
+  const url = new URL(req.url, 'http://localhost');
+  const raw = body.postId || url.searchParams.get('postId');
+  const pid = validatePostId(raw);
+  if (!pid.ok) return json({ error: pid.error }, 400);
+  const id = pid.value;
+
+  try {
+    const kv = await getKv();
+    const praw = await kv.get(`gt:post:${id}`);
+    const post = typeof praw === 'string' ? JSON.parse(praw) : praw;
+    if (!post) return json({ error: 'Post not found.' }, 404);
+
+    const caller = verified.handle;
+    let allowed = caller === post.author;
+    if (!allowed) {
+      const uraw = await kv.get(`gt:user:${caller}`);
+      const user = typeof uraw === 'string' ? JSON.parse(uraw) : uraw;
+      if (user && DELETE_ROLES.includes(user.role)) allowed = true;
+    }
+    if (!allowed) return json({ error: 'Forbidden.' }, 403);
+
+    await kv.del(`gt:post:${id}`);
+    await kv.lrem('gt:posts:index', 0, id);
+    await kv.decr('gt:posts:count');
+    await kv.lrem(`gt:user:${post.author}:posts`, 0, id);
+    for (const tag of post.tags || []) {
+      const left = Number((await kv.decr(`gt:tag:${tag}:count`)) || 0);
+      if (left <= 0) await kv.srem('gt:tags', tag);
+    }
+    await kv.del(`gt:post:${id}:comments`);
+    await kv.del(`gt:post:${id}:likers`);
+    await kv.del(`gt:post:${id}:views`);
+
+    // Best-effort blob deletion for Vercel Blob-hosted videos. Never fail the
+    // post delete on a blob error (orphaned blobs are tolerable).
+    try {
+      const vu = new URL(post.videoUrl);
+      if (vu.host.endsWith('.public.blob.vercel-storage.com')) {
+        await fetch(new URL('/api/goretok/blob-upload-url', req.url).toString(), {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ url: post.videoUrl })
+        });
+      }
+    } catch {}
+
+    return json({ ok: true }, 200);
+  } catch (err) {
+    console.error('delete post failed:', err && err.name);
+    return json({ error: 'Could not delete post.' }, 500);
+  }
+}
+
 export default async function handler(req) {
   try {
     if (req.method === 'GET') return await listPosts(req);
     if (req.method === 'POST') return await createPost(req);
+    if (req.method === 'DELETE') return await deletePost(req);
     return new Response('Method Not Allowed', { status: 405, headers: secHeaders });
   } catch (err) {
     console.error('posts route failed:', err && err.name);

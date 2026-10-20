@@ -26,12 +26,17 @@ export default async function handler(req) {
 
     const posts = (await kv.lrange(`gt:user:${handle}:posts`, 0, -1)) || [];
     const likedPosts = (await kv.smembers(`gt:user:${handle}:likes`)) || [];
+    const followers = Number((await kv.scard(`gt:user:${handle}:followers`)) || 0);
+    const following = Number((await kv.scard(`gt:user:${handle}:following`)) || 0);
 
     return json({
       handle: user.handle,
       role: user.role || 'user',
       likes: user.likes || 0,
       createdAt: user.createdAt || null,
+      avatarUrl: user.avatarUrl || null,
+      followers,
+      following,
       posts,
       likedPosts
     }, 200);

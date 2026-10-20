@@ -16,7 +16,7 @@
  */
 export const config = { runtime: 'nodejs' };
 
-import { put } from '@vercel/blob';
+import { put, del } from '@vercel/blob';
 import { verifySessionToken } from './_lib/crypto.js';
 
 const ALLOWED_CONTENT_TYPES = [
@@ -26,7 +26,14 @@ const ALLOWED_CONTENT_TYPES = [
   'video/ogg',
   'video/x-matroska'
 ];
+const ALLOWED_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif'
+];
 const MAX_SIZE_BYTES = 4.4 * 1024 * 1024; // keep under Vercel's ~4.5 MB server-upload cap
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // ~2 MB cap for avatar/images
 
 const SEC = {
   'X-Frame-Options': 'DENY',
@@ -62,16 +69,47 @@ function readBody(req, maxBytes) {
   });
 }
 
-function safeName(raw) {
+function safeName(raw, fallbackExt = 'mp4') {
   let base = typeof raw === 'string' ? raw.split(/[\\/]/).pop() : '';
   base = (base || 'clip').replace(/[^a-zA-Z0-9._-]/g, '').slice(-80) || 'clip';
-  if (!/\.[a-z0-9]+$/i.test(base)) base += '.mp4';
+  if (!/\.[a-z0-9]+$/i.test(base)) base += '.' + fallbackExt;
   return base;
+}
+
+function readJsonBody(req, maxBytes) {
+  return readBody(req, maxBytes).then((buf) => {
+    if (!buf || buf.length === 0) return {};
+    try { return JSON.parse(buf.toString('utf8')); } catch { return {}; }
+  });
+}
+
+async function handleDelete(req, res, verified) {
+  let url = null;
+  try {
+    const u = new URL(req.url, 'http://localhost');
+    url = u.searchParams.get('url');
+  } catch {}
+  if (!url) {
+    const body = await readJsonBody(req, 8 * 1024).catch(() => ({}));
+    url = body && body.url;
+  }
+  if (typeof url !== 'string' || !url) return reply(res, 400, { error: 'Blob url is required.' });
+
+  let host;
+  try { host = new URL(url).host; } catch { return reply(res, 400, { error: 'Invalid blob url.' }); }
+  if (!host.endsWith('.public.blob.vercel-storage.com')) {
+    return reply(res, 400, { error: 'Not a Vercel Blob url.' });
+  }
+
+  await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN });
+  return reply(res, 200, { ok: true });
 }
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') return reply(res, 405, { error: 'Method Not Allowed' });
+    if (req.method !== 'POST' && req.method !== 'DELETE') {
+      return reply(res, 405, { error: 'Method Not Allowed' });
+    }
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return reply(res, 503, { error: 'File upload is not configured yet (no Blob store linked). Use a video URL for now.' });
@@ -80,24 +118,38 @@ export default async function handler(req, res) {
     const verified = await verifySessionToken(bearer(req));
     if (!verified) return reply(res, 401, { error: 'Unauthorized.' });
 
+    if (req.method === 'DELETE') return await handleDelete(req, res, verified);
+
     const contentType = (req.headers['content-type'] || '').split(';')[0].trim();
-    if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-      return reply(res, 400, { error: 'Only video files are allowed (mp4, webm, mov, ogg, mkv).' });
+    const isVideo = ALLOWED_CONTENT_TYPES.includes(contentType);
+    const isImage = ALLOWED_IMAGE_TYPES.includes(contentType);
+    if (!isVideo && !isImage) {
+      return reply(res, 400, { error: 'Only video (mp4, webm, mov, ogg, mkv) or image (png, jpeg, webp, gif) files are allowed.' });
     }
 
+    const cap = isImage ? MAX_IMAGE_BYTES : MAX_SIZE_BYTES;
     let buf;
     try {
-      buf = await readBody(req, MAX_SIZE_BYTES);
+      buf = await readBody(req, cap);
     } catch (e) {
       if (e && e.message === 'TOO_LARGE') {
-        return reply(res, 413, { error: 'File too large for direct upload (max ~4.4 MB). Use a video URL for bigger clips.' });
+        return reply(res, 413, isImage
+          ? { error: 'Image too large (max ~2 MB).' }
+          : { error: 'File too large for direct upload (max ~4.4 MB). Use a video URL for bigger clips.' });
       }
       throw e;
     }
     if (!buf || buf.length === 0) return reply(res, 400, { error: 'Empty file.' });
 
-    const name = safeName(req.headers['x-filename']);
-    const pathname = `goretok/${verified.handle}/${Date.now()}-${name}`;
+    let pathname;
+    if (isImage) {
+      const ext = contentType.split('/')[1] || 'png';
+      const name = safeName(req.headers['x-filename'], ext === 'jpeg' ? 'jpg' : ext);
+      pathname = `goretok/${verified.handle}/img/${Date.now()}-${name}`;
+    } else {
+      const name = safeName(req.headers['x-filename']);
+      pathname = `goretok/${verified.handle}/${Date.now()}-${name}`;
+    }
 
     const blob = await put(pathname, buf, {
       access: 'public',

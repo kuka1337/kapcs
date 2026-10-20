@@ -133,6 +133,47 @@ export function validatePostId(raw) {
   return { ok: false, error: 'Invalid post id.' };
 }
 
+export function validateCommentText(raw) {
+  if (typeof raw !== 'string') return { ok: false, error: 'Comment is required.' };
+  const value = raw.trim();
+  if (value.length < 1 || value.length > 500) {
+    return { ok: false, error: 'Comment must be 1-500 characters.' };
+  }
+  return { ok: true, value };
+}
+
+export function validateDmText(raw) {
+  if (typeof raw !== 'string') return { ok: false, error: 'Message is required.' };
+  const value = raw.trim();
+  if (value.length < 1 || value.length > 2000) {
+    return { ok: false, error: 'Message must be 1-2000 characters.' };
+  }
+  return { ok: true, value };
+}
+
+export function validateAvatarUrl(raw) {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2048) {
+    return { ok: false, error: 'Avatar URL is required (max 2048 chars).' };
+  }
+  let u;
+  try { u = new URL(raw); } catch { return { ok: false, error: 'Avatar URL is not valid.' }; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    return { ok: false, error: 'Avatar URL must use http or https.' };
+  }
+  return { ok: true, value: raw };
+}
+
+/**
+ * Return the two handles (lowercased) joined lexicographically as
+ * '<lo>|<hi>'. Used as a stable, participant-scoped DM conversation key so a
+ * pair always maps to exactly one storage key regardless of caller order.
+ */
+export function sortedPair(a, b) {
+  const x = normalizeHandle(a);
+  const y = normalizeHandle(b);
+  return x <= y ? `${x}|${y}` : `${y}|${x}`;
+}
+
 export function makePostId(ts = Date.now()) {
   let rand = '';
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
