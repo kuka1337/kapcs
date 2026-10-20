@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /goretok
+Allow: /goretok/
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin.html
+
+Sitemap: https://goretok.life/sitemap.xml
