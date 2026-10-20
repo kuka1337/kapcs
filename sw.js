@@ -2,7 +2,7 @@
  * KAPCS Service Worker — PWA + Offline támogatás
  */
 
-const CACHE_NAME = 'kapcs-v3';
+const CACHE_NAME = 'kapcs-v4';
 const SHELL_URLS = [
   '/',
   '/index.html',
@@ -86,6 +86,23 @@ self.addEventListener('fetch', event => {
     url.pathname.startsWith('/api/') ||
     event.request.method !== 'GET'
   ) {
+    return;
+  }
+
+  // GoreTok is actively developed and must never be served stale from the SW
+  // cache → always Network First (fall back to cache only when offline).
+  if (url.pathname === '/goretok' || url.pathname.startsWith('/goretok/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
