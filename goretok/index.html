@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>GoreTok — 18+ fiction / FX / gaming / horror</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo-mark.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Shared moderation backbone (same broker/topics as KAPCS admin) -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <!-- ======================= WARN BANNER ======================= -->
+  <div id="warnBanner" class="warn-banner" hidden>
+    ⚠ Official warning from moderation. Repeated violations lead to a ban.
+  </div>
+
+  <!-- ======================= APP SHELL ======================= -->
+  <div id="app" class="app" aria-hidden="true">
+    <!-- Left sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/logo-mark.svg" alt="GoreTok" class="brand-mark" />
+        <span class="brand-name">Gore<span class="accent">Tok</span></span>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="foryou"><span class="ico">⌂</span> For You</button>
+        <button class="nav-item" data-view="discover"><span class="ico">⌕</span> Discover</button>
+        <button class="nav-item" data-view="upload"><span class="ico">▲</span> Upload</button>
+        <button class="nav-item" data-view="moderation"><span class="ico">⚑</span> Moderation</button>
+        <button class="nav-item" data-view="profile"><span class="ico">☗</span> Profile</button>
+      </nav>
+
+      <div class="rule-card">
+        <div class="rule-title">Community rule</div>
+        <p>Fiction / FX / horror / gaming only. Real violence or real harm is strictly banned and removed.</p>
+      </div>
+    </aside>
+
+    <!-- Center feed -->
+    <main class="feed-wrap">
+      <div class="feed" id="feed" tabindex="0" aria-label="Video feed. Scroll or use arrow keys to move between videos.">
+        <!-- slides injected by JS -->
+      </div>
+      <!-- pagination dots -->
+      <div class="pager" id="pager" aria-hidden="true"></div>
+    </main>
+
+    <!-- Right status panel -->
+    <aside class="status">
+      <h3>Account status</h3>
+      <ul class="status-list">
+        <li class="ok">✓ 18+ confirmed</li>
+        <li class="pending">⧗ Guest session</li>
+      </ul>
+
+      <h3>Security</h3>
+      <ul class="sec-list">
+        <li>Hashed passwords</li>
+        <li>Rate limiting</li>
+        <li>Audit logging</li>
+        <li>CSRF / XSS protection</li>
+      </ul>
+
+      <div class="note">Backend (accounts, upload, moderation) is added in a later step.</div>
+    </aside>
+  </div>
+
+  <!-- ======================= AGE GATE OVERLAY ======================= -->
+  <div id="ageGate" class="age-gate" role="dialog" aria-modal="true" aria-labelledby="ag-title">
+    <div class="age-card">
+      <div class="age-badge">18+</div>
+      <img src="assets/logo-mark.svg" alt="GoreTok" class="age-logo" />
+      <h1 id="ag-title" class="age-heading">Content warning</h1>
+      <p class="age-text">
+        GoreTok hosts intense <strong>fictional</strong>, special-effects, gaming and horror
+        content that may disturb some viewers. Real violence or real harm is
+        <strong>not allowed</strong> and will be removed.
+      </p>
+      <p class="age-question">Are you 18 or older?</p>
+      <div class="age-actions">
+        <button id="btnYes" class="btn btn-yes">Yes, enter</button>
+        <button id="btnNo" class="btn btn-no">No</button>
+      </div>
+      <p class="age-hint">Yes &rarr; enter the site &nbsp;·&nbsp; No &rarr; you will be sent away</p>
+    </div>
+  </div>
+
+  <!-- ======================= AUTH GATE (login / register) ======================= -->
+  <div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title" hidden>
+    <div class="auth-card">
+      <img src="assets/logo-mark.svg" alt="GoreTok" class="auth-logo" />
+      <h1 id="auth-title" class="auth-heading">Sign in to <span class="accent">GoreTok</span></h1>
+      <p class="auth-text" id="authSubtitle">Log in to post, like and follow the feed.</p>
+
+      <form id="authForm" class="auth-form" autocomplete="on">
+        <input type="text" id="authHandle" class="auth-input" placeholder="handle (a-z, 0-9, _)"
+               autocomplete="username" minlength="3" maxlength="20" required />
+        <input type="password" id="authPassword" class="auth-input" placeholder="password (min 8 chars)"
+               autocomplete="current-password" minlength="8" maxlength="200" required />
+        <button type="submit" id="authSubmit" class="btn btn-yes auth-submit">Log in</button>
+      </form>
+
+      <div id="authError" class="auth-error" role="alert"></div>
+
+      <p class="auth-toggle">
+        <span id="authTogglePrompt">New here?</span>
+        <a href="#" id="authToggleLink" class="auth-link">Create an account</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- ======================= BLOCKED SCREEN ======================= -->
+  <div id="blocked" class="blocked" hidden>
+    <div class="blocked-inner">
+      <img src="assets/logo-mark.svg" alt="GoreTok" class="blocked-logo" />
+      <h2>Access restricted</h2>
+      <p>You must be 18 or older to use GoreTok.</p>
+      <div class="blocked-actions">
+        <button id="btnBack" class="btn btn-yes">Go back</button>
+        <a class="btn btn-no" href="https://www.google.com">Leave</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= BAN SCREEN ======================= -->
+  <div id="banScreen" class="ban-screen" hidden>
+    <div class="ban-inner">
+      <img src="assets/logo-mark.svg" alt="GoreTok" class="blocked-logo" />
+      <h2>You have been banned</h2>
+      <p id="banReason">Your access was suspended by moderation.</p>
+      <p id="banExpiry" class="ban-expiry"></p>
+      <div class="blocked-actions">
+        <a class="btn btn-no" href="https://www.google.com">Leave</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= ADMIN TOAST (broadcast / DM) ======================= -->
+  <div id="adminToast" class="admin-toast" hidden>
+    <div class="admin-toast-title" id="adminToastTitle">📢 Announcement</div>
+    <div class="admin-toast-msg" id="adminToastMsg"></div>
+  </div>
+
+  <script src="js/moderation.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

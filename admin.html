@@ -242,6 +242,7 @@
       <div class="stat-card"><span>ONLINE NOW</span><strong id="stat-online-users" style="color:var(--success)">0</strong></div>
       <div class="stat-card"><span>ACTIVE BANS</span><strong id="stat-active-bans" style="color:var(--danger)">0</strong></div>
       <div class="stat-card"><span>WARNINGS</span><strong id="stat-active-warns" style="color:var(--warning)">0</strong></div>
+      <div class="stat-card"><span>&#x1F480; GORETOK USERS</span><strong id="stat-goretok-users" style="color:#ff2d55">0</strong></div>
     </div>
 
     <!-- AUTO BAN SUGGESTIONS -->
@@ -314,6 +315,7 @@
         <button class="filter-chip" onclick="setUserFilter('online',this)">&#x1F7E2; Online</button>
         <button class="filter-chip" onclick="setUserFilter('banned',this)">&#x1F534; Banned</button>
         <button class="filter-chip" onclick="setUserFilter('warned',this)">&#x26A0;&#xFE0F; Warned</button>
+        <button class="filter-chip" onclick="setUserFilter('goretok',this)">&#x1F480; GoreTok</button>
         <button class="btn-csv" onclick="exportCSV()">&#x2B07;&#xFE0F; CSV</button>
       </div>
       <div class="table-container">
@@ -410,14 +412,31 @@
         <div class="inline-form">
           <input type="text" id="role-username" placeholder="@handle" style="flex:1;min-width:140px;">
           <select id="role-select">
-            <option value="verified">&#x1F539; Verified</option>
+            <option value="founder">&#x1F451; GoreTok Founder</option>
+            <option value="admin">&#x1F6E0;&#xFE0F; Admin</option>
             <option value="moderator">&#x1F6E1;&#xFE0F; Moderator</option>
-            <option value="developer">&#x26A1; Developer</option>
+            <option value="verified">&#x1F539; Verified</option>
             <option value="vip">&#x2B50; VIP</option>
+            <option value="developer">&#x26A1; Developer</option>
+            <option value="user">&#x1F464; User</option>
             <option value="none">&#x274C; Remove</option>
           </select>
           <button class="btn-action btn-unban" id="btn-assign-role" style="background:#6366f1;border-color:#6366f1;color:#fff;">Set</button>
         </div>
+        <p style="font-size:11px;color:var(--muted);margin:10px 0 0;line-height:1.5;">
+          Roles are broadcast to KAPCS presence and, for GoreTok accounts, persisted
+          server-side (&#x1F480; GoreTok KV). Founder is the manual top rank.
+        </p>
+      </div>
+
+      <!-- GoreTok server-side stats (via /api/goretok/admin/stats) -->
+      <div class="control-card" style="max-width:500px;margin-bottom:20px;">
+        <h3>&#x1F480; GoreTok accounts</h3>
+        <div id="goretok-stats-row" style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);">
+          <div>Total users: <strong id="gt-stat-total" style="color:var(--text)">&mdash;</strong></div>
+          <div>Posts: <strong id="gt-stat-posts" style="color:var(--text)">&mdash;</strong></div>
+        </div>
+        <div id="goretok-roles-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
       </div>
       <div class="table-container">
         <div class="table-header"><h2>Assigned Roles</h2></div>
@@ -647,8 +666,10 @@ function initPanel() {
   if (client.connected) { doSubscribeAndRequest(); } else { client.once('connect',doSubscribeAndRequest); }
   renderAllUsersTable();updateStats();renderRolesTable();renderAuditLog();
   renderCountryStats();renderBroadcastHistory();renderChatMonitor();checkExpiredBans();renderBanSuggestions();
+  renderGoretokStats();
   recordOnlineSnapshot();setInterval(recordOnlineSnapshot,5*60*1000);
   setInterval(()=>{renderAllUsersTable();updateStats();checkExpiredBans();renderBanSuggestions();},4000);
+  setInterval(renderGoretokStats,10000);
   setInterval(()=>{renderCountryStats();},10000);
   setInterval(()=>{bannedList.forEach(b=>client.publish(TOPIC_BANS,JSON.stringify({action:'ban',targetDev:b.targetDev,targetName:b.targetName,reason:b.reason,expiresAt:b.expiresAt})));client.publish(TOPIC_ROLES,JSON.stringify({allRoles:rolesMap}));checkExpiredBans();},5000);
   document.getElementById('user-search').addEventListener('input',renderAllUsersTable);
@@ -666,8 +687,11 @@ function initPanel() {
   document.getElementById('btn-assign-role').addEventListener('click',()=>{
     const u=document.getElementById('role-username').value.trim().toLowerCase().replace('@','');if(!u)return showToast('Enter username.',true);
     const r=document.getElementById('role-select').value;
+    // Keep the existing MQTT roles broadcast (KAPCS presence badges).
     if(r==='none')delete rolesMap[u];else rolesMap[u]=r;
     saveRoles();renderAllUsersTable();renderRolesTable();document.getElementById('role-username').value='';showToast('Role set for @'+u);
+    // Persist to GoreTok KV (authoritative for GoreTok accounts). 'none' -> default 'user'.
+    assignGoretokRole(u, r==='none' ? 'none' : r);
   });
   document.getElementById('btn-broadcast').addEventListener('click',()=>{
     const msg=document.getElementById('broadcast-msg').value.trim();if(!msg)return showToast('Enter a message.',true);
@@ -727,6 +751,7 @@ function renderAllUsersTable() {
   if(currentUserFilter==='online')users=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000));
   if(currentUserFilter==='banned')users=users.filter(u=>bannedList.some(b=>b.targetName===u.username||b.targetDev===u.deviceId));
   if(currentUserFilter==='warned')users=users.filter(u=>u.warned);
+  if(currentUserFilter==='goretok')users=users.filter(u=>u.country==='GT'||u.liveState==='GORETOK');
   if(q)users=users.filter(u=>u.username.includes(q)||(u.deviceId||'').toLowerCase().includes(q)||(u.country||'').toLowerCase().includes(q)||(u.countryName||'').toLowerCase().includes(q));
   document.getElementById('user-count-badge').textContent=`${users.length} / ${Object.keys(usersDirectory).length} shown`;
   if(!users.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">No users match.</td></tr>';return;}
@@ -765,6 +790,50 @@ function updateStats(){
   document.getElementById('stat-online-users').textContent=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).length;
   document.getElementById('stat-active-bans').textContent=bannedList.length;
   document.getElementById('stat-active-warns').textContent=users.filter(u=>u.warned).length;
+}
+
+// ── GORETOK server-side stats + role assignment (via existing admin HMAC gate) ──
+const GT_ROLE_COLORS={founder:'#ff2d55',admin:'#ff5b3a',moderator:'#7cc0ff',verified:'#7cffd0',vip:'#fbbf24',user:'#8888aa'};
+function goretokAuthHeaders(){
+  const t=sessionStorage.getItem('kapcs_gate_token');
+  return t?{'Authorization':'Bearer '+t}:{};
+}
+async function renderGoretokStats(){
+  const totalEl=document.getElementById('gt-stat-total');
+  if(!totalEl)return; // Roles tab not in DOM
+  try{
+    const res=await fetch('/api/goretok/admin/stats',{headers:goretokAuthHeaders()});
+    if(!res.ok){throw new Error('stats '+res.status);}
+    const d=await res.json();
+    totalEl.textContent=d.totalUsers;
+    document.getElementById('gt-stat-posts').textContent=d.totalPosts;
+    const gtUsersStat=document.getElementById('stat-goretok-users');
+    if(gtUsersStat)gtUsersStat.textContent=d.totalUsers;
+    const row=document.getElementById('goretok-roles-row');
+    if(row){
+      const roles=d.roles||{};
+      row.innerHTML=Object.keys(roles).map(r=>{
+        const c=GT_ROLE_COLORS[r]||'#8888aa';
+        return `<span style="font-size:11px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:20px;border:1px solid ${c};color:${c};background:rgba(255,255,255,.03);">${r}: ${roles[r]}</span>`;
+      }).join('');
+    }
+  }catch(e){
+    totalEl.textContent='n/a';
+    const postsEl=document.getElementById('gt-stat-posts');if(postsEl)postsEl.textContent='n/a';
+  }
+}
+async function assignGoretokRole(handle,role){
+  try{
+    const res=await fetch('/api/goretok/admin/role',{
+      method:'POST',
+      headers:Object.assign({'Content-Type':'application/json'},goretokAuthHeaders()),
+      body:JSON.stringify({handle:handle,role:role})
+    });
+    const d=await res.json().catch(()=>({}));
+    if(res.ok){showToast('GoreTok role saved: @'+handle+' → '+d.role);renderGoretokStats();}
+    else if(res.status===404){/* not a GoreTok account — KAPCS-only role is fine */}
+    else{showToast('GoreTok role not saved: '+(d.error||res.status),true);}
+  }catch(e){showToast('GoreTok role endpoint unreachable.',true);}
 }
 
 // BAN / UNBAN

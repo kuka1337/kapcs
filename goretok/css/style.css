@@ -1,0 +1,478 @@
+/* ===================== GoreTok — Dark Neon ===================== */
+:root {
+  --bg: #0a0a0f;
+  --panel: #101019;
+  --panel-2: #14141f;
+  --line: #1f1f30;
+  --text: #e9e9f5;
+  --muted: #8888aa;
+  --muted-2: #55556e;
+  --accent: #ff2d55;
+  --accent-2: #ff5b3a;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, Arial, sans-serif;
+  overflow: hidden;
+}
+.accent { color: var(--accent); }
+
+/* ===================== APP LAYOUT ===================== */
+.app {
+  display: grid;
+  grid-template-columns: 240px 1fr;   /* TikTok-web: left nav + big feed */
+  height: 100vh;
+  transition: filter .35s ease, opacity .35s ease;
+}
+/* locked state: blur the feed behind the age gate */
+.app.locked {
+  filter: blur(9px) brightness(.6) saturate(.8);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 40px; height: 40px; }
+.brand-name { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  background: transparent; border: 0; color: var(--muted);
+  font-size: 15px; padding: 11px 12px; border-radius: 10px;
+  cursor: pointer; text-align: left; transition: .15s;
+}
+.nav-item .ico { width: 18px; text-align: center; color: inherit; }
+.nav-item:hover { background: #17172a; color: var(--text); }
+.nav-item.active { color: var(--accent); background: #190b12; }
+
+.rule-card {
+  margin-top: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.rule-title { color: var(--muted-2); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.rule-card p { margin: 0; line-height: 1.5; }
+
+/* ---- Right status (hidden to match TikTok web — feed gets the space) ---- */
+.status { display: none; }
+.status-legacy {
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  padding: 22px 18px;
+  font-size: 13px;
+}
+.status h3 { font-size: 14px; margin: 0 0 10px; }
+.status h3:not(:first-child) { margin-top: 24px; }
+.status ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.status-list .ok { color: var(--ok); }
+.status-list .pending { color: var(--warn); }
+.sec-list li { color: var(--muted); position: relative; padding-left: 14px; }
+.sec-list li::before { content: "·"; position: absolute; left: 2px; color: var(--accent); }
+.note { margin-top: 24px; font-size: 11px; color: var(--muted-2); line-height: 1.5; }
+
+/* ===================== FEED ===================== */
+.feed-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 50% 0%, #15060b 0%, transparent 70%),
+    #000;
+}
+.feed {
+  height: calc(100vh - 32px);
+  aspect-ratio: 9 / 16;              /* proper vertical video shape */
+  max-width: 100%;
+  border-radius: 20px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;             /* Firefox */
+  background: #000;
+  border: 1px solid var(--line);
+  outline: none;
+}
+.feed::-webkit-scrollbar { display: none; } /* Chrome/Edge */
+
+.slide {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.slide-media {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+}
+.slide-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.slide-media::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.7) 100%);
+}
+.play {
+  position: relative;
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--accent);
+  display: grid; place-items: center;
+  box-shadow: 0 0 30px rgba(255,45,85,.6);
+  opacity: .92;
+  cursor: pointer;
+  transition: opacity .2s ease, transform .2s ease;
+}
+/* hide the big play button while the slide's video is playing */
+.slide.playing .play { opacity: 0; transform: scale(.8); pointer-events: none; }
+.play::after {
+  content: "";
+  border-style: solid;
+  border-width: 12px 0 12px 20px;
+  border-color: transparent transparent transparent #fff;
+  margin-left: 5px;
+}
+
+.caption {
+  position: absolute; left: 16px; bottom: 18px; right: 70px;
+  z-index: 2;
+}
+.caption .user { font-weight: 800; font-size: 14px; }
+.caption .text { font-size: 12.5px; color: #d8d8e6; margin-top: 4px; line-height: 1.45; }
+.caption .tag { color: var(--accent); }
+
+/* badge top-left of each slide */
+.kind-badge {
+  position: absolute; top: 14px; left: 14px; z-index: 2;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  padding: 4px 8px; border-radius: 6px;
+  background: rgba(255,45,85,.15); color: #ff8aa0;
+  border: 1px solid rgba(255,45,85,.4);
+  text-transform: uppercase;
+}
+
+/* action rail — TikTok-web: big round buttons hugging the right edge */
+.rail {
+  position: absolute; right: 14px; bottom: 110px; z-index: 3;
+  display: flex; flex-direction: column; gap: 20px; align-items: center;
+}
+.rail button {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(30,30,46,.85); border: 1px solid rgba(255,255,255,.08);
+  color: #fff; font-size: 22px; cursor: pointer; transition: .15s;
+  display: grid; place-items: center;
+  backdrop-filter: blur(4px);
+}
+.rail button:hover { transform: scale(1.1); background: rgba(45,45,66,.95); }
+.rail .count { font-size: 12px; color: #fff; margin-top: -14px; font-weight: 600; }
+.rail .liked { color: var(--accent); border-color: var(--accent); background: rgba(255,45,85,.18); }
+
+/* pagination dots */
+.pager {
+  position: absolute; left: 24px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.pager .dot { width: 4px; height: 14px; border-radius: 2px; background: #44445a; transition: .2s; }
+.pager .dot.active { height: 26px; background: var(--accent); }
+
+/* ===================== VIEW PLACEHOLDER (Discover / Upload / etc.) ===================== */
+.view-placeholder {
+  height: calc(100vh - 32px);
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(600px 400px at 50% 0%, #190b12 0%, transparent 70%),
+    #0c0c14;
+  display: grid; place-items: center;
+  padding: 24px;
+}
+.view-placeholder[hidden] { display: none; }
+.vp-card { text-align: center; max-width: 320px; }
+.vp-icon {
+  width: 72px; height: 72px; margin: 0 auto 18px;
+  display: grid; place-items: center;
+  font-size: 30px; border-radius: 50%;
+  color: var(--accent);
+  background: rgba(255,45,85,.12);
+  border: 1px solid rgba(255,45,85,.4);
+  box-shadow: 0 0 30px rgba(255,45,85,.25);
+}
+.vp-card h2 { font-size: 22px; margin: 0 0 10px; color: var(--text); }
+.vp-card p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 18px; }
+.vp-soon {
+  display: inline-block;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: #ff8aa0; padding: 6px 14px; border-radius: 20px;
+  background: rgba(255,45,85,.1); border: 1px solid rgba(255,45,85,.3);
+}
+
+/* ===================== AGE GATE ===================== */
+.age-gate {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: rgba(5,5,10,.55);
+  transition: opacity .35s ease, visibility .35s ease;
+}
+.age-gate.hidden { opacity: 0; visibility: hidden; }
+
+.age-card {
+  position: relative;
+  width: min(92vw, 420px);
+  background: var(--panel-2);
+  border: 1.5px solid var(--accent);
+  border-radius: 18px;
+  padding: 40px 32px 28px;
+  text-align: center;
+  box-shadow: 0 20px 80px rgba(255,45,85,.25);
+}
+.age-badge {
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #fff; font-weight: 800;
+  padding: 6px 14px; border-radius: 16px; font-size: 14px;
+  box-shadow: 0 0 20px rgba(255,45,85,.6);
+}
+.age-logo { width: 64px; height: 64px; margin: 6px auto 10px; display: block; }
+.age-heading { color: #ff5b7a; font-size: 22px; margin: 0 0 14px; }
+.age-text { color: #c2c4d0; font-size: 13px; line-height: 1.6; margin: 0 0 20px; }
+.age-text strong { color: #fff; }
+.age-question { color: var(--text); font-weight: 700; font-size: 17px; margin: 0 0 18px; }
+
+.age-actions { display: flex; gap: 12px; justify-content: center; }
+.btn {
+  border: 0; cursor: pointer; font-size: 15px; font-weight: 700;
+  padding: 13px 22px; border-radius: 10px; min-width: 120px;
+  text-decoration: none; display: inline-block; text-align: center;
+  transition: .15s;
+}
+.btn-yes { background: var(--accent); color: #fff; }
+.btn-yes:hover { background: #ff466b; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,45,85,.4); }
+.btn-no { background: transparent; color: var(--muted); border: 1px solid #44445a; }
+.btn-no:hover { color: #fff; border-color: var(--muted); }
+.age-hint { margin: 18px 0 0; font-size: 11px; color: var(--muted-2); }
+
+/* ===================== BLOCKED ===================== */
+.blocked {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center;
+  background: var(--bg);
+  text-align: center;
+}
+/* never show the blocked screen unless JS explicitly reveals it */
+.blocked[hidden] { display: none !important; }
+.blocked-inner { max-width: 360px; padding: 20px; }
+.blocked-logo { width: 90px; height: 90px; opacity: .85; margin-bottom: 10px; }
+.blocked h2 { color: #ff5b7a; margin: 0 0 8px; }
+.blocked p { color: var(--muted); margin: 0 0 22px; }
+.blocked-actions { display: flex; gap: 12px; justify-content: center; }
+
+/* ===================== WARN BANNER ===================== */
+.warn-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 70;
+  background: var(--accent-2);
+  color: #fff; font-size: 12.5px; font-weight: 700;
+  text-align: center; padding: 9px 16px;
+  box-shadow: 0 4px 20px rgba(255,91,58,.4);
+}
+.warn-banner[hidden] { display: none; }
+
+/* ===================== REPORT BUTTON ===================== */
+.rail .report { font-size: 20px; }
+.rail .report:hover { background: rgba(255,91,58,.2); border-color: var(--accent-2); }
+.rail .report.reported {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+  background: rgba(255,91,58,.18);
+  cursor: default;
+}
+
+/* ===================== BAN SCREEN ===================== */
+.ban-screen {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center;
+  background: #05050a;
+  text-align: center;
+}
+.ban-screen[hidden] { display: none !important; }
+.ban-inner { max-width: 380px; padding: 24px; }
+.ban-inner h2 { color: var(--accent); font-size: 26px; margin: 10px 0 10px; }
+.ban-inner p { color: var(--muted); margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.ban-expiry { color: var(--warn); font-size: 12px; margin-bottom: 20px; }
+
+/* ===================== ADMIN TOAST ===================== */
+.admin-toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px);
+  z-index: 90; min-width: 260px; max-width: min(92vw, 420px);
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 16px 50px rgba(255,45,85,.3);
+  opacity: 0; transition: opacity .3s ease, transform .3s ease;
+}
+.admin-toast[hidden] { display: none; }
+.admin-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.admin-toast-title { font-size: 12px; font-weight: 800; color: #ff8aa0; margin-bottom: 4px; }
+.admin-toast-msg { font-size: 13.5px; color: var(--text); line-height: 1.45; word-break: break-word; }
+
+/* ===================== AUTH GATE ===================== */
+.auth-gate {
+  position: fixed; inset: 0; z-index: 55;
+  display: grid; place-items: center;
+  background: rgba(5,5,10,.72);
+  transition: opacity .3s ease, visibility .3s ease;
+}
+.auth-gate[hidden] { display: none; }
+.auth-card {
+  width: min(92vw, 400px);
+  background: var(--panel-2);
+  border: 1.5px solid var(--accent);
+  border-radius: 18px;
+  padding: 34px 30px 26px;
+  text-align: center;
+  box-shadow: 0 20px 80px rgba(255,45,85,.25);
+}
+.auth-logo { width: 56px; height: 56px; margin: 0 auto 10px; display: block; }
+.auth-heading { font-size: 21px; margin: 0 0 8px; color: var(--text); }
+.auth-text { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 20px; }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-input {
+  width: 100%; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; color: var(--text); font-size: 14px; outline: none;
+  transition: border-color .15s;
+}
+.auth-input::placeholder { color: var(--muted-2); }
+.auth-input:focus { border-color: var(--accent); }
+.auth-submit { width: 100%; margin-top: 4px; min-width: 0; }
+.auth-submit:disabled { opacity: .6; cursor: not-allowed; }
+.auth-error { color: var(--accent); font-size: 12.5px; min-height: 18px; margin-top: 12px; font-weight: 600; }
+.auth-toggle { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
+.auth-link { color: var(--accent); text-decoration: none; font-weight: 700; margin-left: 4px; }
+.auth-link:hover { text-decoration: underline; }
+
+/* ===================== EMPTY FEED STATE ===================== */
+.feed-empty {
+  height: calc(100vh - 32px);
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(600px 400px at 50% 0%, #190b12 0%, transparent 70%),
+    #0c0c14;
+  display: grid; place-items: center;
+  padding: 24px;
+}
+.feed-empty[hidden] { display: none; }
+.fe-card { text-align: center; max-width: 320px; }
+.fe-icon {
+  width: 76px; height: 76px; margin: 0 auto 18px;
+  display: grid; place-items: center;
+  font-size: 32px; border-radius: 50%;
+  color: var(--accent);
+  background: rgba(255,45,85,.12);
+  border: 1px solid rgba(255,45,85,.4);
+  box-shadow: 0 0 30px rgba(255,45,85,.25);
+}
+.fe-card h2 { font-size: 22px; margin: 0 0 10px; color: var(--text); }
+.fe-card p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
+
+/* ===================== UPLOAD FORM ===================== */
+.upload-form { display: flex; flex-direction: column; gap: 12px; text-align: left; margin-top: 6px; }
+.upload-form label { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin-bottom: -6px; }
+.upload-form input,
+.upload-form select,
+.upload-form textarea {
+  width: 100%; padding: 11px 12px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; color: var(--text); font-size: 13.5px; outline: none;
+  font-family: inherit;
+}
+.upload-form input:focus,
+.upload-form select:focus,
+.upload-form textarea:focus { border-color: var(--accent); }
+.upload-note { font-size: 11.5px; color: var(--muted-2); line-height: 1.5; margin: 2px 0 0; }
+.form-msg { font-size: 12.5px; min-height: 16px; font-weight: 600; }
+.form-msg.ok { color: var(--ok); }
+.form-msg.err { color: var(--accent); }
+
+/* ===================== ROLE BADGE ===================== */
+.role-badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 20px;
+  background: rgba(136,136,170,.18); color: var(--muted);
+  border: 1px solid var(--line);
+}
+.role-badge.role-founder { color: #fff; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-color: transparent; box-shadow: 0 0 16px rgba(255,45,85,.45); }
+.role-badge.role-admin { color: var(--accent); background: rgba(255,45,85,.14); border-color: rgba(255,45,85,.4); }
+.role-badge.role-moderator { color: #7cc0ff; background: rgba(124,192,255,.12); border-color: rgba(124,192,255,.4); }
+.role-badge.role-verified { color: #7cffd0; background: rgba(124,255,208,.12); border-color: rgba(124,255,208,.4); }
+.role-badge.role-vip { color: var(--warn); background: rgba(251,191,36,.12); border-color: rgba(251,191,36,.4); }
+
+/* ===================== PROFILE VIEW ===================== */
+.profile-view { text-align: left; width: 100%; max-width: 340px; }
+.profile-head { text-align: center; margin-bottom: 18px; }
+.profile-handle { font-size: 22px; font-weight: 800; margin: 0 0 8px; }
+.profile-meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.profile-status { font-size: 12px; margin-top: 6px; }
+.profile-status.warned { color: var(--warn); }
+.profile-status.banned { color: var(--accent); }
+.profile-status.clear { color: var(--ok); }
+.profile-section-title { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin: 18px 0 8px; }
+.profile-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; }
+.profile-list li {
+  font-size: 12.5px; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.profile-list .empty { color: var(--muted-2); border-style: dashed; }
+.profile-logout { margin-top: 18px; width: 100%; min-width: 0; }
+
+/* scrollable panel content so forms/profile fit the 9:16 card */
+.view-placeholder .vp-card.wide { max-width: 340px; width: 100%; max-height: calc(100vh - 120px); overflow-y: auto; }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 920px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar, .status { display: none; }
+  .feed { width: 100vw; height: 100vh; border-radius: 0; border: 0; }
+  .pager { left: 10px; }
+}

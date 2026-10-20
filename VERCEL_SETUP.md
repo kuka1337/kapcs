@@ -47,5 +47,63 @@ ometv/
 │   ├── icon-192.png
 │   └── icon-512.png
 └── api/
-    └── admin-gate.js   ← Edge Function — admin hitelesítés
+    ├── admin-gate.js   ← Edge Function — admin hitelesítés
+    └── goretok/        ← GoreTok backend (serverless + Vercel KV)
+        ├── register.js login.js session.js me.js like.js   (Edge)
+        ├── posts.js                                         (Node — GET list + POST create)
+        ├── admin/stats.js  admin/role.js                    (Edge — existing admin HMAC gate)
+        └── _lib/           crypto / validate / kv / http helpers
 ```
+
+---
+
+# GoreTok backend (accounts + posts + likes + admin)
+
+GoreTok (`/goretok`) is backed by Vercel serverless/edge functions under
+`api/goretok/*` and a **Vercel KV** (Upstash Redis) store. Accounts use PBKDF2
+password hashing; sessions are HMAC-SHA256 tokens with a 24h TTL (same scheme as
+`admin-gate.js`). There is **no AI/NSFW recognition** — the shared MQTT moderation
+console handles reports/bans/warnings exactly as before.
+
+## 1. Add the Vercel KV store
+
+1. Vercel Dashboard → Project → **Storage** → **Create** → **KV** (Upstash Redis).
+2. **Connect** it to this project. Vercel then injects the KV connection env vars
+   automatically in every environment:
+
+| Name | Injected by | Notes |
+|------|-------------|-------|
+| `KV_REST_API_URL` | Vercel KV link | REST endpoint |
+| `KV_REST_API_TOKEN` | Vercel KV link | read/write token |
+| `KV_REST_API_READ_ONLY_TOKEN` | Vercel KV link | read-only token |
+
+No local fallback — in production these must be present (fail loudly if missing).
+
+## 2. Add the GoreTok auth secret
+
+| Name | Value | Environment |
+|------|-------|-------------|
+| `GORETOK_AUTH_SECRET` | `>= 32 character random string` | Production, Preview |
+
+Generate: `openssl rand -hex 32`. A local-dev fallback exists in code but is
+flagged just like `admin-gate.js`'s default — **always set your own value**.
+
+`KAPCS_ADMIN_SECRET` (above) is **reused** by `admin/stats` and `admin/role` to
+verify the existing admin gate token. No new admin secret is needed.
+
+## 3. Routes
+
+| Method | Route | Runtime | Auth |
+|--------|-------|---------|------|
+| POST | `/api/goretok/register` | Edge | — (rate-limited) |
+| POST | `/api/goretok/login` | Edge | — (rate-limited) |
+| GET | `/api/goretok/session` | Edge | Bearer session token |
+| GET | `/api/goretok/me` | Edge | Bearer session token |
+| GET | `/api/goretok/posts` | Node | public (feed) |
+| POST | `/api/goretok/posts` | Node | Bearer session token |
+| POST | `/api/goretok/like` | Edge | Bearer session token |
+| GET | `/api/goretok/admin/stats` | Edge | Admin gate HMAC token |
+| POST | `/api/goretok/admin/role` | Edge | Admin gate HMAC token |
+
+With an empty KV the feed shows a tasteful empty state (no demo clips).
+Posting is **URL-based for now**; direct file upload (Vercel Blob) is a later step.

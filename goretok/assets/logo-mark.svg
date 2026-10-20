@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 240 300">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6b6f78"/>
+      <stop offset="0.45" stop-color="#2a2c31"/>
+      <stop offset="1" stop-color="#4a4d54"/>
+    </linearGradient>
+    <linearGradient id="blood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff2436"/>
+      <stop offset="0.55" stop-color="#b3001b"/>
+      <stop offset="1" stop-color="#6b0012"/>
+    </linearGradient>
+    <filter id="redglow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(120,150)">
+    <path d="M70 -30 A110 110 0 1 0 95 55 L95 10 L30 10 L30 48 L55 48 A70 70 0 1 1 38 -58 Z"
+          fill="url(#steel)" stroke="#111" stroke-width="2"/>
+    <path d="M-40 -120 L-8 -40 L-70 -78 Z" fill="url(#steel)" stroke="#111" stroke-width="1.5"/>
+    <path d="M70 -118 L30 -42 L104 -70 Z" fill="url(#steel)" stroke="#111" stroke-width="1.5"/>
+    <path d="M-10 118 L8 60 L48 108 Z" fill="url(#steel)" stroke="#111" stroke-width="1.5"/>
+    <g filter="url(#redglow)">
+      <path d="M40 -150 L-6 -20 L34 -30 L-30 150 L58 -6 L18 2 L70 -150 Z"
+            fill="url(#blood)" stroke="#2a0008" stroke-width="1.5"/>
+    </g>
+  </g>
+</svg>
