@@ -638,7 +638,13 @@
 
   /* -------------------- Share (deep link) -------------------- */
   function postLink(postId) {
-    return "https://kapcs.vercel.app/goretok#post=" + encodeURIComponent(postId);
+    // Build the share link from the current origin so it works on both
+    // goretok.life (root serves the app) and kapcs.vercel.app/goretok.
+    var origin = location.origin;
+    var base = /goretok\.life$/i.test(location.hostname)
+      ? origin + "/"          // goretok.life root IS the app
+      : origin + "/goretok";  // e.g. kapcs.vercel.app/goretok
+    return base + "#post=" + encodeURIComponent(postId);
   }
 
   async function sharePost(p) {
