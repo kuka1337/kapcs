@@ -439,6 +439,24 @@
         <div id="goretok-roles-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
       </div>
 
+      <!-- GoreTok user list table -->
+      <div class="table-container" style="margin-bottom:20px;">
+        <div class="table-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <h2>&#x1F480; GoreTok Users</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="gt-user-search" placeholder="&#x1F50D; Search handle..." oninput="filterGtUsers()" style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;outline:none;width:200px;">
+            <span id="gt-user-count" style="font-size:12px;color:var(--muted);"></span>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table><thead><tr>
+            <th>HANDLE</th><th>ROLE</th><th>LIKES</th><th>JOINED</th><th>ACTIONS</th>
+          </tr></thead>
+          <tbody id="gt-users-tbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Permanent account deletion (via /api/goretok/admin/role action:deleteUser) -->
       <div class="control-card" style="max-width:500px;margin-bottom:20px;">
         <h3>&#x1F480; Delete GoreTok account</h3>
@@ -834,10 +852,12 @@ function goretokAuthHeaders(){
   return t?{'Authorization':'Bearer '+t}:{};
 }
 async function renderGoretokStats(){
+let _gtUsers=[];
+async function renderGoretokStats(){
   const totalEl=document.getElementById('gt-stat-total');
-  if(!totalEl)return; // Roles tab not in DOM
+  if(!totalEl)return;
   try{
-    const res=await fetch('/api/goretok/admin/stats',{headers:goretokAuthHeaders()});
+    const res=await fetch('/api/goretok/admin/stats?users=1',{headers:goretokAuthHeaders()});
     if(!res.ok){throw new Error('stats '+res.status);}
     const d=await res.json();
     totalEl.textContent=d.totalUsers;
@@ -852,11 +872,36 @@ async function renderGoretokStats(){
         return `<span style="font-size:11px;font-weight:700;text-transform:uppercase;padding:4px 10px;border-radius:20px;border:1px solid ${c};color:${c};background:rgba(255,255,255,.03);">${r}: ${roles[r]}</span>`;
       }).join('');
     }
+    _gtUsers=d.users||[];
+    renderGtUsersTable(_gtUsers);
   }catch(e){
     totalEl.textContent='n/a';
     const postsEl=document.getElementById('gt-stat-posts');if(postsEl)postsEl.textContent='n/a';
   }
 }
+function timeSinceMs(ts){if(!ts)return '—';const d=Date.now()-ts;if(d<60000)return Math.floor(d/1000)+'s ago';if(d<3600000)return Math.floor(d/60000)+'m ago';if(d<86400000)return Math.floor(d/3600000)+'h ago';if(d<30*86400000)return Math.floor(d/86400000)+'d ago';return new Date(ts).toLocaleDateString();}
+function renderGtUsersTable(users){
+  const tbody=document.getElementById('gt-users-tbody');
+  const countEl=document.getElementById('gt-user-count');
+  if(!tbody)return;
+  if(countEl)countEl.textContent=users.length+' user'+(users.length===1?'':'s');
+  if(!users.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No users yet.</td></tr>';return;}
+  const roleBadge=(r)=>{const c=GT_ROLE_COLORS[r]||'#8888aa';return `<span style="font-size:10px;font-weight:800;color:${c};background:rgba(255,255,255,.04);border:1px solid ${c};padding:2px 7px;border-radius:8px;">${(r||'user').toUpperCase()}</span>`;};
+  tbody.innerHTML=users.map(u=>`<tr>
+    <td><strong>@${u.handle}</strong></td>
+    <td>${roleBadge(u.role)}</td>
+    <td style="color:#fda4af;">&#x2764; ${u.likes||0}</td>
+    <td style="color:var(--muted);font-size:11px;">${timeSinceMs(u.createdAt)}</td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button class="btn-action btn-ban" onclick="prefillGtDelete('${u.handle}')">Delete</button>
+      <button class="btn-action btn-warn" onclick="prefillGtRename('${u.handle}')">Rename</button>
+    </td>
+  </tr>`).join('');
+}
+function filterGtUsers(){const q=(document.getElementById('gt-user-search')?.value||'').toLowerCase();renderGtUsersTable(q?_gtUsers.filter(u=>u.handle.includes(q)):_gtUsers);}
+function prefillGtDelete(handle){const el=document.getElementById('gt-delete-handle');if(el){el.value=handle;el.scrollIntoView({behavior:'smooth',block:'center'});}}
+function prefillGtRename(handle){const el=document.getElementById('gt-rename-handle');if(el){el.value=handle;el.scrollIntoView({behavior:'smooth',block:'center'});}}
+
 async function assignGoretokRole(handle,role){
   try{
     const res=await fetch('/api/goretok/admin/role',{
