@@ -684,7 +684,23 @@ document.getElementById('btn-change-pwd').addEventListener('click', async ()=>{
   localStorage.setItem('kapcs_admin_pwd_hash',await pbkdf2Hash(v));
   document.getElementById('new-pwd-input').value='';showToast('Password updated!');
 });
-window.addEventListener('load',()=>{if(checkExistingSession()){document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';initPanel();}updateAttemptDisplay();});
+window.addEventListener('load',()=>{
+  // If a valid admin-gate token is present (injected by admin-gate.js into
+  // sessionStorage, or passed in the URL ?t= param), skip the local login box
+  // entirely and open the panel directly — the gate already authenticated.
+  const urlToken = new URLSearchParams(location.search).get('t');
+  if (urlToken) { try { sessionStorage.setItem('kapcs_gate_token', urlToken); } catch(_) {} }
+  const gateToken = sessionStorage.getItem('kapcs_gate_token');
+  if (gateToken) {
+    document.getElementById('login-box').style.display='none';
+    document.getElementById('panel').style.display='block';
+    initPanel();
+    updateAttemptDisplay();
+    return;
+  }
+  if(checkExistingSession()){document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';initPanel();}
+  updateAttemptDisplay();
+});
 function updateAttemptDisplay() {
   const rl=getRateLimit(),el=document.getElementById('attempt-counter');
   if(rl.lockedUntil>Date.now())el.textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} minute(s).`;
