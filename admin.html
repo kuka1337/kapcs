@@ -15,19 +15,8 @@
     body{background:var(--bg);color:var(--text);padding:24px;}
     .box{max-width:1400px;margin:0 auto;}
 
-    /* LOGIN */
-    #login-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:40px;max-width:380px;margin:80px auto;text-align:center;}
-    #login-box h2{font-family:"Outfit",sans-serif;font-size:22px;margin-bottom:6px;}
-    #login-box p{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
-    #login-box input{width:100%;padding:12px;margin-bottom:10px;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;color:#fff;text-align:center;font-size:14px;outline:none;}
-    #login-box input:focus{border-color:var(--primary);}
-    #login-box button{width:100%;padding:12px;background:#6366f1;border:0;color:#fff;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;}
-    #login-box button:disabled{opacity:.5;cursor:not-allowed;}
-    #login-err{color:var(--danger);font-size:12px;margin-top:10px;min-height:18px;font-weight:600;}
-    .login-attempts{font-size:11px;color:var(--muted);margin-top:6px;}
-
     /* PANEL */
-    #panel{display:none;}
+    #panel{display:block;}
     .panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px;flex-wrap:wrap;}
     .panel-header h1{font-family:"Outfit",sans-serif;font-size:24px;}
     .session-info{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:10px;}
@@ -169,7 +158,7 @@
     /* MQTT STATUS */
     #mqtt-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;}
     #mqtt-status.connected{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;}
-    #mqtt-status::before{content:'&#x25CF;';font-size:8px;}
+    #mqtt-status::before{content:'\25CF';font-size:8px;}
 
     /* USER ADATLAP MODAL */
     .um-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:none;place-items:center;padding:16px;}
@@ -209,21 +198,54 @@
     .modchat-input input{flex:1;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;}
     .modchat-input button{background:var(--primary);border:0;color:#fff;padding:0 14px;border-radius:6px;font-weight:700;cursor:pointer;}
     .session-select{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:12px;outline:none;margin-bottom:10px;width:100%;}
+
+    /* ===== DESIGN REFRESH ===== */
+    body{background:radial-gradient(900px 420px at 12% -8%,rgba(99,102,241,.16),transparent 60%),radial-gradient(700px 420px at 100% 0%,rgba(168,85,247,.11),transparent 60%),var(--bg);background-attachment:fixed;}
+    .panel-header{position:sticky;top:10px;z-index:50;padding:12px 18px;background:rgba(14,20,34,.82);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);}
+    .panel-header h1{background:linear-gradient(90deg,#fff,#a5b4fc);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .clock{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);}
+    .stats-row{grid-template-columns:repeat(4,1fr);}
+    @media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+    .stat-card{display:flex;align-items:center;gap:12px;transition:transform .15s,border-color .15s;}
+    .stat-card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.16);}
+    .sc-icon{width:40px;height:40px;flex-shrink:0;border-radius:10px;display:grid;place-items:center;font-size:18px;background:color-mix(in srgb,var(--c,#6366f1) 18%,transparent);border:1px solid color-mix(in srgb,var(--c,#6366f1) 35%,transparent);}
+    .sc-body span{display:block;letter-spacing:.4px;}
+    .sc-body strong{margin-top:2px !important;}
+    .overview-grid{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:20px;}
+    @media(max-width:900px){.overview-grid{grid-template-columns:1fr;}}
+    .overview-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;}
+    .overview-card h3{font-family:"Outfit",sans-serif;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .oc-sub{font-size:11px;color:var(--muted);font-weight:500;font-family:"DM Sans",sans-serif;}
+    .mini-btn{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;}
+    .mini-btn:hover{color:var(--text);border-color:var(--muted);}
+    .activity-list,.online-list{display:flex;flex-direction:column;gap:6px;max-height:268px;overflow-y:auto;padding-right:2px;}
+    .activity-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.025);border-left:3px solid var(--ac,#6366f1);font-size:12.5px;}
+    .activity-item .ai-ico{font-size:14px;flex-shrink:0;}
+    .activity-item .ai-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .activity-item .ai-time{font-size:10.5px;color:var(--muted);white-space:nowrap;}
+    .online-item{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.025);font-size:12.5px;cursor:pointer;}
+    .online-item:hover{background:rgba(99,102,241,.10);}
+    .online-item .oi-name{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .online-item .oi-state{font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;background:rgba(16,185,129,.15);color:#6ee7b7;}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);flex-shrink:0;}
+    .empty-note{text-align:center;color:var(--muted);font-size:12px;padding:22px 8px;}
+    .u-avatar{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--primary),#a855f7);flex-shrink:0;vertical-align:middle;}
+    .u-cell{display:flex;align-items:center;gap:9px;}
+    .u-sub{display:block;font-size:10.5px;color:var(--muted);font-weight:500;margin-top:1px;}
+    .tab-count{display:inline-block;min-width:18px;margin-left:6px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:800;text-align:center;background:rgba(239,68,68,.2);color:#fca5a5;}
+    .tab-count.neutral{background:rgba(99,102,241,.2);color:#a5b4fc;}
+    .tab-count:empty{display:none;}
+    tbody tr{transition:background .12s;}
+    tbody tr:hover{background:rgba(255,255,255,.03);}
+    th{position:sticky;top:0;letter-spacing:.5px;}
+    .empty-row td{text-align:center;color:var(--muted);padding:28px !important;}
+    ::-webkit-scrollbar{width:8px;height:8px;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
   </style>
 </head>
 <body>
 <div class="box">
-
-  <!-- LOGIN (hidden — admin-gate.js handles authentication before this page loads) -->
-  <div id="login-box" style="display:none;">
-    <div style="font-size:40px;margin-bottom:16px;">&#x1F510;</div>
-    <h2>Security Console</h2>
-    <p>KAPCS Moderation Panel &mdash; Authorized Access Only.<br>All actions are logged.</p>
-    <input type="password" id="pwd" placeholder="Admin password" autocomplete="off">
-    <button id="btn-login">Unlock Console</button>
-    <div id="login-err"></div>
-    <div class="login-attempts" id="attempt-counter"></div>
-  </div>
 
   <!-- PANEL -->
   <div id="panel" style="display:block;">
@@ -232,17 +254,33 @@
       <div class="session-info">
         <span id="mqtt-status">Connecting...</span>
         <span>Session: <code id="session-token-display">&mdash;</code></span>
-        <span id="session-timer" style="color:var(--warning);"></span>
+        <span id="session-timer" style="color:var(--warning);" title="Session time left"></span>
+        <span class="clock" id="admin-clock"></span>
         <button class="btn-logout" onclick="doLogout()">Logout</button>
       </div>
     </div>
 
     <div class="stats-row">
-      <div class="stat-card"><span>TOTAL USERS</span><strong id="stat-total-users">0</strong></div>
-      <div class="stat-card"><span>ONLINE NOW</span><strong id="stat-online-users" style="color:var(--success)">0</strong></div>
-      <div class="stat-card"><span>ACTIVE BANS</span><strong id="stat-active-bans" style="color:var(--danger)">0</strong></div>
-      <div class="stat-card"><span>WARNINGS</span><strong id="stat-active-warns" style="color:var(--warning)">0</strong></div>
-      <div class="stat-card"><span>&#x1F480; GORETOK USERS</span><strong id="stat-goretok-users" style="color:#ff2d55">0</strong></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#6366f1">&#x1F465;</div><div class="sc-body"><span>TOTAL USERS</span><strong id="stat-total-users">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#10b981">&#x1F7E2;</div><div class="sc-body"><span>ONLINE NOW</span><strong id="stat-online-users" style="color:var(--success)">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#ef4444">&#x1F528;</div><div class="sc-body"><span>ACTIVE BANS</span><strong id="stat-active-bans" style="color:var(--danger)">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#f59e0b">&#x26A0;&#xFE0F;</div><div class="sc-body"><span>WARNINGS</span><strong id="stat-active-warns" style="color:var(--warning)">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#f97316">&#x1F6A8;</div><div class="sc-body"><span>REPORTS (24H)</span><strong id="stat-reports" style="color:#fdba74">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#38bdf8">&#x1F4AC;</div><div class="sc-body"><span>MESSAGES</span><strong id="stat-messages" style="color:#7dd3fc">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#ff2d55">&#x1F480;</div><div class="sc-body"><span>GORETOK USERS</span><strong id="stat-goretok-users" style="color:#ff2d55">0</strong></div></div>
+      <div class="stat-card"><div class="sc-icon" style="--c:#ff5b3a">&#x1F39E;&#xFE0F;</div><div class="sc-body"><span>GORETOK POSTS</span><strong id="stat-gt-posts" style="color:#ff8a70">0</strong></div></div>
+    </div>
+
+    <!-- OVERVIEW: live activity + who is online -->
+    <div class="overview-grid">
+      <div class="overview-card">
+        <h3>&#x26A1; Live Activity <span class="oc-sub" id="activity-count"></span><button class="mini-btn" onclick="clearActivity()">Clear</button></h3>
+        <div class="activity-list" id="activity-list"></div>
+      </div>
+      <div class="overview-card">
+        <h3><span class="live-dot"></span> Online Now <span class="oc-sub" id="online-now-count"></span></h3>
+        <div class="online-list" id="online-list"></div>
+      </div>
     </div>
 
     <!-- AUTO BAN SUGGESTIONS -->
@@ -277,9 +315,9 @@
     <!-- TABS -->
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('users',this)">&#x1F465; Users</button>
-      <button class="tab-btn" onclick="switchTab('reports',this)">&#x1F6A8; Reports</button>
-      <button class="tab-btn" onclick="switchTab('chat-monitor',this)">&#x1F4AC; Chat Monitor</button>
-      <button class="tab-btn" onclick="switchTab('ban-history',this)">&#x1F4CB; Ban History</button>
+      <button class="tab-btn" onclick="switchTab('reports',this)">&#x1F6A8; Reports<span class="tab-count" id="tc-reports"></span></button>
+      <button class="tab-btn" onclick="switchTab('chat-monitor',this)">&#x1F4AC; Chat Monitor<span class="tab-count neutral" id="tc-chat"></span></button>
+      <button class="tab-btn" onclick="switchTab('ban-history',this)">&#x1F4CB; Ban History<span class="tab-count neutral" id="tc-bans"></span></button>
       <button class="tab-btn" onclick="switchTab('country-stats',this)">&#x1F5FA;&#xFE0F; Countries</button>
       <button class="tab-btn" onclick="switchTab('dashboard',this)">&#x1F4CA; Dashboard</button>
       <button class="tab-btn" onclick="switchTab('map',this)">&#x1F5FA;&#xFE0F; Map</button>
@@ -330,10 +368,10 @@
     <!-- TAB: REPORTS -->
     <div class="tab-panel" id="tab-reports">
       <div class="table-container">
-        <div class="table-header"><h2>Live Reports &amp; Interceptions</h2><button class="btn-action btn-warn" onclick="document.getElementById('tbody-reports').innerHTML=''">Clear</button></div>
+        <div class="table-header"><h2>Live Reports &amp; Interceptions</h2><button class="btn-action btn-warn" onclick="clearReports()">Clear</button></div>
         <div class="table-scroll">
           <table><thead><tr><th>SEVERITY</th><th>DETAILS</th><th>OFFENDER</th><th>TIME</th><th>ACTIONS</th></tr></thead>
-          <tbody id="tbody-reports"></tbody></table>
+          <tbody id="tbody-reports"><tr class="empty-row"><td colspan="5">No reports yet &mdash; they appear here live.</td></tr></tbody></table>
         </div>
       </div>
     </div>
@@ -478,7 +516,7 @@
         <div class="inline-form">
           <input type="text" id="gt-rename-handle" placeholder="current @handle" style="flex:1;min-width:130px;">
           <input type="text" id="gt-rename-new" placeholder="new @handle" style="flex:1;min-width:130px;">
-          <button class="btn-action" id="btn-gt-rename" style="background:var(--accent);border-color:var(--accent);color:#fff;">Rename</button>
+          <button class="btn-action" id="btn-gt-rename" style="background:var(--primary);border-color:var(--primary);color:#fff;">Rename</button>
         </div>
         <p style="font-size:11px;color:var(--muted);margin:10px 0 0;line-height:1.5;">
           Moves <strong>every</strong> piece of the account's data (posts, likes,
@@ -652,32 +690,15 @@ function checkExistingSession() {
   return false;
 }
 function doLogout() {
-  localStorage.removeItem('kapcs_admin_session');if(sessionTimerInterval)clearInterval(sessionTimerInterval);
+  // The admin gate is the only auth layer: drop every local session artefact
+  // and go back to /admin so admin-gate.js asks for the password again.
+  try{localStorage.removeItem('kapcs_admin_session');}catch(_){}
+  try{sessionStorage.removeItem('kapcs_gate_token');}catch(_){}
+  if(sessionTimerInterval)clearInterval(sessionTimerInterval);
   sessionToken=null;sessionExpiresAt=null;
-  document.getElementById('panel').style.display='none';document.getElementById('login-box').style.display='block';document.getElementById('pwd').value='';
+  location.replace(location.pathname);
 }
 
-// LOGIN
-document.getElementById('btn-login').addEventListener('click', async () => {
-  const rl=getRateLimit();
-  if (rl.lockedUntil>Date.now()){document.getElementById('login-err').textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} more minute(s).`;return;}
-  const btn=document.getElementById('btn-login');btn.disabled=true;btn.textContent='Verifying...';
-  const inputHash=await pbkdf2Hash(document.getElementById('pwd').value);
-  const storedHash=await getStoredHash();
-  btn.disabled=false;btn.textContent='Unlock Console';
-  if (inputHash===storedHash) {
-    rl.attempts=0;rl.lockedUntil=0;saveRateLimit(rl);
-    document.getElementById('login-err').textContent='';
-    document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';
-    startSession();initPanel();
-  } else {
-    rl.attempts=(rl.attempts||0)+1;
-    if(rl.attempts>=MAX_ATTEMPTS){rl.lockedUntil=Date.now()+LOCKOUT_MS;rl.attempts=0;document.getElementById('login-err').textContent='Too many attempts. Locked for 15 minutes.';}
-    else document.getElementById('login-err').textContent=`Wrong password. ${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
-    saveRateLimit(rl);
-  }
-});
-document.getElementById('pwd').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('btn-login').click();});
 document.getElementById('btn-change-pwd').addEventListener('click', async ()=>{
   const v=document.getElementById('new-pwd-input').value.trim();
   if(v.length<8){showToast('Password must be at least 8 characters.',true);return;}
@@ -685,28 +706,16 @@ document.getElementById('btn-change-pwd').addEventListener('click', async ()=>{
   document.getElementById('new-pwd-input').value='';showToast('Password updated!');
 });
 window.addEventListener('load',()=>{
-  // If a valid admin-gate token is present (injected by admin-gate.js into
-  // sessionStorage, or passed in the URL ?t= param), skip the local login box
-  // entirely and open the panel directly — the gate already authenticated.
+  // admin-gate.js already authenticated us: the HMAC token arrives in the URL
+  // (?t=...) or is already in sessionStorage. That token (kapcs_gate_token) is
+  // the only auth; it is also what the GoreTok stats/role API calls send.
   const urlToken = new URLSearchParams(location.search).get('t');
   if (urlToken) { try { sessionStorage.setItem('kapcs_gate_token', urlToken); } catch(_) {} }
-  const gateToken = sessionStorage.getItem('kapcs_gate_token');
-  if (gateToken) {
-    document.getElementById('login-box').style.display='none';
-    document.getElementById('panel').style.display='block';
-    initPanel();
-    updateAttemptDisplay();
-    return;
-  }
-  if(checkExistingSession()){document.getElementById('login-box').style.display='none';document.getElementById('panel').style.display='block';initPanel();}
-  updateAttemptDisplay();
+  document.getElementById('panel').style.display='block';
+  // Local session timer is display-only now (not an auth layer).
+  if(!checkExistingSession())startSession();
+  initPanel();
 });
-function updateAttemptDisplay() {
-  const rl=getRateLimit(),el=document.getElementById('attempt-counter');
-  if(rl.lockedUntil>Date.now())el.textContent=`Locked for ${Math.ceil((rl.lockedUntil-Date.now())/60000)} minute(s).`;
-  else if(rl.attempts>0)el.textContent=`${MAX_ATTEMPTS-rl.attempts} attempt(s) left.`;
-  else el.textContent='';
-}
 
 // DATA STORES
 let usersDirectory   = JSON.parse(localStorage.getItem('kapcs_admin_users_v13')   || '{}');
@@ -791,7 +800,7 @@ client.on('message',(topic,message)=>{
 
   if (topic===TOPIC_USERS&&(data.action==='presence_pulse'||data.action==='register')) {
     const u=data.username?.toLowerCase();if(!u)return;
-    if(!usersDirectory[u]){usersDirectory[u]={username:u,deviceId:data.deviceId||'DEV-UNKNOWN',likes:Number(data.likes||0),country:data.country||'GLOBAL',countryName:data.countryName||'Worldwide',warned:!!data.warned,lastSeen:Date.now(),liveState:data.status||'ONLINE',firstSeen:Date.now()};}
+    if(!usersDirectory[u]){logActivity('join','New user @'+u+' ('+(data.countryName||data.country||'Worldwide')+')');usersDirectory[u]={username:u,deviceId:data.deviceId||'DEV-UNKNOWN',likes:Number(data.likes||0),country:data.country||'GLOBAL',countryName:data.countryName||'Worldwide',warned:!!data.warned,lastSeen:Date.now(),liveState:data.status||'ONLINE',firstSeen:Date.now()};}
     else{if(data.deviceId)usersDirectory[u].deviceId=data.deviceId;if(data.likes!==undefined)usersDirectory[u].likes=Number(data.likes);if(data.country){usersDirectory[u].country=data.country;usersDirectory[u].countryName=data.countryName||data.country;}if(data.warned!==undefined)usersDirectory[u].warned=!!data.warned;usersDirectory[u].lastSeen=Date.now();usersDirectory[u].liveState=data.status||'ONLINE';}
     saveUsers();renderAllUsersTable();updateStats();
   }
@@ -804,11 +813,13 @@ client.on('message',(topic,message)=>{
     if(chatMonLogs.length>200)chatMonLogs.pop();saveChatMon();renderChatMonitor();
   }
   if (topic===TOPIC_REPORTS) {
+    const emptyRow=document.querySelector('#tbody-reports .empty-row');if(emptyRow)emptyRow.remove();
     const tr=document.createElement('tr');
     const n=(data.reportedUser||'').replace('@',''),d=data.reportedDevId||'';
     tr.innerHTML=`<td><span class="pill pill-banned">${data.severity||'MEDIUM'}</span></td><td><b>${data.category||'Report'}</b><br><small style="color:var(--muted)">${data.reason||''}</small></td><td><code>@${n}</code><br><small style="color:#64748b">${d}</small></td><td style="color:var(--muted)">${data.time||'now'}</td><td style="display:flex;gap:4px;"><button class="btn-action btn-ban" onclick="executeBan('${d}','${n}','Report',3)">Ban 3d</button><button class="btn-action btn-unban" onclick="executeUnban('${d}','${n}')">Unban</button></td>`;
     document.getElementById('tbody-reports').prepend(tr);
     trackReport(n,d);
+    logActivity('report','Report on @'+(n||'unknown')+' \u2014 '+(data.category||'Report'));
   }
 });
 
@@ -835,7 +846,7 @@ function renderAllUsersTable() {
     else if(isOnline)sb=`<span class="pill pill-online">&#x1F7E2; ${u.liveState||'ONLINE'}</span>`;
     if(u.warned&&!isBanned)sb+=' <span class="pill pill-warned">WARNED</span>';
     return `<tr>
-      <td><strong><code style="cursor:pointer;" onclick="openUserModal('${u.username}')">@${u.username}</code></strong>${vpnBadge}</td>
+      <td><div class="u-cell"><span class="u-avatar">${escHtml(u.username.slice(0,2).toUpperCase())}</span><div><strong><code style="cursor:pointer;" onclick="openUserModal('${u.username}')">@${u.username}</code></strong>${vpnBadge}<span class="u-sub">${u.firstSeen?'first seen '+timeSince(u.firstSeen):'&mdash;'}</span></div></div></td>
       <td><span title="${u.countryName||''}">${getFlagEmoji(u.country)} ${u.country||'&mdash;'}</span></td>
       <td><code style="font-size:11px;">${u.deviceId||'&mdash;'}</code></td>
       <td><span style="color:#fda4af;font-weight:700;">&#x2764; ${u.likes||0}</span> <button class="btn-action btn-clear-likes" style="padding:2px 6px;" onclick="clearUserLikes('${u.username}')">Clear</button></td>
@@ -859,6 +870,7 @@ function updateStats(){
   document.getElementById('stat-online-users').textContent=users.filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).length;
   document.getElementById('stat-active-bans').textContent=bannedList.length;
   document.getElementById('stat-active-warns').textContent=users.filter(u=>u.warned).length;
+  renderOverview();
 }
 
 // ── GORETOK server-side stats + role assignment (via existing admin HMAC gate) ──
@@ -867,7 +879,6 @@ function goretokAuthHeaders(){
   const t=sessionStorage.getItem('kapcs_gate_token');
   return t?{'Authorization':'Bearer '+t}:{};
 }
-async function renderGoretokStats(){
 let _gtUsers=[];
 async function renderGoretokStats(){
   const totalEl=document.getElementById('gt-stat-total');
@@ -878,6 +889,7 @@ async function renderGoretokStats(){
     const d=await res.json();
     totalEl.textContent=d.totalUsers;
     document.getElementById('gt-stat-posts').textContent=d.totalPosts;
+    const gtPostsStat=document.getElementById('stat-gt-posts');if(gtPostsStat)gtPostsStat.textContent=d.totalPosts;
     const gtUsersStat=document.getElementById('stat-goretok-users');
     if(gtUsersStat)gtUsersStat.textContent=d.totalUsers;
     const row=document.getElementById('goretok-roles-row');
@@ -1185,6 +1197,56 @@ function switchTab(name,btn){
   if(name==='mod-chat')renderModChat();
 }
 
+// ===== OVERVIEW: activity feed, online list, counters =====
+let activityLog = JSON.parse(localStorage.getItem('kapcs_admin_activity') || '[]');
+const ACT_META = {
+  ban:    {ico:'\uD83D\uDD28', color:'#ef4444'},
+  report: {ico:'\uD83D\uDEA8', color:'#f97316'},
+  join:   {ico:'\uD83D\uDC4B', color:'#10b981'},
+  action: {ico:'\u2699\uFE0F', color:'#6366f1'}
+};
+function logActivity(type, text){
+  if (/^Banned:/i.test(text)) type='ban';
+  activityLog.unshift({type, text:String(text), ts:Date.now()});
+  if (activityLog.length>200) activityLog.length=200;
+  try{localStorage.setItem('kapcs_admin_activity',JSON.stringify(activityLog));}catch(_){}
+  renderActivity();
+}
+function clearActivity(){activityLog=[];try{localStorage.setItem('kapcs_admin_activity','[]');}catch(_){}renderActivity();}
+function renderActivity(){
+  const el=document.getElementById('activity-list');if(!el)return;
+  const cnt=document.getElementById('activity-count');if(cnt)cnt.textContent=activityLog.length?activityLog.length+' events':'';
+  if(!activityLog.length){el.innerHTML='<div class="empty-note">No activity yet. Bans, reports, new users and admin actions show up here.</div>';return;}
+  el.innerHTML=activityLog.slice(0,30).map(a=>{const m=ACT_META[a.type]||ACT_META.action;
+    return `<div class="activity-item" style="--ac:${m.color}"><span class="ai-ico">${m.ico}</span><span class="ai-text" title="${escHtml(a.text)}">${escHtml(a.text)}</span><span class="ai-time">${timeSince(a.ts)}</span></div>`;}).join('');
+}
+function renderOnlineNow(){
+  const el=document.getElementById('online-list');if(!el)return;
+  const now=Date.now();
+  const on=Object.values(usersDirectory).filter(u=>u.lastSeen&&(now-u.lastSeen<18000)).sort((a,b)=>b.lastSeen-a.lastSeen);
+  const cnt=document.getElementById('online-now-count');if(cnt)cnt.textContent=on.length?on.length+' users':'';
+  if(!on.length){el.innerHTML='<div class="empty-note">Nobody online right now.</div>';return;}
+  el.innerHTML=on.slice(0,40).map(u=>`<div class="online-item" onclick="openUserModal('${u.username}')"><span class="u-avatar">${escHtml(u.username.slice(0,2).toUpperCase())}</span><span class="oi-name">@${escHtml(u.username)}</span><span title="${escHtml(u.countryName||'')}">${getFlagEmoji(u.country)}</span><span class="oi-state">${escHtml(u.liveState||'ONLINE')}</span></div>`).join('');
+}
+function renderOverview(){
+  const now=Date.now(),cut=now-24*3600000;
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('stat-reports',activityLog.filter(a=>a.type==='report'&&a.ts>=cut).length);
+  set('stat-messages',chatMonLogs.length);
+  set('stat-countries',new Set(Object.values(usersDirectory).map(u=>u.country||'GLOBAL')).size);
+  const pendingReports=document.querySelectorAll('#tbody-reports tr:not(.empty-row)').length;
+  set('tc-reports',pendingReports||'');
+  set('tc-chat',chatMonLogs.length||'');
+  set('tc-bans',bannedList.length||'');
+  renderActivity();renderOnlineNow();
+}
+function clearReports(){
+  document.getElementById('tbody-reports').innerHTML='<tr class="empty-row"><td colspan="5">No reports yet &mdash; they appear here live.</td></tr>';
+  renderOverview();
+}
+function tickClock(){const e=document.getElementById('admin-clock');if(e)e.textContent=new Date().toLocaleTimeString();}
+setInterval(tickClock,1000);tickClock();
+
 // PERSIST
 function saveUsers(){localStorage.setItem('kapcs_admin_users_v13',JSON.stringify(usersDirectory));}
 function saveBans(){localStorage.setItem('kapcs_admin_bans_v13',JSON.stringify(bannedList));updateStats();}
@@ -1200,6 +1262,7 @@ function getBadgePreview(role){
   return '';
 }
 function showToast(msg,isDanger=false){
+  if(!isDanger&&typeof logActivity==='function')logActivity('action',msg);
   const el=document.getElementById('admin-toast');el.textContent=msg;el.className=isDanger?'danger':'';el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.display='none';},3000);
 }
 
