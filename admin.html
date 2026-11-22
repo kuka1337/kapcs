@@ -214,8 +214,8 @@
 <body>
 <div class="box">
 
-  <!-- LOGIN -->
-  <div id="login-box">
+  <!-- LOGIN (hidden — admin-gate.js handles authentication before this page loads) -->
+  <div id="login-box" style="display:none;">
     <div style="font-size:40px;margin-bottom:16px;">&#x1F510;</div>
     <h2>Security Console</h2>
     <p>KAPCS Moderation Panel &mdash; Authorized Access Only.<br>All actions are logged.</p>
@@ -226,7 +226,7 @@
   </div>
 
   <!-- PANEL -->
-  <div id="panel">
+  <div id="panel" style="display:block;">
     <div class="panel-header">
       <h1>KAPCS Admin</h1>
       <div class="session-info">
